@@ -1,0 +1,226 @@
+# Building
+
+These instructions build the imported TGPulse-Next standalone baseline. No
+Libretro target exists yet; this repository does not inherit the desktop
+release workflow.
+
+TGPulse is a Cargo workspace. A native build needs nothing but a Rust
+toolchain:
+
+```sh
+cargo build --release
+./target/release/tgpulse --list
+```
+
+The binary is `target/release/tgpulse`. ROMs are read from `roms/` next to the
+working directory; `--roms <dir>` points it elsewhere.
+
+## macOS
+
+This fork uses Metal on macOS. After building, `./tgpulse-dev --list`
+launches the release binary with the checkout as its working directory, so
+ROMs belong in the checkout's `roms/` directory. The launcher also resolves
+symbolic links: a system-wide link to `tgpulse-dev` can be invoked from any
+directory without passing `--roms`. Keep the checkout and release build in
+place when using such a link.
+
+The optional SDL3 gamepad backend links to a native SDL3 installation through
+`pkg-config` (`pkg-config --modversion sdl3`). It can be selected in Settings →
+Input → Emulator, or with `gamepad_backend = sdl3` in `config/input.conf`.
+The default remains `gilrs`; no cabinet bindings need to be changed. A build
+with this macOS feature requires SDL3 even if the runtime selection is gilrs.
+
+The interface uses logical coordinates for Retina scaling and mouse input.
+Fullscreen remains bound to F11; on macOS, try Fn+Cmd+F11 to send it to the
+application.
+
+### Local toolkit release and rolling builds
+
+The separate macos-emulation-toolkit project owns installation and system
+launchers. Its development source is `~/dev/TGPulse` (this checkout); its
+replaceable rolling build lives in `~/dev/TGPulse-my`. `tgpulse.my` runs the
+verified rolling binary with this checkout as cwd, sharing its configuration,
+ROMs, NVRAM and states. Uncommitted source edits are not included by its updater.
+Use `./tgpulse-dev` to test this checkout's own release build directly.
+
+The `tgpulse` system launcher targets `~/Retro/Apps/TGPulse/current/tgpulse`.
+Whenever the user requests a release for a specific version, update `current`
+to that verified version with the required macOS compatibility fixes and record
+its source revision and binary hash in the toolkit verification notes. Routine
+rolling updates must not replace `current`. Current keeps separate settings
+and saves to avoid mixing upstream and custom formats; only ROMs are shared.
+
+## Linux
+
+```sh
+cargo build --release --target x86_64-unknown-linux-gnu
+```
+
+Needs the usual desktop development packages: a Vulkan (or GL) driver,
+`libudev` for gamepad detection, and ALSA or PulseAudio headers for audio. On
+a Debian-derived distribution:
+
+```sh
+sudo apt install build-essential libudev-dev libasound2-dev
+```
+
+## Windows
+
+Cross-compiling from Linux with the GNU toolchain:
+
+```sh
+rustup target add x86_64-pc-windows-gnu
+sudo apt install mingw-w64          # or: pacman -S mingw-w64-gcc
+cargo build --release --target x86_64-pc-windows-gnu
+```
+
+The linker has to be named somewhere Cargo reads. It differs between a cross
+build and a native one, so it stays a per-machine setting in
+`$CARGO_HOME/config.toml` rather than in the checkout:
+
+```toml
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+ar = "x86_64-w64-mingw32-ar"
+```
+
+Building on Windows itself with the MSVC toolchain needs no configuration:
+
+```sh
+cargo build --release --target x86_64-pc-windows-msvc
+```
+
+### The GCC and MSVC runtimes are linked statically
+
+Both Windows targets are built against static C and C++ runtimes, set for the
+whole workspace in `.cargo/config.toml`. This is not a size preference: the
+GNU toolchain otherwise emits an executable that imports `libstdc++-6.dll`
+(`imgui-sys` compiles cimgui as C++) and the MSVC one imports
+`VCRUNTIME140.dll`. Neither exists on a Windows machine that has not had a
+compiler or the Visual C++ redistributable installed, so the build fails to
+start with a missing-DLL dialog on exactly the machines it is shipped to.
+
+Note that the obvious fix does not work, and the configuration is shaped by
+why. Adding `-static-libstdc++` changes nothing: rustc appends `-C link-arg`
+values at the very end of the link line, long after it has already emitted
+`-Wl,-Bdynamic ... -lstdc++` on behalf of the `cc` crate, and by then the
+import is resolved. The dynamic request has to be stopped at the source
+instead, with `CXXSTDLIB_x86_64_pc_windows_gnu=""`, and `libstdc++.a` named
+explicitly afterwards.
+
+That in turn means the archive is last on a line rustc has already marked
+`-nodefaultlibs`, so nothing follows it to satisfy what it needs itself --
+winpthread, the CRT, libgcc, and the kernel32 imports winpthread makes. They
+are listed after it inside `--start-group`, which lets the linker resolve the
+cycle between them instead of depending on one exact order.
+
+Check a build before shipping it. The only imports should be Windows' own
+DLLs -- `kernel32`, `user32`, `gdi32`, `opengl32`, the `api-ms-win-*` set and
+so on. Any `lib*.dll` is a runtime that will not be there:
+
+```sh
+objdump -p target/x86_64-pc-windows-gnu/release/tgpulse.exe |
+    grep 'DLL Name' | sort -u
+```
+
+The Linux and Android builds do not have this problem and need no equivalent
+setting: Linux links only `libgcc_s.so.1`, which is part of every base
+system, and `cargo apk` packages the NDK's `libc++_shared.so` into the APK
+next to the library that needs it.
+
+## Android
+
+The front end is also built as a shared object whose `android_main` the
+activity calls. Packaging is done by `cargo-apk`:
+
+```sh
+rustup target add aarch64-linux-android armv7-linux-androideabi
+cargo install cargo-apk
+export ANDROID_HOME=$HOME/Android/Sdk
+export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/<version>
+cargo apk build --release -p tgpulse --lib
+```
+
+`--lib` is not optional. The package builds both a binary and the shared
+object, and `cargo-apk` panics ("Bin is not compatible with Cdylib") if it is
+left to walk onto the binary after it has finished packaging the library.
+
+A release build also has to be signed, either from
+`[package.metadata.android.signing.release]` or from the environment:
+
+```sh
+export CARGO_APK_RELEASE_KEYSTORE=/path/to/release.keystore
+export CARGO_APK_RELEASE_KEYSTORE_PASSWORD=...
+```
+
+The `oboe` audio backend links `libc++_shared.so`, which is not present on a
+device and has to be packaged. That is what `runtime_libs = "."` in the
+manifest is for: it expects a directory per ABI next to `crates/tgpulse`,
+holding the copy from the NDK.
+
+```sh
+SYSROOT=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib
+mkdir -p crates/tgpulse/arm64-v8a crates/tgpulse/armeabi-v7a
+cp $SYSROOT/aarch64-linux-android/libc++_shared.so crates/tgpulse/arm64-v8a/
+cp $SYSROOT/arm-linux-androideabi/libc++_shared.so crates/tgpulse/armeabi-v7a/
+```
+
+The package name, SDK levels and activity settings are in the
+`[package.metadata.android]` section of `crates/tgpulse/Cargo.toml`.
+
+The manifest also declares `MANAGE_EXTERNAL_STORAGE`. Since Android 11 no
+file manager may browse another app's `Android/data`, so the ROM library is
+kept in a shared folder instead: `/sdcard/TGPulse/roms`, which any file
+manager (and USB file transfer) can read and write. That folder needs the
+All files access grant, and the app opens its own page in the system
+settings the first time it runs without it; the grant is picked up when the
+app comes back to the foreground, no restart needed. Declining is fine --
+the library then stays in the private directory, and adb is the way in:
+
+```sh
+adb shell mkdir -p /sdcard/Android/data/org.tgpulse.emulator/files/roms
+adb push vf2.zip /sdcard/Android/data/org.tgpulse.emulator/files/roms/
+```
+
+On devices older than Android 11 the private directory is always used.
+NVRAM and save states live in the private directory either way.
+
+Battery-backed RAM and save states are written alongside them.
+
+Three things to know about the Android target.
+
+The renderer and the interface are rebuilt whenever the activity is resumed,
+because the drawable surface does not survive being backgrounded; the emulated
+machine does survive, so a game continues where it left off.
+
+The interface is not the desktop one. ImGui's windows assume a pointer that
+can hover and a keyboard that can type, so on a handset they are replaced
+wholesale by `crate::touch`: on-screen controls chosen to match the loaded
+cabinet, and a menu of the things a phone player needs. Both are drawn through
+ImGui's draw list rather than its widgets, which is why the renderer is
+unchanged. The settings, rebinding and debugger panels are desktop-only --
+they want a keyboard, and `winit`'s Android backend cannot raise the soft one
+(`set_ime_allowed` is a stub there).
+
+Gamepad support does not go through `gilrs`, which has no Android backend.
+A controller arrives as activity key events instead: winit maps the d-pad onto
+the arrow keys and hands the rest back as raw `KEYCODE_BUTTON_*` values, which
+`android_pad_button` in `app.rs` translates into the same `gilrs::Button`
+names the bindings already use. The left stick is recovered from the motion
+events winit reports as touches -- see `App::on_touch` for how a stick is told
+apart from a finger. Triggers and the hat are only seen when the pad also
+sends them as key events, which most do.
+
+## Tests
+
+```sh
+cargo test --release
+```
+
+The CPU tests run from hand-assembled programs and need no ROM data. The
+emulator's behaviour against real games is checked with the debugger, which is
+scriptable:
+
+```sh
+./target/release/tgpulse vf2 --debug -c "run 1400; vertices; screenshot /tmp/f.ppm"
+```

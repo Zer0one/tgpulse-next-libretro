@@ -1,0 +1,49 @@
+MAME reference implementations adapted in:
+  crates/tgpulse-core/src/model1io2/r360.rs — copyright-holder Olivier Galibert
+  crates/tgpulse-core/src/model1comm.rs — copyright-holder Ariane Fugmann
+  crates/tgpulse-core/src/mpeg.rs and mpeg/tables.rs — copyright-holder
+    Olivier Galibert
+  crates/tgpulse-core/src/dsbz80.rs — copyright-holders R. Belmont,
+    Olivier Galibert
+  crates/tgpulse-core/src/dsbz80/uart.rs — copyright-holder smf
+  crates/tgpulse-core/src/sega3155338.rs — copyright-holder Dirk Best
+  crates/tgpulse-core/src/msm6253.rs — copyright-holder AJR
+  crates/tgpulse-core/src/model1io2.rs — copyright-holder Dirk Best
+  crates/tgpulse-core/src/tmpz84c015.rs — copyright-holder hap;
+    daisy-chain arbitration reference: copyright-holder Juergen Buchmueller
+  crates/tgpulse-core/src/z80ctc.rs — copyright-holder Wilbert Pol;
+    based on the original version (c) 1997 Tatsuyuki Satoh
+  crates/tgpulse-core/src/z80pio.rs — copyright-holder Curt Coder
+  crates/tgpulse-core/src/z80sio.rs — copyright-holders Curt Coder,
+    Joakim Larsson Edstrom
+
+Copyright holders: R. Belmont, Olivier Galibert, smf, Dirk Best, AJR, hap, Juergen Buchmueller, Wilbert Pol,
+Tatsuyuki Satoh, Curt Coder, Joakim Larsson Edstrom, Ariane Fugmann
+(respective components above).
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

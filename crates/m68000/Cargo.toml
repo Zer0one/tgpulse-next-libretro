@@ -1,0 +1,29 @@
+[package]
+name = "m68000"
+version = "0.2.3"
+edition = "2021"
+authors = ["Stovent <23307724+Stovent@users.noreply.github.com>"]
+license = "MPL-2.0"
+description = "Local m68000 0.2.3 with an explicit CPU state boundary"
+repository = "https://github.com/Stovent/m68000"
+autobins = false
+autotests = false
+
+[[test]]
+name = "state"
+[[test]]
+name = "assembler"
+[[test]]
+name = "memory_access"
+[[test]]
+name = "status_register"
+
+[features]
+default = []
+ffi = []
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+bincode = { workspace = true }

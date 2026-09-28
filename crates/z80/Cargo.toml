@@ -1,0 +1,12 @@
+[package]
+name = "z80"
+version = "1.0.2"
+edition = "2021"
+license = "MIT"
+description = "Shared Z80 core for Model 1 I/O boards and the Star Wars DSB"
+
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+bincode = { workspace = true }
