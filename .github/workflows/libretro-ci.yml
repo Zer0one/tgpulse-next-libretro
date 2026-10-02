@@ -57,11 +57,17 @@ jobs:
           cargo --version
           python --version
           if [[ "$RUNNER_OS" == Linux ]]; then
+            archive="$(g++ -print-file-name=libstdc++.a)"
+            test -f "$archive"
             echo 'CXXSTDLIB=' >> "$GITHUB_ENV"
-            echo 'RUSTFLAGS=-l static=stdc++' >> "$GITHUB_ENV"
+            echo "RUSTFLAGS=-Lnative=$(dirname "$archive") -lstatic=stdc++" >> "$GITHUB_ENV"
           fi
       - name: Build core with Software, Vulkan and OpenGL/GLES
-        run: cargo build --locked --release -p tgpulse-libretro --target '${{ matrix.target }}'
+        run: |
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            export PATH="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64:$PATH"
+          fi
+          cargo build --locked --release -p tgpulse-libretro --target '${{ matrix.target }}'
       - name: Normalize and sign macOS library
         if: runner.os == 'macOS'
         run: |
@@ -71,6 +77,9 @@ jobs:
           codesign --verify --strict "$core"
       - name: Run machine and adapter checks without ROMs
         run: |
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            export PATH="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64:$PATH"
+          fi
           cargo test --locked -p tgpulse-core -p tgpulse-libretro --target '${{ matrix.target }}'
           python tools/check_libretro_artifact.py 'target/${{ matrix.target }}/release/${{ matrix.binary }}' --target '${{ matrix.target }}'
       - name: Audit committed NVRAM catalogue and documentary screenshots
