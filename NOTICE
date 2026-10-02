@@ -1,0 +1,12 @@
+TGPulse-Next Libretro is an independent port of TGPulse-Next, based on TGPulse.
+The initial source snapshot is TGPulse-Next commit
+3c75f9b2b155e8bb50a225c69520948ef72ecd48.
+
+Project source is distributed under the root MIT license. Original copyright
+and license notices remain applicable. Dependency license declarations,
+versions, authors and license texts are supplied under licenses/ in binary
+packages. The imported MAME and YMFM BSD notices and the Libretro API notice
+are included separately in that directory.
+
+SM2-Emu Libretro and Supermodel Libretro are workflow/architecture references,
+not runtime dependencies. No game ROMs or user save data are distributed.

@@ -24,6 +24,12 @@ workflow reference, not vendored code.
 The [Libretro implementation roadmap](docs/LIBRETRO_ROADMAP.md) lists the
 remaining port features. User-run game and controller trials are outside it.
 
+The first Model 1 preview is packaged through the
+[Libretro build/release workflow](docs/LIBRETRO_CI.md).
+See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
+and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
+for verified binary packages.
+
 The [preliminary Model 1 frontend map](docs/LIBRETRO_MODEL1_FRONTEND_MAP.md)
 records the first porting checkpoint: applicable SM2-Emu patterns, TGPulse
 machine interfaces, control profiles and initial Core Options.

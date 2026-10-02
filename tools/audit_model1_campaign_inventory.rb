@@ -7,6 +7,8 @@ require "set"
 require "yaml"
 
 root = Pathname.new(__dir__).parent
+source_only = ARGV.delete("--source-only")
+abort "usage: audit_model1_campaign_inventory.rb [--source-only]" unless ARGV.empty?
 base = root / "validation/nvram-campaigns/2026-10-01"
 expected = {"vf" => [13, 98], "vr" => [10, 63], "vformula" => [9, 59],
             "swa" => [11, 92], "swaj" => [11, 90],
@@ -43,6 +45,8 @@ expected.each do |set, (field_count, value_count)|
         (root / "docs/diagnostic-evidence/#{set}/#{screenshot}.png").file?
     end
   end
+  next if source_only
+
   samples = base / set / "samples"
   reloads = base / set / "reloads"
   sample_count = samples.directory? ? samples.children.count(&:directory?) : 0
@@ -60,4 +64,8 @@ end
 errors << "total fields #{total_fields} != 110" unless total_fields == 110
 errors << "total values #{total_values} != 953" unless total_values == 953
 abort errors.join("\n") unless errors.empty?
-puts "Model 1 campaign: 9 sets, #{total_fields} fields, #{total_values} saved values, 4 calibrated ranges"
+if source_only
+  puts "Model 1 source catalogue: 9 sets, #{total_fields} fields, #{total_values} documentary values; raw captures not checked"
+else
+  puts "Model 1 campaign: 9 sets, #{total_fields} fields, #{total_values} saved values, 4 calibrated ranges"
+end
