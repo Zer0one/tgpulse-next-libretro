@@ -1149,6 +1149,7 @@ impl SoundSystem {
 /// SCSP board (Model 2A/2B/2C, e.g. Sega Rally). The main board talks to both
 /// through the same i8251 UART, so this exposes the union of what the memory
 /// map and front end use.
+#[cfg(feature = "model2")]
 pub enum Sound {
     // Boxed because the two boards differ by several hundred kilobytes of
     // sample RAM and voice state, and every `Sound` would otherwise be as big
@@ -1157,6 +1158,7 @@ pub enum Sound {
     Scsp(Box<crate::sound2a::SoundSystem2A>),
 }
 
+#[cfg(feature = "model2")]
 impl Sound {
     pub fn set_gains(&mut self, gains: AudioGains) {
         match self {

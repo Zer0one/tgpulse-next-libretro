@@ -36,8 +36,14 @@ def main():
     parser.add_argument('core', type=Path)
     parser.add_argument('--target', required=True)
     parser.add_argument('--info', type=Path, help='Metadata from the exact source checkout being built')
+    parser.add_argument('--machine-scope', choices=('model1', 'model2', 'model1+model2'),
+                        help='Require the compiled machine marker, independently of metadata')
     args = parser.parse_args()
     core = args.core.resolve(strict=True)
+    if args.machine_scope:
+        scopes = set(re.findall(rb'TGPulse compiled machines: (model1\+model2|model1|model2)',
+                                core.read_bytes()))
+        assert scopes == {args.machine_scope.encode()}, scopes
     root = Path(__file__).resolve().parents[1]
     info = (args.info or root / 'tgpulse_next_m1_libretro.info').read_text()
     version = re.search(r'^display_version = "([^"]+)"$', info, re.M).group(1)

@@ -1919,6 +1919,7 @@ pub extern "C" fn retro_set_input_state(callback: Option<ffi::InputState>) {
 
 #[no_mangle]
 pub extern "C" fn retro_init() {
+    eprintln!("[TGPulse-Next Libretro] {}", tgpulse_core::MACHINE_SCOPE);
     with_core(|core| {
         core.devices = [ffi::DEVICE_JOYPAD; 2];
         core.save_ram = vec![0; persistence::SAVE_BYTES].into_boxed_slice();
@@ -1947,7 +1948,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     unsafe {
         *info = ffi::SystemInfo {
             library_name: c"TGPulse-Next".as_ptr(),
-            library_version: c"0.1.0.1".as_ptr(),
+            library_version: c"0.1.0.2".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
             block_extract: true,

@@ -14,7 +14,7 @@ use zip::ZipArchive;
 
 use crate::loader::{load16_byte, load16_word_swap, load32_byte, load32_word, read_chip};
 
-const DB: &str = include_str!("roms_db.dat");
+const DB: &str = include_str!(concat!(env!("OUT_DIR"), "/roms_db.dat"));
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Board {
@@ -408,10 +408,39 @@ mod tests {
 
     #[test]
     fn complete_identification_rejects_ambiguous_partial_archive() {
-        let vr = GAMES.iter().find(|game| game.name == "vr").unwrap();
-        let names: Vec<String> = vr.files().map(str::to_owned).collect();
-        assert_eq!(identify_complete(&names).unwrap().name, "vr");
+        let name = if cfg!(feature = "model1") { "vr" } else { "daytona" };
+        let game = GAMES.iter().find(|game| game.name == name).unwrap();
+        let names: Vec<String> = game.files().map(str::to_owned).collect();
+        assert_eq!(identify_complete(&names).unwrap().name, game.name);
         assert!(identify_complete(&names[..1]).is_none());
+    }
+
+    #[test]
+    fn compiled_catalogue_matches_selected_machine_families() {
+        let source = include_str!("roms_db.dat");
+        let expected: Vec<_> = source.lines().filter_map(|line| {
+            let mut fields = line.split_whitespace();
+            if fields.next()? != "G" {
+                return None;
+            }
+            let name = fields.next()?;
+            let board = Board::parse(fields.next()?).unwrap();
+            let selected = if board.is_model1() {
+                cfg!(feature = "model1")
+            } else {
+                cfg!(feature = "model2")
+            };
+            selected.then_some((name, board))
+        }).collect();
+        let actual: Vec<_> = GAMES.iter().map(|game| (game.name.as_str(), game.board)).collect();
+        assert_eq!(actual, expected);
+        // The build-time selection preserves each chosen upstream record byte for byte.
+        for record in source.split("G ").skip(1) {
+            let name = record.split_whitespace().next().unwrap();
+            if actual.iter().any(|(selected, _)| *selected == name) {
+                assert!(DB.contains(&format!("G {record}")));
+            }
+        }
     }
 
     #[test]
@@ -471,6 +500,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "model1")]
     fn advanced_board_selection_has_exact_firmware_regions() {
         for game in GAMES.iter().filter(|g| g.board.is_model1()) {
             let firmware: Vec<_> = game
@@ -499,6 +529,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "model1")]
     fn netmerc_sound_reload_uses_only_declared_prefix() {
         let game = GAMES.iter().find(|game| game.name == "netmerc").unwrap();
         let mut dest = vec![0; 0xc0000];

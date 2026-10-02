@@ -34,16 +34,18 @@ def collect_licenses(output, target, offline):
         command.append('--offline')
     metadata = json.loads(run(*command))
     packages = {p['id']: p for p in metadata['packages']}
-    nodes = {n['id']: n for n in metadata['resolve']['nodes']}
-    pending = [next(p['id'] for p in packages.values() if p['name'] == 'tgpulse-libretro')]
-    seen = set()
-    while pending:
-        key = pending.pop()
-        if key in seen:
-            continue
-        seen.add(key)
-        pending.extend(d['pkg'] for d in nodes[key]['deps']
-                       if any(k['kind'] != 'dev' for k in d['dep_kinds']))
+    # metadata resolves the whole workspace and unifies standalone features.
+    # tree selects the actual M1 package graph, including its build dependencies.
+    tree = ['cargo', 'tree', '--locked', '-p', 'tgpulse-libretro', '--target', target,
+            '-e', 'normal,build', '--prefix', 'none', '--format', '{p}']
+    if offline:
+        tree.append('--offline')
+    selected = {(line.split()[0], line.split()[1].removeprefix('v'))
+                for line in run(*tree).splitlines()}
+    seen = {key for key, p in packages.items() if (p['name'], p['version']) in selected}
+    assert len(seen) == len(selected), 'Ambiguous dependency package identity'
+    assert not any(packages[key]['name'] in {'i960', 'mb86235', 'sharc'} for key in seen), \
+        'M1 package includes Model 2 CPU dependencies'
     inventory = []
     for package in sorted((packages[key] for key in seen), key=lambda p: (p['name'], p['version'])):
         entry = {k: package[k] for k in ('name', 'version', 'license', 'authors', 'repository')}
@@ -86,7 +88,14 @@ def check(output, expected_version):
     assert binary in {f'tgpulse_next_m1_libretro{suffix}' for suffix in ('.so', '.dylib', '.dll')}
     assert (output / binary).stat().st_size > 0
     assert digest(output / binary) == build['binary_sha256']
+    if 'machine_scope' in build:
+        assert build['machine_scope'] == 'model1'
+        scopes = set(re.findall(rb'TGPulse compiled machines: (model1\+model2|model1|model2)',
+                                (output / binary).read_bytes()))
+        assert scopes == {b'model1'}, scopes
     inventory = json.loads((output / 'licenses/THIRD_PARTY.json').read_text())
+    if 'machine_scope' in build:
+        assert not any(p['name'] in {'i960', 'mb86235', 'sharc'} for p in inventory)
     required = {binary, INFO, 'LICENSE', 'NOTICE', 'README.md', 'SOURCE_COMMIT.txt',
                 'BUILD_INFO.json', 'SHA256SUMS', 'licenses/THIRD_PARTY.json', 'licenses/libretro-api.txt',
                 'licenses/MAME-BSD-3-Clause.txt', 'licenses/YMFM-BSD-3-Clause.txt'}
@@ -135,7 +144,8 @@ def main():
     build = {'version': args.version, 'source_commit': commit, 'target': args.target,
              'binary': binary, 'binary_sha256': digest(output / binary),
              'rustc': run('rustc', '-Vv'), 'cargo': run('cargo', '--version'),
-             'profile': 'release', 'lto': 'thin', 'codegen_units': 1}
+             'profile': 'release', 'lto': 'thin', 'codegen_units': 1,
+             'machine_scope': 'model1'}
     (output / 'BUILD_INFO.json').write_text(json.dumps(build, indent=2) + '\n', encoding='utf-8')
     collect_licenses(output, args.target, args.offline)
     lines = [digest(f) + '  ' + f.relative_to(output).as_posix() + '\n'

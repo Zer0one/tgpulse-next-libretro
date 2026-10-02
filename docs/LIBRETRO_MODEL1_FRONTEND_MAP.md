@@ -759,3 +759,21 @@ exact inventory, metadata/version and tagged source-revision validation.
 [Publication evidence](LIBRETRO_CI.md#verified-0101-publication-2026-10-02)
 records the fixed source commit, CI run and archive hashes. The local
 Development installation has also been rebuilt and hash-checked at 0.1.0.1.
+
+
+### Model 1 single system build — 2026-10-02
+
+Machine selection now occurs at compilation: the M1 adapter enables only
+`model1`, excludes Model 2 modules and optional CPU dependencies, and embeds
+only the ten canonical Model 1 catalogue records. Default standalone builds
+retain both families. Common configuration/state layouts remain intact.
+The user chose "Model 1 single system build" instead of the provisional Tiny
+name. Artifact, Core Name and Core Label retain their agreed M1 Development
+identity; the descriptions now reflect actual component selection.
+
+[Build scope and evidence](LIBRETRO_BUILD_SCOPE.md) records the inspected
+SM2/Supermodel references, feature boundaries, reusable commands, measurements,
+full/M1/M2/adapter checks, nine-set pre-split runtime/state equality and actual
+RetroArch Vulkan delivery. It also records package and installed hashes and
+the distinction between local verification and the previous published build.
+Implementation status and future priority remain solely in the roadmap.

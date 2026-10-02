@@ -1,9 +1,11 @@
 # TGPulse-Next Libretro: Model 1 preview
 
-This experimental release provides the current Model 1 development core. It
-is the interim build; real Model 1 Tiny component selection, Model 2 and the
-combined core remain future work. The repository is independent of its
-TGPulse-Next and TGPulse source repositories.
+This experimental core targets Sega Model 1. Current source selects only
+Model 1 machine components and required shared devices (a single system build).
+Version 0.1.0.2 introduces this component split; previous previews used the
+combined library. Consult the package's BUILD_INFO for its compiled scope. Model 2 and combined Libretro
+adapters remain future work. The repository is independent of its TGPulse-Next
+and TGPulse source repositories.
 
 ## Installation
 

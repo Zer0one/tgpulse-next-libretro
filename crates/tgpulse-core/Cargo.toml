@@ -9,12 +9,18 @@ description = "Sega Model 1 and Model 2 hardware emulation, independent of any f
 name = "tgpulse_core"
 path = "src/lib.rs"
 
+[features]
+# Preserve the complete upstream machine library for the standalone frontend.
+default = ["model1", "model2"]
+model1 = ["dep:v60"]
+model2 = ["dep:i960", "dep:mb86235", "dep:sharc"]
+
 [dependencies]
-i960 = { workspace = true }
-v60 = { workspace = true }
+i960 = { workspace = true, optional = true }
+v60 = { workspace = true, optional = true }
 mb86233 = { workspace = true }
-mb86235 = { workspace = true }
-sharc = { workspace = true }
+mb86235 = { workspace = true, optional = true }
+sharc = { workspace = true, optional = true }
 
 bincode = { workspace = true }
 bytemuck = { workspace = true }

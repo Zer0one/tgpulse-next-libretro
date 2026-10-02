@@ -26,7 +26,7 @@ remaining port features. User-run game and controller trials are outside it.
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
-Version [0.1.0.1](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.1)
+Version [0.1.0.2](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.2)
 is available as an experimental prerelease with five native platform packages.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
@@ -56,8 +56,11 @@ Label the installed metadata **Sega - Model 1 (TGPulse-Next Development)** and c
 installed core's SHA-256 with `target/release/libtgpulse_next_m1_libretro.dylib`.
 Its Core Name is **TGPulse-Next: Model 1 Development**; Core Label uses the
 descriptive Sega/Model 1 name above.
-The current M1 artifact is an interim Model 1 core; the future real Tiny build
-will replace it after component selection is implemented.
+The current source builds a **Model 1 single system build**: only Model 1
+machine components and required shared devices are selected, starting with
+version 0.1.0.2. See
+[compiled scope and verification](docs/LIBRETRO_BUILD_SCOPE.md) for the feature
+boundaries, standalone build and measured differences.
 Keep updater-managed cores, ROMs, personal settings and saves untouched.
 
 The `A/V Timing` Core Option defaults to native Model 1 timing (about

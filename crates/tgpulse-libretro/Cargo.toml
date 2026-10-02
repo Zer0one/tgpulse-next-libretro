@@ -10,7 +10,8 @@ name = "tgpulse_next_m1_libretro"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-tgpulse-core = { workspace = true }
+# The M1 artifact selects machine components, not just accepted ROM sets.
+tgpulse-core = { path = "../tgpulse-core", default-features = false, features = ["model1"] }
 imgui = { workspace = true }
 ash = { version = "0.37", default-features = false }
 naga = { version = "0.19", features = ["wgsl-in", "spv-out", "glsl-out"] }

@@ -1,6 +1,7 @@
 //! ROM loading for Sega Model 2: which chip goes where in each ROM region,
 //! and how the interleaved ones are woven together.
 
+#[cfg(feature = "model1")]
 use sha1::{Digest, Sha1};
 use std::fs::File;
 use std::io::Read;
@@ -8,6 +9,7 @@ use zip::ZipArchive;
 
 /// MAME #15649: repair only the fully identified old 315-5711 dump, never
 /// a different program or an unknown/corrupted revision. ZIPs remain untouched.
+#[cfg(feature = "model1")]
 fn repair_315_5711(program: &mut [u8]) -> bool {
     const OLD_SHA1: [u8; 20] = [
         0x9e, 0x21, 0xd3, 0xa0, 0x7f, 0xfa, 0x31, 0x5e, 0x01, 0x39, 0x48, 0x3b, 0x66, 0x4e, 0x3f,
@@ -25,6 +27,7 @@ fn repair_315_5711(program: &mut [u8]) -> bool {
 
 /// The ROM regions the i960 and the TGP see. Each is a byte image of a the reference
 /// ROM_REGION, already interleaved, indexed by region-relative byte offset.
+#[cfg(feature = "model2")]
 pub struct Roms {
     /// "maincpu": i960 program, 2MB region (only the first 256KB is populated).
     pub maincpu: Vec<u8>,
@@ -81,6 +84,7 @@ pub(crate) fn load16_word_swap(dest: &mut [u8], offset: usize, src: &[u8]) -> Re
 
 /// Loads a Model 2 game, dispatching on the ROM set in the archive: Daytona
 /// USA, Sega Rally Championship (Model 2A), or Virtua Cop.
+#[cfg(feature = "model2")]
 pub fn load_model2_zip(path: &str) -> Result<Roms, String> {
     let names = archive_names(path)?;
     let def = crate::roms_db::identify(&names)
@@ -96,6 +100,7 @@ pub fn load_model2_zip(path: &str) -> Result<Roms, String> {
 }
 
 /// Maps the built ROM regions onto the Model 2 `Roms` the system consumes.
+#[cfg(feature = "model2")]
 fn build_model2(
     mut regions: std::collections::HashMap<String, Vec<u8>>,
     board: crate::roms_db::Board,
@@ -141,6 +146,7 @@ fn build_model2(
 
 /// Maps the built ROM regions onto the Model 1 `Model1Roms`. The u32 regions
 /// are little-endian views of their byte images.
+#[cfg(feature = "model1")]
 fn build_model1(
     mut regions: std::collections::HashMap<String, Vec<u8>>,
     ioboard_config: Vec<u8>,
@@ -267,12 +273,14 @@ pub fn archive_names(path: &str) -> Result<Vec<String>, String> {
 
 /// Loads a Model 1 game, dispatching on the ROM set in the archive: Virtua
 /// Racing (315-5573 TGP program) or Virtua Fighter (315-5724).
+#[cfg(feature = "model1")]
 pub fn load_model1_zip(path: &str) -> Result<Model1Roms, String> {
     load_model1_zip_with_options(path, true)
 }
 
 /// Loads Model 1 content with an explicit policy for recognized legacy bad
 /// dumps. Only the fully SHA-1-identified 315-5711 program is repaired, in RAM.
+#[cfg(feature = "model1")]
 pub fn load_model1_zip_with_options(
     path: &str,
     apply_known_rom_repairs: bool,
@@ -302,6 +310,7 @@ pub fn load_model1_zip_with_options(
 
 /// Loads Star Wars Arcade, building the V60 memory image
 /// `ROM_START(swa)` lays it out.
+#[cfg(feature = "model1")]
 pub struct Model1Roms {
     pub dsb: Option<DsbRoms>,
     /// MAME machine configuration selects the M1COMM board, not the filename.
@@ -338,6 +347,7 @@ pub struct Model1Roms {
 }
 
 /// Owned DSB resources; region padding is preserved, no implicit file access.
+#[cfg(feature = "model1")]
 pub struct DsbRoms {
     pub firmware: Vec<u8>,
     pub mpeg: Vec<u8>,
@@ -377,7 +387,7 @@ pub(crate) fn read_chip(archive: &mut ZipArchive<File>, name: &str) -> Result<Ve
     Ok(buf)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "model1"))]
 mod model1_tests {
     use super::*;
 

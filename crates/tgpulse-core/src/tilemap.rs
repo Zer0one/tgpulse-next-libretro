@@ -9,6 +9,7 @@
 //! Tile entry: bits 0-13 character code, bits 7-14 colour, bit 15 category
 //! (category 1 draws in front of the 3D layer, category 0 behind).
 
+#[cfg(feature = "model2")]
 use crate::system::Model2System;
 
 /// The data a segas24 tile layer needs, abstracted over the two boards. Model 2
@@ -27,6 +28,7 @@ pub trait TileSource {
     }
 }
 
+#[cfg(feature = "model2")]
 impl TileSource for Model2System {
     fn tile_u16(&self, idx: usize) -> u16 {
         u16_at(&self.tile_ram, idx)
@@ -51,7 +53,7 @@ impl TileSource for Model2System {
 pub const SCREEN_W: usize = 496;
 pub const SCREEN_H: usize = 384;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "model2"))]
 mod palette_tests {
     use super::*;
 
@@ -99,6 +101,7 @@ const TILE_MASK: u16 = 0x3fff;
 /// handlers on the i960's little-endian bus put device word 2i in the low half
 /// of CPU word i.
 #[inline]
+#[cfg(feature = "model2")]
 fn u16_at(mem: &[u32], idx: usize) -> u16 {
     match mem.get(idx >> 1) {
         Some(w) => (*w >> ((idx & 1) * 16)) as u16,
@@ -144,6 +147,7 @@ pub fn pen_color<S: TileSource>(sys: &S, pen: u16) -> u32 {
 
 /// Model 2 cabinet monitor gamma, used by the 3D solid rasterizer.
 #[inline]
+#[cfg(feature = "model2")]
 pub(crate) fn monitor(sys: &Model2System, v: u32) -> u32 {
     sys.monitor[(v & 0xff) as usize] as u32
 }
@@ -355,6 +359,7 @@ pub fn render_background<S: TileSource>(sys: &S, out: &mut [u32]) {
     draw_bg_layers(sys, out, &palette);
 }
 
+#[cfg(feature = "model2")]
 pub fn render(sys: &Model2System, out: &mut [u32]) {
     // Palette and translation RAM are stable for one frame. Resolve each pen
     // once instead of repeating three table lookups plus gamma per tile pixel.

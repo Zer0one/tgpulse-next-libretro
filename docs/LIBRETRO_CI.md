@@ -23,7 +23,12 @@ and Cargo versions. It does not install tools on the developer's machine.
 | macOS Intel | macos-15-intel | x86_64-apple-darwin | tgpulse_next_m1_libretro.dylib |
 | Windows x86_64 | windows-2022 | x86_64-pc-windows-msvc | tgpulse_next_m1_libretro.dll |
 
-Build only `tgpulse-libretro`, preserving standalone defaults. Thin LTO and one
+Build only `tgpulse-libretro`, selecting its Model 1 machine feature and
+preserving both standalone defaults. Check library configurations in separate
+Cargo invocations to avoid feature unification. Require the compiled
+`model1` scope marker independently of metadata; package dependency/license
+inventory follows the selected core graph. Scope design and local evidence
+are in [LIBRETRO_BUILD_SCOPE.md](LIBRETRO_BUILD_SCOPE.md). Thin LTO and one
 codegen unit already apply. Linux statically links the C++ runtime; system
 glibc/libgcc dependencies remain. Windows reuses the existing static-CRT MSVC
 configuration rather than installing a separate MinGW toolchain. macOS targets
@@ -42,7 +47,7 @@ Use the existing cached toolchain/dependencies:
 
 ```sh
 cargo build --offline --locked --release -p tgpulse-libretro
-python3 tools/check_libretro_artifact.py target/release/libtgpulse_next_m1_libretro.dylib --target aarch64-apple-darwin
+python3 tools/check_libretro_artifact.py target/release/libtgpulse_next_m1_libretro.dylib --target aarch64-apple-darwin --machine-scope model1
 python3 tools/install_dev_core.py
 python3 tools/generate_model1_nvram.py --check
 ruby tools/audit_model1_campaign_inventory.rb

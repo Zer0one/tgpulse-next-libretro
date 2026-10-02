@@ -88,8 +88,13 @@ jobs:
           if [[ "$RUNNER_OS" == Windows ]]; then
             export PATH="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64:$PATH"
           fi
-          cargo test --locked -p tgpulse-core -p tgpulse-libretro --target '${{ matrix.target }}'
-          python .ci-tools/tools/check_libretro_artifact.py 'target/${{ matrix.target }}/release/${{ matrix.binary }}' --target '${{ matrix.target }}' --info tgpulse_next_m1_libretro.info
+          # Separate invocations prevent standalone/default feature unification
+          # from turning M1 tests into full-system tests.
+          cargo test --locked -p tgpulse-core --no-default-features --features model1 --target '${{ matrix.target }}'
+          cargo test --locked -p tgpulse-libretro --target '${{ matrix.target }}'
+          cargo check --locked -p tgpulse-core --no-default-features --features model2 --target '${{ matrix.target }}'
+          cargo test --locked -p tgpulse-core --target '${{ matrix.target }}'
+          python .ci-tools/tools/check_libretro_artifact.py 'target/${{ matrix.target }}/release/${{ matrix.binary }}' --target '${{ matrix.target }}' --info tgpulse_next_m1_libretro.info --machine-scope model1
       - name: Audit committed NVRAM catalogue and documentary screenshots
         if: runner.os == 'Linux'
         run: ruby tools/audit_model1_campaign_inventory.rb --source-only

@@ -171,3 +171,21 @@ publishing; retain this project's independent Git history and remotes.
    and verify that the remote branch points to the local commit.
 5. Update GitHub's English description/topics to match implemented features.
    Keep planned Tiny and Model 2 outputs distinct from current Model 1 support.
+
+
+## Machine scope and Cargo features
+
+Build a dedicated core separately from full/default-feature library or
+standalone targets: Cargo unifies dependency features within one invocation.
+Use `cargo build --offline --locked --release -p tgpulse-libretro` for Model 1.
+Require `check_libretro_artifact.py --machine-scope model1` before installing
+or packaging; it rejects a feature-unified combined artifact.
+
+Derive selected catalogue records from the canonical upstream `roms_db.dat`
+at build time; do not maintain independent copied catalogues. Keep stable
+shared configuration/state types while excluding unused machine modules and
+CPU dependencies. The standalone keeps both machine features by default.
+Packaging license inventory must follow `cargo tree -p tgpulse-libretro`, not
+workspace-wide metadata's unified feature graph. Compare pre-split M1 state,
+Save RAM, software video and audio through the existing ABI host before
+claiming runtime equivalence. See [build scope](LIBRETRO_BUILD_SCOPE.md).
