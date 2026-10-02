@@ -48,7 +48,7 @@ Model 1 machine, menus and repository determine which features apply.
 | SM2 3.1–3.5: catalogue, recognized profiles and game controls | Model 1 set profiles and distinct SWA Pilot/Gunner ports are implemented. Keep exact Model 1 actions and the established Test=L3, Service=R3 preference. |
 | SM2 3.6 and Supermodel NVRAM campaign | Catalogue all runnable parent and clone settings before choosing menu fields. Nine starting sets have complete isolated values; NetMerc is excluded while it cannot start. Apply set-specific templates only to new Save RAM and keep native defaults distinct from approved overrides. |
 | SM2 3.7–3.8: menu review and applicable options | The user-approved workbook now defines the implemented NVRAM options. Separately assess timing, display, audio and input options against current Model 1 behavior. Keep native cadence as the default. Expose the already documented, SHA-1-guarded 315-5711 bad-dump repair as an opt-out load-time option; SM2's ROM CRC toggle is validation, not a repair mechanism. |
-| SM2 4: compatibility and distribution | Adapt the reference's native Linux/macOS/Windows matrix, core/info checks, licenses, source revisions, archives and checksums for the interim Model 1 preview. The release workflow is implemented; publication awaits its five-platform gates. |
+| SM2 4: compatibility and distribution | Reference matrix, core/info pairing, license texts, source revisions, ZIPs and checksums adapted for the interim Model 1 preview. Version 0.1.0.0 is published after all five native CI gates and downloaded-package verification. |
 | SM2 5: frontend-owned GPU rendering | Keep the native software path; design any later GPU adapter around frontend-owned context and the existing TGPulse renderer. No renderer is assumed ready to port. |
 | SM2 6: linked cabinets and Save States | Save RAM and Save States are implemented. Linked cabinet transport is now implemented in phase 6.1 with native Model 1 roles and operator settings. |
 
@@ -75,7 +75,7 @@ The blocked rows are last, regardless of their phase number.
 | 🟢 | 6.1. Linked cabinets | SM2/Supermodel Netpacket workflow adapted to existing M1COMM. Per-set selectors default Disabled; native NVRAM roles retained. All six eligible sets reached game-created links in real RetroArch pairs; VR also passed LIVE relay. COMM Save States remain unavailable. 47 adapter checks, macOS build and Development install pass. | Complete; High reasoning |
 | ⚪ | 4.1. Model 1-only build (Tiny) | Measure release binary contents first (thin LTO is already enabled), then introduce Cargo feature boundaries for Model 1 machine/boards and required shared components, including ROM catalogue dependencies. Establish reusable boundaries for the confirmed Model 2-only and combined cores; keep standalone defaults and full-system builds available. Record size/build-time differences and the minimum upstream adaptation. Current SM2/Supermodel are system-specific references; no existing multi-system feature split was found to copy directly. | High, 1–3 h, approximately 1–2 percentage points; refine after binary inspection |
 | 🔵 | 7. Model 2 and combined core adaptation | After the current Model 1 scope, inspect actual standalone board support and reference features, then extend the shared adapter for Model 2 and build both Model 2-only and combined cores. Keep system-specific timing, inputs, rendering, NVRAM and state explicit. | High; effort and usage estimate after reference/board review |
-| 🟡 | 4. Build and distribution — final phase | First interim Model 1 preview requested. Native five-platform CI, ROM-free ABI/lifecycle checks, matching core/info, license collection, ZIP/checksum and English release procedures are implemented; publish after all gates pass. Add the distinct Tiny/Model 2/combined artifacts as their compiled scopes become ready. See `LIBRETRO_CI.md`. | High for the first release; CI gates in progress |
+| 🟢 | 4. Build and distribution — Model 1 preview foundation | Version 0.1.0.0 published as a prerelease. Linux x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64 pass native builds, machine/adapter tests, ABI/dependency/lifecycle gates, licenses and core/info packaging. All five downloaded ZIPs and internal checksums match the fixed source tag. Distinct Tiny/Model 2/combined packages follow their future compiled scopes. See `LIBRETRO_CI.md`. | Complete for the interim Model 1 preview; High reasoning |
 | 🟠 | NetMerc | Its game-start problem blocks NVRAM and menu inclusion. Reconsider after that issue is resolved. | Estimate after the boot issue is understood |
 
 ### Phase 3.7 option inventory
@@ -91,9 +91,10 @@ The blocked rows are last, regardless of their phase number.
 | Timing/FPS display | SM2 composes its Supermodel-style Dear ImGui panel into software/GPU frames, uses 61-callback averages and Off/Auto/11–14 px options. TGPulse already supplies imgui 0.12. | Implemented using the existing ImGui dependency and an adapter-only software compositor. Defaults Off; Auto is 13 px. Reset/state load and option changes clear measurements. 24 offline tests and native-size visual inspection pass; 120 warmed synthetic draws averaged 0.421 ms. macOS release build and Development install are verified. This is not a gameplay benchmark. |
 
 Vulkan, OpenGL/GLES, widescreen and supersampling are complete at this checkpoint.
-The approved automatic templates and NVRAM menus are implemented. Build and distribution remains
-the final feature activity; local Development installation continues after
-verified macOS release builds.
+The approved automatic templates and NVRAM menus are implemented. The first
+five-platform Model 1 preview is published as 0.1.0.0. Tiny component selection
+and later Model 2/combined outputs remain planned; local Development
+installation continues after verified macOS release builds.
 
 Estimates in the roadmap are planning ranges, not measured task costs. Codex
 usage is an account-wide percentage; the ranges can change after source

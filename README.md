@@ -26,6 +26,8 @@ remaining port features. User-run game and controller trials are outside it.
 
 The first Model 1 preview is packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
+Version [0.1.0.0](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.0)
+is available as an experimental prerelease with five native platform packages.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
 for verified binary packages.
@@ -43,8 +45,9 @@ cargo build --offline --release -p tgpulse-libretro
 The library appears under `target/release/` as
 `libtgpulse_next_m1_libretro.dylib` on macOS,
 `libtgpulse_next_m1_libretro.so` on Linux or
-`tgpulse_next_m1_libretro.dll` on Windows. macOS ARM64 and Linux x86_64 builds have been verified. Windows has not been
-built in this phase.
+`tgpulse_next_m1_libretro.dll` on Windows. Release CI verifies native Linux
+x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64 builds. The published
+libraries omit Cargo's leading `lib` so their names match the `.info` basename.
 After each verified macOS release build, install the development copy as
 `~/Library/Application Support/RetroArch/cores/tgpulse_next_dev_m1_libretro.dylib`
 and its matching metadata as
