@@ -35,10 +35,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('core', type=Path)
     parser.add_argument('--target', required=True)
+    parser.add_argument('--info', type=Path, help='Metadata from the exact source checkout being built')
     args = parser.parse_args()
     core = args.core.resolve(strict=True)
     root = Path(__file__).resolve().parents[1]
-    info = (root / 'tgpulse_next_m1_libretro.info').read_text()
+    info = (args.info or root / 'tgpulse_next_m1_libretro.info').read_text()
     version = re.search(r'^display_version = "([^"]+)"$', info, re.M).group(1)
     kind = platform.system()
     if kind == 'Darwin':
@@ -53,7 +54,10 @@ def main():
         headers = command('dumpbin', '/headers', str(core))
         assert re.search(r'8664 machine', headers, re.I), headers
         symbols = command('dumpbin', '/exports', str(core))
-        exports = set(re.findall(r'\b(retro_\w+)\s*$', symbols, re.M))
+        # MSVC may append "= <folded implementation>" to exported aliases.
+        # The first name after the ordinal/hint/RVA is the actual ABI export.
+        exports = set(re.findall(r'^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(retro_\w+)(?:\s|$)',
+                                 symbols, re.M | re.I))
         deps = command('dumpbin', '/dependents', str(core))
         assert not re.search(r'libgcc|libstdc|libwinpthread|vcruntime|msvcp|vulkan|SDL', deps, re.I), deps
     else:

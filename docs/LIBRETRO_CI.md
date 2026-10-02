@@ -94,4 +94,7 @@ their archive/internal checksums and source revisions before reporting success.
 If a published tag's workflow fails, keep the tag fixed. Correct the workflow
 on `main` and dispatch `release_tag` again, following the existing TGPulse-Next
 recovery convention. Do not replace the tag or silently publish another source
-commit under its name. CI artifacts are retained for 14 days.
+commit under its name. The workflow checks out its current ABI validation tool
+separately; that tool reads the tagged core's `.info`. This permits a checker
+fix without modifying the compiled/tagged source. CI artifacts are retained
+for 14 days.

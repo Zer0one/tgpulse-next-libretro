@@ -46,6 +46,14 @@ jobs:
         with:
           ref: ${{ inputs.release_tag || github.ref }}
           persist-credentials: false
+      - name: Check out current CI validation tools separately from tagged core source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .ci-tools
+          sparse-checkout: tools/check_libretro_artifact.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
       - name: Set up existing Windows compiler environment
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -81,7 +89,7 @@ jobs:
             export PATH="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64:$PATH"
           fi
           cargo test --locked -p tgpulse-core -p tgpulse-libretro --target '${{ matrix.target }}'
-          python tools/check_libretro_artifact.py 'target/${{ matrix.target }}/release/${{ matrix.binary }}' --target '${{ matrix.target }}'
+          python .ci-tools/tools/check_libretro_artifact.py 'target/${{ matrix.target }}/release/${{ matrix.binary }}' --target '${{ matrix.target }}' --info tgpulse_next_m1_libretro.info
       - name: Audit committed NVRAM catalogue and documentary screenshots
         if: runner.os == 'Linux'
         run: ruby tools/audit_model1_campaign_inventory.rb --source-only
