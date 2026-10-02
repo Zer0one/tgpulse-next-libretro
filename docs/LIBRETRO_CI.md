@@ -130,3 +130,36 @@ Matching installed `.info` SHA-256:
 `35e97e9499bbad25c2edb7fb3a15bea46691f015e8ba9417089349fd48cf423b`.
 These gates establish publication/build/package evidence; user-run gameplay,
 physical controller and distributed race/dogfight acceptance remain separate.
+
+
+## Verified 0.1.0.1 publication (2026-10-02)
+
+- Release: [0.1.0.1 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.1), marked prerelease.
+- Fixed annotated tag: `v0.1.0.1`; source commit `a2eba83f812f5710771b5ca641d37e647cc1cc04`.
+- All five native build/check/package jobs and the publication job passed:
+  [CI 36978325511](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/36978325511).
+- Restores global source Gains, default Auto, with common load/live parsing and
+  four modern/legacy source keys. English release notes include saved-option
+  cleanup guidance; the local user-authorized cleanup is documented separately.
+- Local verification: 47 adapter tests, offline locked release build, native
+  ABI/dependency/empty-lifecycle gate, NVRAM generator and full campaign audit,
+  and the 196-file macOS package preflight passed.
+- Downloaded all five published archives plus SHA256SUMS. Verified GitHub
+  asset digests, archive/internal checksums, exact package inventories,
+  licenses, version 0.1.0.1 and the tagged source revision. Linux/macOS
+  packages contain 196 files; Windows contains 206.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| Linux ARM64 | `f1522c4831d8e239b537177db3bd52fd231277ddadeccb1aecd8553beae5d026` |
+| Linux x86_64 | `c4a69b4df8881ec519b4f2c0626d4e94e56bd071e8537600ba9dcc8a59588735` |
+| macOS Apple Silicon | `4e2a880475732fae6bb3f64403c4c4e772e77c88848b8c940029a5d0e214660c` |
+| macOS Intel | `ab413ac3b901806c872b833758b9cd7fa4f91eedf0213faa72c1252b53c995c3` |
+| Windows x86_64 | `e8633d3dda0411e27ff0a5aa87401af31fc54cb5360d6e170f72c37296224320` |
+
+Development core 0.1.0.1 and metadata were installed and hash-checked locally:
+core `76017083ee2f164d4e4e4f1837f5ff8cdca8b4609d1a5aabdbc85ef07537fbbe`,
+info `68d8ea89d185ecac4a00f867f47f9cb08387f2699747100d82dc4cdc91174209`.
+Publication and package verification are separate from listening, gameplay
+and controller acceptance. Required reasoning: Medium; account usage 49%;
+reset 2026-10-07 15:58:51 CEST.

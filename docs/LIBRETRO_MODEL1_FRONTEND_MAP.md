@@ -748,3 +748,14 @@ four obsolete Mute switches. A backup was saved next to the original file;
 all other lines were preserved. Missing global source values use Auto.
 No personal configuration or backup is added to the repository.
 Required reasoning: Medium; account usage 49%; reset 2026-10-07 15:58:51 CEST.
+
+
+### Global Gain release checkpoint — 2026-10-02
+
+The global Gain restoration is now published as **0.1.0.1**, with upstream
+snapshot unchanged and port revision incremented. All five native platform
+jobs and publication gates pass. Downloaded release assets pass checksums,
+exact inventory, metadata/version and tagged source-revision validation.
+[Publication evidence](LIBRETRO_CI.md#verified-0101-publication-2026-10-02)
+records the fixed source commit, CI run and archive hashes. The local
+Development installation has also been rebuilt and hash-checked at 0.1.0.1.
