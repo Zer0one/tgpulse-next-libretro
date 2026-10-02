@@ -131,11 +131,21 @@ Verified evidence:
   Matching installed metadata:
   `536649062c567fae166f3091664a92c9a87a37a8711f7d4ed1d78f769ef698ed`.
 
-The five-platform workflow is adapted but has not run for this local change.
-The published 0.1.0.1 archives remain the previous interim build. Local package
-preflight records the base Git commit; publication requires committing the
-change and building the new immutable tag. Evidence above is distinct from
-listening, gameplay and physical-controller acceptance.
+Version 0.1.0.2 publishes this component split at the immutable source commit
+`6946b876803782d9549c61a7b11e0ae45d9efec3`. All five native jobs and the
+publication job passed in [CI 37007851965](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37007851965).
+All five downloaded release ZIPs passed exact inventory, compiled Model 1
+scope, source/version, dependency licenses and internal/archive/GitHub digest
+checks. Full hashes are recorded in `LIBRETRO_CI.md`.
+
+The version-only 0.1.0.2 rebuild passed 47 adapter tests and the native ABI,
+dependency and empty-lifecycle gate. Development core and metadata were
+installed and hash-checked:
+- Core: `ead4a5dc151d96bb0cc750bb5a0cce99364e5452445e4a2d7b4d841aca82b2c7`.
+- Info: `91ff93c2f5f1bd468bf88d66b73e3fe87066bbb596bbe37b41bc135f0021fdee`.
+
+Build/publication evidence is distinct from listening, gameplay and
+physical-controller acceptance.
 Required reasoning: High. Account usage during this phase: 55% to 56%; this
 is a rounded shared-account reading, not a per-task bill. Reset:
 2026-10-07 15:58:51 CEST.

@@ -168,3 +168,41 @@ info `68d8ea89d185ecac4a00f867f47f9cb08387f2699747100d82dc4cdc91174209`.
 Publication and package verification are separate from listening, gameplay
 and controller acceptance. Required reasoning: Medium; account usage 49%;
 reset 2026-10-07 15:58:51 CEST.
+
+## Verified 0.1.0.2 publication (2026-10-02)
+
+- Release: [0.1.0.2 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.2), marked prerelease.
+- Fixed annotated tag: `v0.1.0.2`; source commit `6946b876803782d9549c61a7b11e0ae45d9efec3`.
+- All five native build/check/package jobs and the publication job passed:
+  [CI 37007851965](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37007851965).
+- The Model 1 single system build excludes Model 2 machine/device dependencies.
+  Each native job independently verifies M1-only, M2-only and combined library
+  configurations, adapter tests and the compiled scope marker. Standalone
+  defaults retain both systems.
+- Reference: SM2 `PORTING_PLAN.md` phase 4 native matrix, ABI, core/info,
+  license, source revision and checksum distribution gates, rechecked for this
+  publication. Adaptation: Rust machine-feature checks and scoped dependency
+  license collection; Model 2 and combined Libretro adapters remain future work.
+- Local release verification: 47 adapter tests, offline locked release build,
+  native ABI/dependency/empty-lifecycle gate and 194-file macOS package preflight.
+  Earlier functional and state-compatibility evidence is in `LIBRETRO_BUILD_SCOPE.md`.
+- Downloaded all five published archives plus SHA256SUMS. Verified GitHub
+  asset digests, archive/internal checksums, exact inventories, Model 1 scope,
+  licenses, version 0.1.0.2 and the tagged source revision. Linux/macOS packages
+  contain 194 files; Windows contains 202.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| Linux ARM64 | `94e2942b0580ddc4a4cdcfb113fef45d12f08be312207422ffde2471e3a8e433` |
+| Linux x86_64 | `cb075c3301f29e151ee98a081dd935264a79a3e90e42cab90357c72535d78abf` |
+| macOS Apple Silicon | `613a2c5d1a1e9e3b6b12e343722639dfb90eb21c6a96613eaf8affa0e41c6948` |
+| macOS Intel | `c63436ef99d5005981e287adf2541e0e4f2bb21a78c936c9f0632be1740723df` |
+| Windows x86_64 | `b8629643018efdaca1056f649ea1af1185c09c3d9ffbe171077fe679bb0198a8` |
+
+Development core 0.1.0.2 and matching metadata were installed and hash-checked:
+core `ead4a5dc151d96bb0cc750bb5a0cce99364e5452445e4a2d7b4d841aca82b2c7`,
+info `91ff93c2f5f1bd468bf88d66b73e3fe87066bbb596bbe37b41bc135f0021fdee`.
+Publication/package checks are separate from listening, gameplay and physical
+controller acceptance. Required reasoning: High; account usage 56% before and
+after publication (rounded shared-account reading). Reset:
+2026-10-07 15:58:51 CEST.
