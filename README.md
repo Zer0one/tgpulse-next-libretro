@@ -24,9 +24,9 @@ workflow reference, not vendored code.
 The [Libretro implementation roadmap](docs/LIBRETRO_ROADMAP.md) lists the
 remaining port features. User-run game and controller trials are outside it.
 
-The first Model 1 preview is packaged through the
+Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
-Version [0.1.0.0](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.0)
+Version [0.1.0.1](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.1)
 is available as an experimental prerelease with five native platform packages.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
@@ -94,6 +94,14 @@ roles through NVRAM Settings or the service menu; the transport does not assign
 them. Each frontend needs its own saves. Save States are unavailable with COMM
 fitted. See the [linked-cabinet guide](docs/LIBRETRO_MODEL1_LINKED_CABINETS.md)
 for supported sets, startup and reproducible multi-instance evidence.
+
+Source Gain options are global across Model 1 sets and default to Auto.
+MultiPCM 1/2, FM (YM3438) and DSB (MPEG) use the standalone reference levels
+50/50/30/100% respectively. Each selector offers Mute, Auto and 0–100% in
+10% steps, with immediate updates. DSB is shown only when the board is fitted
+and the frontend supports visibility hints. Old set-qualified Gain keys are
+ignored; the core does not rewrite personal option files. Global source Gains
+are restored in 0.1.0.1; the 0.1.0.0 preview used per-set Gain keys.
 
 `Gamepad Rumble` defaults to On and uses the standalone VR/VFormula pad policy
 through the frontend's P1 strong and weak motors when available.

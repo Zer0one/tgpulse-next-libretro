@@ -413,6 +413,8 @@ installation SHA-256 matches the build:
 
 ### Per-game Gain storage (2026-10-01)
 
+Superseded by the global Gain restoration documented below (2026-10-02).
+
 Reference: SM2 `src/libretro/core_options.h` registers game-qualified NVRAM
 keys and changes visibility in `set_option_game`; `core.cpp` applies that scope
 at load/unload. Model 1 Gain keys now follow the same pattern:
@@ -710,3 +712,39 @@ core SHA-256 remains
 new info SHA-256
 `8bc720a57504da7dd9543dc09b0626566896fce67c7112d4b82756154c01fdf1`.
 Required reasoning: Low; account usage 47%; reset 2026-10-07 15:58:51 CEST.
+
+
+### Global source Gain restoration — 2026-10-02
+
+At the user's request, source gains now use global keys shared by all Model 1
+parents and clones. Current references: SM2 `src/libretro/core_options.h`
+(`sm2_music_volume`) and `core.cpp`; Supermodel
+`Src/OSD/Libretro/libretro_core_options.h` (`supermodel_sound_volume`,
+`supermodel_music_volume`) and `libretro.cpp`. Both apply fixed global audio
+keys at load and during live updates. The smallest adaptation retains Model 1's
+four source selectors and standalone reference mix.
+
+Keys: `tgpulse_next_multipcm1_gain`, `tgpulse_next_multipcm2_gain`,
+`tgpulse_next_ym3438_gain`, `tgpulse_next_dsb_gain`. Default: Auto, resolving to
+50/50/30/100%. Mute and 0–100% in 10% steps retain their established behavior.
+Modern and legacy registrations expose four source Gain options, without
+ROM-set suffixes. Load and live updates read the same global keys. DSB remains
+visible only with a fitted board, subject to frontend display-hint support.
+Old set-qualified Gain keys are ignored. This supersedes per-game Gain storage
+above and is a local change after the published 0.1.0.0 preview.
+
+Verification: 47 adapter tests pass, including global modern/legacy option
+registration, Auto fallback, numeric/Mute parsing and fitted-board visibility.
+The offline locked macOS release build and native ABI/dependency/empty-lifecycle
+gate pass. Development core and metadata were installed with SHA-256 equality:
+core `b80c324380d040acbee9d350fe598436bb05b0f86ebb6a9f5460fd86e30314db`,
+info `35e97e9499bbad25c2edb7fb3a15bea46691f015e8ba9417089349fd48cf423b`.
+These checks do not constitute listening or gameplay validation.
+
+The user also authorized local configuration cleanup. After confirming
+RetroArch was closed, 48 stale source Gain/Mute entries were removed from the
+core's options file: 40 per-set Gain keys, four previous global Gain values and
+four obsolete Mute switches. A backup was saved next to the original file;
+all other lines were preserved. Missing global source values use Auto.
+No personal configuration or backup is added to the repository.
+Required reasoning: Medium; account usage 49%; reset 2026-10-07 15:58:51 CEST.

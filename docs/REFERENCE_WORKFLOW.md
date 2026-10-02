@@ -48,8 +48,10 @@ choices; the adapter must not add unsupported VF analog gameplay controls.
 Master Volume uses default 100%, standalone 0–800% range and reference-core
 10% steps. At the user's request, zero is labelled OFF. No Mute/Muted label or
 Auto value is added to Master.
-Per-source Gain uses the separately agreed Mute/Auto/0–100% selector. Order the
-modern numeric selector ascending and use identical load-time/live parsing.
+Per-source Gain uses global core keys shared by all Model 1 sets, with Auto
+as the default and the agreed Mute/Auto/0–100% selector. Follow SM2 and
+Supermodel's global audio option scope. Old set-qualified Gain keys are ignored.
+Order the modern numeric selector ascending and use identical load-time/live parsing.
 Verify live PCM changes from the same restored machine state before claiming
 progressive gain; game progression must not alter the reference segment.
 

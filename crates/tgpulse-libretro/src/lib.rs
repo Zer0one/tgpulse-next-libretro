@@ -354,22 +354,14 @@ fn gain_option(environment: ffi::Environment, key: &'static CStr, default: u32) 
         .unwrap_or(default)
 }
 
-fn update_audio_settings(settings: &mut Settings, environment: ffi::Environment, set: &str) {
-    let keys = GAME_AUDIO_OPTIONS
-        .iter()
-        .find(|entry| entry.0 == set)
-        .map(|entry| entry.1);
+fn update_audio_settings(settings: &mut Settings, environment: ffi::Environment) {
     let reference = AudioGains::REFERENCE;
-    settings.audio_gains = if let Some(keys) = keys {
-        AudioGains {
-            multipcm1: gain_option(environment, keys[0], reference.multipcm1),
-            multipcm2: gain_option(environment, keys[1], reference.multipcm2),
-            ym3438: gain_option(environment, keys[2], reference.ym3438),
-            dsb: gain_option(environment, keys[3], reference.dsb),
-            scsp: reference.scsp,
-        }
-    } else {
-        reference
+    settings.audio_gains = AudioGains {
+        multipcm1: gain_option(environment, AUDIO_GAIN_KEYS[0], reference.multipcm1),
+        multipcm2: gain_option(environment, AUDIO_GAIN_KEYS[1], reference.multipcm2),
+        ym3438: gain_option(environment, AUDIO_GAIN_KEYS[2], reference.ym3438),
+        dsb: gain_option(environment, AUDIO_GAIN_KEYS[3], reference.dsb),
+        scsp: reference.scsp,
     };
     settings.audio_mutes = AudioMutes::default();
 }
@@ -505,7 +497,7 @@ fn update_settings(core: &mut Core) {
         option_value(env, c"tgpulse_next_initial_nvram_setup").is_none_or(|v| v != "disabled");
     core.settings.nvram_settings =
         option_value(env, c"tgpulse_next_nvram_settings").is_some_and(|v| v == "enabled");
-    update_audio_settings(&mut core.settings, env, "");
+    update_audio_settings(&mut core.settings, env);
 }
 
 fn aspect_ratio_option(environment: ffi::Environment) -> AspectRatio {
@@ -720,219 +712,12 @@ struct OptionStorage {
     definitions: Vec<ffi::OptionDefinition>,
 }
 
-// Separate saved Core Option keys per ROM set, like SM2's NVRAM options.
-// Static storage keeps all pointers valid across frontend callbacks.
-const GAME_AUDIO_OPTIONS: &[(&str, [&CStr; 4], [&CStr; 4], [&CStr; 4])] = &[
-    (
-        "vr",
-        [
-            c"tgpulse_next_vr_multipcm1_gain",
-            c"tgpulse_next_vr_multipcm2_gain",
-            c"tgpulse_next_vr_ym3438_gain",
-            c"tgpulse_next_vr_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (vr)",
-            c"MultiPCM 2 Gain (vr)",
-            c"FM (YM3438) Gain (vr)",
-            c"DSB (MPEG) Gain (vr)",
-        ],
-        [
-            c"MultiPCM 1 Gain (vr); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (vr); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (vr); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (vr); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "vformula",
-        [
-            c"tgpulse_next_vformula_multipcm1_gain",
-            c"tgpulse_next_vformula_multipcm2_gain",
-            c"tgpulse_next_vformula_ym3438_gain",
-            c"tgpulse_next_vformula_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (vformula)",
-            c"MultiPCM 2 Gain (vformula)",
-            c"FM (YM3438) Gain (vformula)",
-            c"DSB (MPEG) Gain (vformula)",
-        ],
-        [
-            c"MultiPCM 1 Gain (vformula); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (vformula); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (vformula); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (vformula); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "vf",
-        [
-            c"tgpulse_next_vf_multipcm1_gain",
-            c"tgpulse_next_vf_multipcm2_gain",
-            c"tgpulse_next_vf_ym3438_gain",
-            c"tgpulse_next_vf_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (vf)",
-            c"MultiPCM 2 Gain (vf)",
-            c"FM (YM3438) Gain (vf)",
-            c"DSB (MPEG) Gain (vf)",
-        ],
-        [
-            c"MultiPCM 1 Gain (vf); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (vf); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (vf); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (vf); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "wingwar",
-        [
-            c"tgpulse_next_wingwar_multipcm1_gain",
-            c"tgpulse_next_wingwar_multipcm2_gain",
-            c"tgpulse_next_wingwar_ym3438_gain",
-            c"tgpulse_next_wingwar_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (wingwar)",
-            c"MultiPCM 2 Gain (wingwar)",
-            c"FM (YM3438) Gain (wingwar)",
-            c"DSB (MPEG) Gain (wingwar)",
-        ],
-        [
-            c"MultiPCM 1 Gain (wingwar); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (wingwar); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (wingwar); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (wingwar); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "wingwarj",
-        [
-            c"tgpulse_next_wingwarj_multipcm1_gain",
-            c"tgpulse_next_wingwarj_multipcm2_gain",
-            c"tgpulse_next_wingwarj_ym3438_gain",
-            c"tgpulse_next_wingwarj_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (wingwarj)",
-            c"MultiPCM 2 Gain (wingwarj)",
-            c"FM (YM3438) Gain (wingwarj)",
-            c"DSB (MPEG) Gain (wingwarj)",
-        ],
-        [
-            c"MultiPCM 1 Gain (wingwarj); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (wingwarj); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (wingwarj); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (wingwarj); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "wingwaru",
-        [
-            c"tgpulse_next_wingwaru_multipcm1_gain",
-            c"tgpulse_next_wingwaru_multipcm2_gain",
-            c"tgpulse_next_wingwaru_ym3438_gain",
-            c"tgpulse_next_wingwaru_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (wingwaru)",
-            c"MultiPCM 2 Gain (wingwaru)",
-            c"FM (YM3438) Gain (wingwaru)",
-            c"DSB (MPEG) Gain (wingwaru)",
-        ],
-        [
-            c"MultiPCM 1 Gain (wingwaru); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (wingwaru); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (wingwaru); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (wingwaru); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "wingwar360",
-        [
-            c"tgpulse_next_wingwar360_multipcm1_gain",
-            c"tgpulse_next_wingwar360_multipcm2_gain",
-            c"tgpulse_next_wingwar360_ym3438_gain",
-            c"tgpulse_next_wingwar360_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (wingwar360)",
-            c"MultiPCM 2 Gain (wingwar360)",
-            c"FM (YM3438) Gain (wingwar360)",
-            c"DSB (MPEG) Gain (wingwar360)",
-        ],
-        [
-            c"MultiPCM 1 Gain (wingwar360); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (wingwar360); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (wingwar360); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (wingwar360); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "swa",
-        [
-            c"tgpulse_next_swa_multipcm1_gain",
-            c"tgpulse_next_swa_multipcm2_gain",
-            c"tgpulse_next_swa_ym3438_gain",
-            c"tgpulse_next_swa_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (swa)",
-            c"MultiPCM 2 Gain (swa)",
-            c"FM (YM3438) Gain (swa)",
-            c"DSB (MPEG) Gain (swa)",
-        ],
-        [
-            c"MultiPCM 1 Gain (swa); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (swa); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (swa); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (swa); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "swaj",
-        [
-            c"tgpulse_next_swaj_multipcm1_gain",
-            c"tgpulse_next_swaj_multipcm2_gain",
-            c"tgpulse_next_swaj_ym3438_gain",
-            c"tgpulse_next_swaj_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (swaj)",
-            c"MultiPCM 2 Gain (swaj)",
-            c"FM (YM3438) Gain (swaj)",
-            c"DSB (MPEG) Gain (swaj)",
-        ],
-        [
-            c"MultiPCM 1 Gain (swaj); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (swaj); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (swaj); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (swaj); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
-    (
-        "netmerc",
-        [
-            c"tgpulse_next_netmerc_multipcm1_gain",
-            c"tgpulse_next_netmerc_multipcm2_gain",
-            c"tgpulse_next_netmerc_ym3438_gain",
-            c"tgpulse_next_netmerc_dsb_gain",
-        ],
-        [
-            c"MultiPCM 1 Gain (netmerc)",
-            c"MultiPCM 2 Gain (netmerc)",
-            c"FM (YM3438) Gain (netmerc)",
-            c"DSB (MPEG) Gain (netmerc)",
-        ],
-        [
-            c"MultiPCM 1 Gain (netmerc); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"MultiPCM 2 Gain (netmerc); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"FM (YM3438) Gain (netmerc); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-            c"DSB (MPEG) Gain (netmerc); auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        ],
-    ),
+// Global frontend-owned source gains, shared by all Model 1 ROM sets.
+const AUDIO_GAIN_KEYS: [&CStr; 4] = [
+    c"tgpulse_next_multipcm1_gain",
+    c"tgpulse_next_multipcm2_gain",
+    c"tgpulse_next_ym3438_gain",
+    c"tgpulse_next_dsb_gain",
 ];
 
 const GAIN_VALUES: &[(&CStr, &CStr)] = &[
@@ -1142,17 +927,6 @@ fn options() -> &'static OptionStorage {
             },
         ],
     };
-    let templates: Vec<_> = storage.definitions.drain(5..9).collect();
-    let mut per_game = Vec::new();
-    for (_, keys, labels, _) in GAME_AUDIO_OPTIONS {
-        for source in 0..4 {
-            let mut definition = templates[source];
-            definition.key = keys[source].as_ptr();
-            definition.desc = labels[source].as_ptr();
-            per_game.push(definition);
-        }
-    }
-    storage.definitions.splice(5..5, per_game);
     let end=storage.definitions.len()-1;
     storage.definitions.splice(end..end,[
         option_definition(c"tgpulse_next_renderer",c"Renderer (Restart Required)",c"Select frontend-owned GPU rendering or Software. Auto follows supported frontend context preference.",c"video",&[(c"auto",c"Auto"),(c"vulkan",c"Vulkan"),(c"opengl",c"OpenGL / GLES"),(c"software",c"Software")],c"auto"),
@@ -1295,13 +1069,16 @@ fn register_options(environment: ffi::Environment) {
             value: value.as_ptr(),
         });
     }
-    for (_, keys, _, values) in GAME_AUDIO_OPTIONS {
-        for source in 0..4 {
-            legacy.push(ffi::Variable {
-                key: keys[source].as_ptr(),
-                value: values[source].as_ptr(),
-            });
-        }
+    for (key, value) in AUDIO_GAIN_KEYS.into_iter().zip([
+        c"MultiPCM 1 Gain; auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
+        c"MultiPCM 2 Gain; auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
+        c"FM (YM3438) Gain; auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
+        c"DSB (MPEG) Gain; auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
+    ]) {
+        legacy.push(ffi::Variable {
+            key: key.as_ptr(),
+            value: value.as_ptr(),
+        });
     }
     legacy.push(ffi::Variable {
         key: c"tgpulse_next_initial_nvram_setup".as_ptr(),
@@ -1344,20 +1121,18 @@ fn register_options(environment: ffi::Environment) {
     unsafe { environment(ffi::SET_VARIABLES, legacy.as_mut_ptr().cast()) };
 }
 
-fn publish_audio_option_visibility(environment: ffi::Environment, set: &str, dsb_present: bool) {
-    for (game, keys, _, _) in GAME_AUDIO_OPTIONS {
-        for (source, key) in keys.iter().enumerate() {
-            let mut display = ffi::OptionDisplay {
-                key: key.as_ptr(),
-                visible: *game == set && (source != 3 || dsb_present),
-            };
-            unsafe {
-                environment(
-                    ffi::SET_CORE_OPTIONS_DISPLAY,
-                    (&mut display as *mut ffi::OptionDisplay).cast(),
-                )
-            };
-        }
+fn publish_audio_option_visibility(environment: ffi::Environment, loaded: bool, dsb_present: bool) {
+    for (source, key) in AUDIO_GAIN_KEYS.iter().enumerate() {
+        let mut display = ffi::OptionDisplay {
+            key: key.as_ptr(),
+            visible: loaded && (source != 3 || dsb_present),
+        };
+        unsafe {
+            environment(
+                ffi::SET_CORE_OPTIONS_DISPLAY,
+                (&mut display as *mut ffi::OptionDisplay).cast(),
+            )
+        };
     }
 }
 
@@ -1813,7 +1588,7 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
     let graphics = graphics_settings(environment);
     let hardware = request_graphics(core, graphics, environment)?;
     let roms = loader::load_model1_zip_with_options(path, core.settings.apply_known_rom_repairs)?;
-    update_audio_settings(&mut core.settings, environment, &definition.name);
+    update_audio_settings(&mut core.settings, environment);
     let mut config = Config {
         rom_path: path.to_owned(),
         system: System::Model1,
@@ -1868,7 +1643,7 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
     );
     publish_nvram_option_visibility(environment, &definition.name, core.settings.nvram_settings);
     publish_gpu_option_visibility(environment, hardware);
-    publish_audio_option_visibility(environment, &definition.name, dsb_present);
+    publish_audio_option_visibility(environment, true, dsb_present);
     publish_rumble_option_visibility(
         environment,
         tgpulse_core::model1_drive::DriveFamily::for_set(&definition.name).is_some(),
@@ -2112,7 +1887,7 @@ pub extern "C" fn retro_set_environment(callback: Option<ffi::Environment>) {
         publish_gpu_option_visibility(environment, false);
         publish_driving_option_visibility(environment, false);
         publish_nvram_option_visibility(environment, "", false);
-        publish_audio_option_visibility(environment, "", false);
+        publish_audio_option_visibility(environment, false, false);
         publish_rumble_option_visibility(environment, false);
     }
 }
@@ -2172,7 +1947,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     unsafe {
         *info = ffi::SystemInfo {
             library_name: c"TGPulse-Next".as_ptr(),
-            library_version: c"0.1.0.0".as_ptr(),
+            library_version: c"0.1.0.1".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
             block_extract: true,
@@ -2281,7 +2056,7 @@ pub extern "C" fn retro_load_game(info: *const ffi::GameInfo) -> bool {
             publish_gpu_option_visibility(environment, false);
             publish_driving_option_visibility(environment, false);
             publish_nvram_option_visibility(environment, "", false);
-            publish_audio_option_visibility(environment, "", false);
+            publish_audio_option_visibility(environment, false, false);
             publish_rumble_option_visibility(environment, false);
         }
         core.game = None;
@@ -2324,7 +2099,7 @@ pub extern "C" fn retro_unload_game() {
             publish_gpu_option_visibility(environment, false);
             publish_driving_option_visibility(environment, false);
             publish_nvram_option_visibility(environment, "", false);
-            publish_audio_option_visibility(environment, "", false);
+            publish_audio_option_visibility(environment, false, false);
             publish_rumble_option_visibility(environment, false);
         }
         core.game = None;
@@ -2368,7 +2143,7 @@ pub extern "C" fn retro_run() {
                     game.timing.reset();
                     core.settings.overlay_font = overlay_font;
                 }
-                update_audio_settings(&mut core.settings, env, &game.set_name);
+                update_audio_settings(&mut core.settings, env);
                 game.machine.sound.set_gains(core.settings.audio_gains);
                 game.machine.sound.set_mutes(core.settings.audio_mutes);
             }
@@ -2757,10 +2532,10 @@ mod tests {
                 let fifth = unsafe { &*options.definitions.add(4) };
                 assert_eq!(unsafe { CStr::from_ptr(fifth.key) }, c"tgpulse_next_volume");
                 for (index, key, default) in [
-                    (5, c"tgpulse_next_vr_multipcm1_gain", c"auto"),
-                    (6, c"tgpulse_next_vr_multipcm2_gain", c"auto"),
-                    (7, c"tgpulse_next_vr_ym3438_gain", c"auto"),
-                    (8, c"tgpulse_next_vr_dsb_gain", c"auto"),
+                    (5, c"tgpulse_next_multipcm1_gain", c"auto"),
+                    (6, c"tgpulse_next_multipcm2_gain", c"auto"),
+                    (7, c"tgpulse_next_ym3438_gain", c"auto"),
+                    (8, c"tgpulse_next_dsb_gain", c"auto"),
                 ] {
                     let definition = unsafe { &*options.definitions.add(index) };
                     assert_eq!(unsafe { CStr::from_ptr(definition.key) }, key);
@@ -2779,14 +2554,22 @@ mod tests {
                     );
                     assert_eq!(unsafe { CStr::from_ptr(definition.values[2].value) }, c"0");
                 }
-                let rumble = unsafe { &*options.definitions.add(45) };
+                let source_keys: Vec<_> = self::options()
+                    .definitions
+                    .iter()
+                    .filter(|definition| !definition.key.is_null())
+                    .map(|definition| unsafe { CStr::from_ptr(definition.key) })
+                    .filter(|key| key.to_bytes().ends_with(b"_gain"))
+                    .collect();
+                assert_eq!(source_keys, AUDIO_GAIN_KEYS);
+                let rumble = unsafe { &*options.definitions.add(9) };
                 assert_eq!(
                     unsafe { CStr::from_ptr(rumble.key) },
                     c"tgpulse_next_gamepad_rumble"
                 );
                 assert_eq!(unsafe { CStr::from_ptr(rumble.default_value) }, c"enabled");
                 assert_eq!(unsafe { CStr::from_ptr(rumble.category_key) }, c"input");
-                let overlay = unsafe { &*options.definitions.add(46) };
+                let overlay = unsafe { &*options.definitions.add(10) };
                 assert_eq!(
                     unsafe { CStr::from_ptr(overlay.key) },
                     c"tgpulse_next_timing_overlay"
@@ -2828,11 +2611,11 @@ mod tests {
         }
         let option = unsafe { &mut *data.cast::<ffi::Variable>() };
         option.value = match unsafe { CStr::from_ptr(option.key) } {
-            value if value == c"tgpulse_next_vr_multipcm1_gain" => c"70".as_ptr(),
-            value if value == c"tgpulse_next_vr_multipcm2_gain" => c"Mute".as_ptr(),
-            value if value == c"tgpulse_next_vr_dsb_gain" => c"0".as_ptr(),
-            value if value == c"tgpulse_next_vr_ym3438_gain" => c"auto".as_ptr(),
-            _ => return false,
+            value if value == c"tgpulse_next_multipcm1_gain" => c"70".as_ptr(),
+            value if value == c"tgpulse_next_multipcm2_gain" => c"Mute".as_ptr(),
+            value if value == c"tgpulse_next_dsb_gain" => c"0".as_ptr(),
+            value if value == c"tgpulse_next_ym3438_gain" => c"auto".as_ptr(),
+            _ => panic!("unexpected source Gain key"),
         };
         true
     }
@@ -2893,7 +2676,7 @@ mod tests {
         let mut settings = Settings::default();
         assert_eq!(settings.audio_gains, AudioGains::REFERENCE);
         assert_eq!(settings.audio_mutes, AudioMutes::default());
-        update_audio_settings(&mut settings, audio_environment, "vr");
+        update_audio_settings(&mut settings, audio_environment);
         assert_eq!(settings.audio_gains.multipcm1, 70);
         assert_eq!(settings.audio_gains.multipcm2, 0);
         assert_eq!(settings.audio_gains.ym3438, 30);
@@ -2902,9 +2685,9 @@ mod tests {
         assert_eq!(settings.audio_mutes, AudioMutes::default());
         assert!(!settings.audio_mutes.multipcm1);
         assert!(!settings.audio_mutes.scsp);
-        update_audio_settings(&mut settings, audio_environment, "vformula");
+        update_audio_settings(&mut settings, no_rumble_environment);
         assert_eq!(settings.audio_gains, AudioGains::REFERENCE);
-        update_audio_settings(&mut settings, audio_environment, "vr");
+        update_audio_settings(&mut settings, audio_environment);
         assert_eq!(settings.audio_gains.multipcm1, 70);
         assert_eq!(settings.audio_gains.multipcm2, 0);
     }
@@ -2926,18 +2709,22 @@ mod tests {
     }
 
     #[test]
-    fn audio_option_visibility_follows_exact_set_and_fitted_board() {
-        for (set, dsb, visible) in [("wingwarj", false, 3), ("swaj", true, 4), ("", false, 0)] {
+    fn audio_option_visibility_follows_loaded_content_and_fitted_board() {
+        for (loaded, dsb, visible) in [(true, false, 3), (true, true, 4), (false, false, 0)] {
             AUDIO_VISIBILITY.lock().unwrap().clear();
-            publish_audio_option_visibility(audio_visibility_environment, set, dsb);
+            publish_audio_option_visibility(audio_visibility_environment, loaded, dsb);
             let calls = AUDIO_VISIBILITY.lock().unwrap();
-            assert_eq!(calls.len(), 40);
+            assert_eq!(calls.len(), 4);
             assert_eq!(
                 calls.iter().filter(|(_, enabled)| *enabled).count(),
                 visible
             );
-            for (key, _) in calls.iter().filter(|(_, enabled)| *enabled) {
-                assert!(key.starts_with(&format!("tgpulse_next_{set}_")));
+            for ((key, enabled), expected_key) in calls.iter().zip(AUDIO_GAIN_KEYS) {
+                assert_eq!(key, expected_key.to_str().unwrap());
+                assert_eq!(
+                    *enabled,
+                    loaded && (expected_key != AUDIO_GAIN_KEYS[3] || dsb)
+                );
             }
         }
     }
@@ -3169,9 +2956,18 @@ mod tests {
             if cmd == ffi::SET_VARIABLES {
                 let mut variables = data.cast::<ffi::Variable>();
                 let mut fields = 0;
+                let mut gains = Vec::new();
                 while !unsafe { (*variables).key }.is_null() {
                     let variable = unsafe { &*variables };
                     let key = unsafe { CStr::from_ptr(variable.key) };
+                    if key.to_bytes().ends_with(b"_gain") {
+                        gains.push(key);
+                        let text = unsafe { CStr::from_ptr(variable.value) }.to_str().unwrap();
+                        assert_eq!(
+                            text.split("; ").nth(1).unwrap().split('|').next(),
+                            Some("auto")
+                        );
+                    }
                     if let Some(field) = nvram::FIELDS.iter().find(|f| f.key == key) {
                         let text = unsafe { CStr::from_ptr(variable.value) }.to_str().unwrap();
                         assert_eq!(
@@ -3183,6 +2979,7 @@ mod tests {
                     variables = unsafe { variables.add(1) };
                 }
                 assert_eq!(fields, 39);
+                assert_eq!(gains, AUDIO_GAIN_KEYS);
                 return true;
             }
             false

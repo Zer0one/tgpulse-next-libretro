@@ -74,3 +74,20 @@ recipes and repeatable verification tools are in
 [the repository](https://github.com/Zer0one/tgpulse-next-libretro).
 Future implementation is tracked only in
 [the roadmap](https://github.com/Zer0one/tgpulse-next-libretro/blob/main/docs/LIBRETRO_ROADMAP.md).
+
+
+## Source Gain update in 0.1.0.1
+
+MultiPCM 1/2, FM (YM3438) and DSB (MPEG) Gain selectors are global across
+Model 1 sets, defaulting to Auto. Auto uses the standalone mix (50/50/30/100%).
+Mute and 0–100% in 10% steps apply immediately; DSB is shown only with a fitted
+board when frontend visibility hints are supported.
+
+The 0.1.0.0 set-qualified Gain keys are ignored. Existing values under the
+older global keys may become active again. To use the new defaults, select
+Auto for each source in Core Options and save the core options. Alternatively,
+with RetroArch closed and a backup saved, remove the obsolete source Gain/Mute
+entries from this core's options files. Do not remove NVRAM or unrelated keys.
+The core does not edit personal option files or migrate a title's gains into
+global settings automatically. Explicit frontend game-option overrides remain
+frontend behavior.
