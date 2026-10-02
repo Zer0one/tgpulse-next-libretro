@@ -56,7 +56,7 @@ python3 tools/package_libretro.py \
   --core target/release/libtgpulse_next_m1_libretro.dylib \
   --target aarch64-apple-darwin --offline \
   --output /private/tmp/model1-package \
-  --archive /private/tmp/tgpulse-next-m1-libretro-macos-arm64-0.1.0.zip
+  --archive /private/tmp/tgpulse-next-m1-libretro-macos-arm64-0.1.0.0.zip
 python3 tools/package_libretro.py --check --output /private/tmp/model1-package
 ```
 
@@ -70,9 +70,15 @@ binary bytes; this is not a claim of reproducibility across different hosts.
 ## Publish a preview
 
 Publication requires explicit user authorization. Prepare English release
-notes under `docs/releases/VERSION.md`, keep the runtime/Cargo/info version
+notes under `docs/releases/VERSION.md`, keep the runtime/info version
 consistent, commit the source and workflow, and create an annotated `vVERSION`
 tag at that verified source commit. Push to this repository's `origin`.
+
+The public core version follows the agreed four-component convention:
+`UPSTREAM_MAJOR.MINOR.PATCH.PORT_REVISION`, initially **0.1.0.0**. Runtime,
+`.info`, tag, release notes and ZIP names use that version. Cargo requires
+three-component SemVer; its upstream/workspace version remains `0.1.0` and
+is not substituted for the public Libretro version.
 
 A tag push builds the matrix and publishes a prerelease only after every gate
 passes. A workflow dispatch with `release_tag=vVERSION` checks out that exact

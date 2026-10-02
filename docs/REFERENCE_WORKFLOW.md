@@ -155,6 +155,9 @@ publishing; retain this project's independent Git history and remotes.
 
 1. Require explicit authorization for commit/push. Review the complete diff
    and the remote branch before staging only the intended project files.
+   Before a release, verify the agreed four-component public core version
+   (`UPSTREAM_MAJOR.MINOR.PATCH.PORT_REVISION`) in the runtime, `.info`, tag,
+   release notes and package names. Cargo's three-component SemVer is separate.
 2. Include the adapter, matching core metadata, English documentation, reviewed
    workbook, YAML, documentary screenshots, acquisition recipes and validated
    derived NVRAM tables. Keep ROMs, personal settings, raw Save RAM, build
