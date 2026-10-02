@@ -1,0 +1,98 @@
+set = "wingwar"
+
+[[actions]]
+frames = 1200
+
+[[actions]]
+frames = 60
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "volume-default"

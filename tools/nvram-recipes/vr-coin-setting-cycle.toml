@@ -1,0 +1,345 @@
+set = "vr"
+
+[[actions]]
+frames = 300
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "X"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-0"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-1"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-2"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-3"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-4"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-5"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-6"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-7"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-8"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-9"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-10"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-11"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-12"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-13"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-14"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-15"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-16"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-17"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-18"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-19"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-20"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-21"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-22"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-23"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-24"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-25"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-26"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "step-27"

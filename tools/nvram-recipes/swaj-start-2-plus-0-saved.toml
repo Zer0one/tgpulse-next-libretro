@@ -1,0 +1,141 @@
+set = "swaj"
+
+[[actions]]
+frames = 1200
+
+[[actions]]
+frames = 60
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+capture = "coin-selected"
+
+[[actions]]
+frames = 10
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "coin-page"
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+capture = "value-0"
+
+[[actions]]
+frames = 10
+buttons = ["L3"]
+
+[[actions]]
+frames = 30
+
+[[actions]]
+capture = "value-1"
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+capture = "exit-selected"
+
+[[actions]]
+frames = 10
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "committed"

@@ -1,0 +1,516 @@
+---
+schema_version: 1
+game:
+  set: vf
+  parent: vf
+verification:
+  status: partial
+  date: '2026-10-01'
+  method: direct_libretro_abi_test_menu_and_saved_srm
+  note: All 13 Game, Coin and Manual setting cycles and 98 values have documentary
+    screenshots, isolated saved samples, native EEPROM CRC checks and fresh-instance
+    menu reloads. Real frontend behavior remains pending.
+    INITIALIZE is an action, not a preset.
+  menu_evidence: docs/MODEL1_DIAGNOSTIC_SETTINGS_CATALOG.md
+nvram_layout:
+  storage: io_eeprom
+  size: 128
+  integrity:
+    status: verified_for_game_coin_manual_samples
+    algorithm: CRC-16/CCITT
+    polynomial: '0x1021'
+    initial_value: 0
+    stored_offsets:
+    - '0x08'
+    - '0x09'
+    stored_byte_order: big_endian
+    covered_offsets:
+    - '0x0c'
+    - '0x7f'
+    covered_byte_order: high_byte_first_in_each_little_endian_word
+  bookkeeping_offset: '0x0b'
+controls:
+  enter_test: L3
+  next_item: R3
+  change_value: L3
+menus:
+  game_assignments:
+    entry: Enter Test after attract, select GAME ASSIGNMENT, press Test
+    initial_selected_item: MATCH COUNT(1P)
+    options:
+    - key: match_count_1p
+      label: MATCH COUNT(1P)
+      position: 1
+      native_default: 2
+      observed_values:
+      - 2
+      - 3
+      - 4
+      - 5
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x31'
+        values:
+        - 2
+        - 3
+        - 4
+        - 5
+    - key: match_count_vs
+      label: MATCH COUNT(VS)
+      position: 2
+      native_default: 2
+      observed_values:
+      - 2
+      - 3
+      - 4
+      - 5
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x30'
+        values:
+        - 2
+        - 3
+        - 4
+        - 5
+    - key: difficulty
+      label: DIFFICULTY
+      position: 3
+      native_default: NORMAL
+      observed_values:
+      - NORMAL
+      - HARD
+      - HARDEST
+      - EASY
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      dependent_display: STAGE WIDTH and ENERGY change with difficulty
+      nvram:
+        eeprom_offset: '0x21'
+        values:
+        - 1
+        - 2
+        - 3
+        - 0
+    - key: advertise_sound
+      label: ADVERTISE SOUND
+      position: 4
+      native_default: 'ON'
+      observed_values:
+      - 'ON'
+      - 'OFF'
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x3b'
+        values:
+        - 1
+        - 0
+    - key: continue
+      label: CONTINUE
+      position: 5
+      native_default: 'ON'
+      observed_values:
+      - 'ON'
+      - 'OFF'
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x36'
+        values:
+        - 1
+        - 0
+    - key: country
+      label: COUNTRY
+      position: 6
+      native_default: JAPAN
+      observed_values:
+      - JAPAN
+      - USA
+      - EXPORT
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x1a'
+        values:
+        - 0
+        - 1
+        - 2
+    - key: cabinet_type
+      label: CABINET TYPE
+      position: 7
+      native_default: SUPER MEGALO
+      observed_values:
+      - SUPER MEGALO
+      - ASTRO CITY2
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x1b'
+        values:
+        - 0
+        - 1
+    actions:
+    - INITIALIZE
+    - EXIT
+  coin_assignments:
+    entry: Enter Test after attract, select COIN ASSIGNMENT, press Test
+    initial_selected_item: EXIT
+    options:
+    - key: credit_start_continue
+      label: CREDIT TO START / CREDIT TO CONTINUE
+      position: 1
+      native_default: 1 START / 1 CONTINUE
+      observed_values:
+      - 1 START / 1 CONTINUE
+      - 2 START / 1 CONTINUE
+      - 2 START / 2 CONTINUE
+      - 3 START / 1 CONTINUE
+      - 3 START / 2 CONTINUE
+      - 3 START / 3 CONTINUE
+      - 4 START / 1 CONTINUE
+      - 4 START / 2 CONTINUE
+      - 4 START / 3 CONTINUE
+      - 4 START / 4 CONTINUE
+      - 5 START / 1 CONTINUE
+      - 5 START / 2 CONTINUE
+      - 5 START / 3 CONTINUE
+      - 5 START / 4 CONTINUE
+      - 5 START / 5 CONTINUE
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offsets:
+        - '0x14'
+        - '0x17'
+        values:
+        - - 1
+          - 1
+        - - 2
+          - 1
+        - - 2
+          - 2
+        - - 3
+          - 1
+        - - 3
+          - 2
+        - - 3
+          - 3
+        - - 4
+          - 1
+        - - 4
+          - 2
+        - - 4
+          - 3
+        - - 4
+          - 4
+        - - 5
+          - 1
+        - - 5
+          - 2
+        - - 5
+          - 3
+        - - 5
+          - 4
+        - - 5
+          - 5
+    - key: coin_credit_setting
+      label: COIN/CREDIT SETTING
+      position: 2
+      native_default: 1
+      observed_values:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - 13
+      - 14
+      - 15
+      - 16
+      - 17
+      - 18
+      - 19
+      - 20
+      - 21
+      - 22
+      - 23
+      - 24
+      - 25
+      - 26
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      dependent_display: 'COIN CHUTE #1 and #2 ratios including FREE PLAY'
+      nvram:
+        eeprom_offsets:
+        - '0x10'
+        - '0x11'
+        - '0x12'
+        - '0x13'
+        - '0x15'
+        values:
+        - - 1
+          - 0
+          - 1
+          - 1
+          - 0
+        - - 1
+          - 1
+          - 2
+          - 1
+          - 0
+        - - 1
+          - 2
+          - 3
+          - 1
+          - 0
+        - - 1
+          - 3
+          - 4
+          - 1
+          - 0
+        - - 1
+          - 4
+          - 5
+          - 1
+          - 0
+        - - 1
+          - 5
+          - 2
+          - 2
+          - 0
+        - - 1
+          - 6
+          - 5
+          - 2
+          - 0
+        - - 1
+          - 7
+          - 3
+          - 3
+          - 0
+        - - 1
+          - 8
+          - 4
+          - 4
+          - 0
+        - - 1
+          - 9
+          - 5
+          - 5
+          - 0
+        - - 1
+          - 10
+          - 6
+          - 6
+          - 0
+        - - 2
+          - 11
+          - 1
+          - 1
+          - 0
+        - - 2
+          - 12
+          - 2
+          - 1
+          - 0
+        - - 2
+          - 13
+          - 4
+          - 1
+          - 0
+        - - 1
+          - 14
+          - 1
+          - 1
+          - 2
+        - - 1
+          - 15
+          - 2
+          - 1
+          - 2
+        - - 3
+          - 16
+          - 1
+          - 1
+          - 0
+        - - 4
+          - 17
+          - 1
+          - 1
+          - 0
+        - - 1
+          - 18
+          - 1
+          - 1
+          - 4
+        - - 1
+          - 19
+          - 4
+          - 1
+          - 4
+        - - 3
+          - 20
+          - 5
+          - 1
+          - 5
+        - - 2
+          - 21
+          - 1
+          - 1
+          - 5
+        - - 2
+          - 22
+          - 5
+          - 1
+          - 5
+        - - 1
+          - 23
+          - 1
+          - 1
+          - 5
+        - - 1
+          - 24
+          - 5
+          - 1
+          - 5
+        - - 1
+          - 25
+          - 1
+          - 1
+          - 1
+    actions:
+    - MANUAL SETTING
+    - EXIT
+  manual_setting:
+    entry: Enter Test after attract, select COIN ASSIGNMENT then MANUAL SETTING
+    initial_selected_item: EXIT
+    options:
+    - key: coin_to_credit
+      label: COIN TO CREDIT
+      position: 1
+      native_default: 1 COIN(S) 1 CREDIT(S)
+      observed_values:
+      - 1 COIN(S) 1 CREDIT(S)
+      - 2 COIN(S) 1 CREDIT(S)
+      - 3 COIN(S) 1 CREDIT(S)
+      - 4 COIN(S) 1 CREDIT(S)
+      - 5 COIN(S) 1 CREDIT(S)
+      - 6 COIN(S) 1 CREDIT(S)
+      - 7 COIN(S) 1 CREDIT(S)
+      - 8 COIN(S) 1 CREDIT(S)
+      - 9 COIN(S) 1 CREDIT(S)
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x10'
+        values:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+    - key: bonus_adder
+      label: BONUS ADDER
+      position: 2
+      native_default: NO BONUS ADDER
+      observed_values:
+      - NO BONUS ADDER
+      - 2 COIN(S) GIVE 1 EXTRA COIN
+      - 3 COIN(S) GIVE 1 EXTRA COIN
+      - 4 COIN(S) GIVE 1 EXTRA COIN
+      - 5 COIN(S) GIVE 1 EXTRA COIN
+      - 6 COIN(S) GIVE 1 EXTRA COIN
+      - 7 COIN(S) GIVE 1 EXTRA COIN
+      - 8 COIN(S) GIVE 1 EXTRA COIN
+      - 9 COIN(S) GIVE 1 EXTRA COIN
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x15'
+        values:
+        - 0
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+    - key: coin_chute_1_multiplier
+      label: 'COIN CHUTE #1 MULTIPLIER'
+      position: 3
+      native_default: 1 COIN COUNTS AS 1 COIN(S)
+      observed_values:
+      - 1 COIN COUNTS AS 1 COIN(S)
+      - 1 COIN COUNTS AS 2 COIN(S)
+      - 1 COIN COUNTS AS 3 COIN(S)
+      - 1 COIN COUNTS AS 4 COIN(S)
+      - 1 COIN COUNTS AS 5 COIN(S)
+      - 1 COIN COUNTS AS 6 COIN(S)
+      - 1 COIN COUNTS AS 7 COIN(S)
+      - 1 COIN COUNTS AS 8 COIN(S)
+      - 1 COIN COUNTS AS 9 COIN(S)
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x13'
+        values:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+    - key: coin_chute_2_multiplier
+      label: 'COIN CHUTE #2 MULTIPLIER'
+      position: 4
+      native_default: 1 COIN COUNTS AS 1 COIN(S)
+      observed_values:
+      - 1 COIN COUNTS AS 1 COIN(S)
+      - 1 COIN COUNTS AS 2 COIN(S)
+      - 1 COIN COUNTS AS 3 COIN(S)
+      - 1 COIN COUNTS AS 4 COIN(S)
+      - 1 COIN COUNTS AS 5 COIN(S)
+      - 1 COIN COUNTS AS 6 COIN(S)
+      - 1 COIN COUNTS AS 7 COIN(S)
+      - 1 COIN COUNTS AS 8 COIN(S)
+      - 1 COIN COUNTS AS 9 COIN(S)
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x12'
+        values:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+
+# User-approved integration; acquisition evidence above retains its original date.
+core_options_review:
+  date: "2026-10-02"
+  status: approved_and_implemented
+  authority: docs/model1_core_options_review.xlsx
+  nvram_settings: ["difficulty", "advertise_sound", "continue", "country", "cabinet_type"]
+  automatic_startup_values: {"COUNTRY": "EXPORT"}

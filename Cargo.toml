@@ -10,6 +10,7 @@ members = [
     "crates/sharc",
     "crates/sega-crypt",
     "crates/tgpulse-core",
+    "crates/tgpulse-libretro",
     "crates/tgpulse",
 ]
 

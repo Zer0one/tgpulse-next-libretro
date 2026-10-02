@@ -307,6 +307,27 @@ pub fn identify(names: &[String]) -> Option<&'static GameDef> {
     best.map(|(g, _)| g)
 }
 
+/// Identifies only self-contained archives. The standalone library uses
+/// `identify` for diagnostics on partial sets; a Libretro frontend can use
+/// this stricter query before loading a machine from one ZIP.
+pub fn identify_complete(names: &[String]) -> Option<&'static GameDef> {
+    let present: std::collections::HashSet<&str> = names.iter().map(String::as_str).collect();
+    GAMES
+        .iter()
+        .filter_map(|game| {
+            let mut count = 0;
+            for file in game.files() {
+                if !present.contains(file) {
+                    return None;
+                }
+                count += 1;
+            }
+            (count > 0).then_some((game, count))
+        })
+        .max_by_key(|(_, count)| *count)
+        .map(|(game, _)| game)
+}
+
 /// Builds every ROM region for a game by applying its load and copy directives
 /// to the files in the archive. Missing files are warned about and skipped, so
 /// a split or incomplete set still produces as much as it can. Model 1 DSB
@@ -384,6 +405,14 @@ fn apply_load(dest: &mut [u8], load: &Load, data: &[u8]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn complete_identification_rejects_ambiguous_partial_archive() {
+        let vr = GAMES.iter().find(|game| game.name == "vr").unwrap();
+        let names: Vec<String> = vr.files().map(str::to_owned).collect();
+        assert_eq!(identify_complete(&names).unwrap().name, "vr");
+        assert!(identify_complete(&names[..1]).is_none());
+    }
 
     #[test]
     fn dsb_chip_size_must_match_instead_of_filling_missing_audio_with_zeroes() {

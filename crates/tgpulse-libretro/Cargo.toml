@@ -1,0 +1,18 @@
+[package]
+name = "tgpulse-libretro"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Experimental Model 1 Libretro frontend for TGPulse-Next"
+
+[lib]
+name = "tgpulse_next_m1_libretro"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+tgpulse-core = { workspace = true }
+imgui = { workspace = true }
+ash = { version = "0.37", default-features = false }
+naga = { version = "0.19", features = ["wgsl-in", "spv-out", "glsl-out"] }
+bytemuck = { workspace = true }
+glow = "0.13"

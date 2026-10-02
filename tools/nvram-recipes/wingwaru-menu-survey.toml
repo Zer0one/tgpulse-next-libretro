@@ -1,0 +1,20 @@
+set = "wingwaru"
+
+[[actions]]
+frames = 1200
+
+[[actions]]
+capture = "attract-1200"
+
+[[actions]]
+frames = 60
+buttons = ["L3"]
+
+[[actions]]
+capture = "test-pressed-1260"
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "test-released-1320"

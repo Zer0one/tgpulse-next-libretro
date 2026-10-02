@@ -300,3 +300,11 @@ ROM-directory resolution and missing-profile diagnostics without accessing saves
 The toolkit launchers are maintained/deployed in their separate
 repository; no current/rolling binary, dependency or user NVRAM is changed.
 These checks do not establish a real two-cabinet VR race.
+
+## Libretro host adaptation — 2026-10-02
+
+The independent Libretro adapter now supplies frontend-owned Netpacket transport
+for the same unmodified Model 1 board. Per-set operator roles remain native.
+See [the Libretro linked-cabinet guide](LIBRETRO_MODEL1_LINKED_CABINETS.md) for
+startup, persistence restrictions, reusable multi-instance checks and evidence.
+Earlier desktop checkpoints above retain their original evidence scope.

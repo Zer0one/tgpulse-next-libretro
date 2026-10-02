@@ -1,0 +1,629 @@
+---
+schema_version: 1
+game:
+  set: wingwarj
+  parent: wingwar
+verification:
+  status: partial
+  date: '2026-10-01'
+  method: direct_libretro_abi_test_menu_and_saved_srm
+  note: All 14 catalogued setting cycles and 134 values have documentary screenshots,
+    isolated saved samples, native EEPROM CRC and mirror checks, byte mappings and
+    fresh-instance menu reloads. Real frontend behavior remains pending.
+  menu_evidence: docs/MODEL1_DIAGNOSTIC_SETTINGS_CATALOG.md
+nvram_layout:
+  storage: io_eeprom
+  size: 128
+  integrity:
+    status: verified_for_catalogued_settings
+    algorithm: CRC-16/CCITT
+    polynomial: '0x1021'
+    initial_value: '0x3a19'
+    stored_offsets:
+    - '0x08'
+    - '0x09'
+    stored_byte_order: little_endian
+    covered_offsets:
+    - '0x0a'
+    - '0x41'
+    covered_byte_order: stored_byte_order
+  bookkeeping_offset: '0x0a'
+  mirror:
+    primary_offsets:
+    - '0x06'
+    - '0x3b'
+    copy_offsets:
+    - '0x42'
+    - '0x77'
+controls:
+  enter_test: L3
+  next_item: R3
+  change_value: L3
+menus:
+  communication_setting:
+    entry: Enter Test after attract, select COMMUNICATION SETTING, press Test
+    initial_selected_item: EXIT
+    options:
+    - key: network
+      label: NETWORK
+      position: 1
+      native_default: STAND ALONE
+      observed_values:
+      - STAND ALONE
+      - MASTER
+      - SLAVE
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offsets:
+        - '0x24'
+        - '0x25'
+        values:
+        - - 0
+          - 1
+        - - 1
+          - 1
+        - - 1
+          - 2
+  game_assignments:
+    entry: Enter Test after attract, select GAME ASSIGNMENTS, press Test
+    initial_selected_item: EXIT
+    options:
+    - key: game_difficulty
+      label: GAME DIFFICULTY
+      position: 1
+      native_default: 3
+      observed_values:
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 1
+      - 2
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x17'
+        values:
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 0
+        - 1
+    - key: expert_mode_game_time
+      label: EXPERT MODE GAME TIME
+      position: 2
+      native_default: 120
+      observed_values:
+      - 120
+      - 135
+      - 150
+      - 165
+      - 180
+      - 195
+      - 210
+      - 225
+      - 240
+      - 255
+      - 270
+      - 285
+      - 300
+      - 60
+      - 75
+      - 90
+      - 105
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x1d'
+        values:
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 0
+        - 1
+        - 2
+        - 3
+    - key: dog_fight_mode_life
+      label: DOG FIGHT MODE LIFE
+      position: 3
+      native_default: 36
+      observed_values:
+      - 36
+      - 40
+      - 44
+      - 48
+      - 52
+      - 56
+      - 60
+      - 64
+      - 16
+      - 20
+      - 24
+      - 28
+      - 32
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x19'
+        values:
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+    - key: expert_mode_life
+      label: EXPERT MODE LIFE
+      position: 4
+      native_default: 24
+      observed_values:
+      - 24
+      - 28
+      - 32
+      - 36
+      - 40
+      - 44
+      - 48
+      - 52
+      - 56
+      - 60
+      - 64
+      - 16
+      - 20
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x1a'
+        values:
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 0
+        - 1
+    - key: dog_fight_mode_life_us
+      label: DOG FIGHT MODE LIFE (US)
+      position: 5
+      native_default: 32
+      observed_values:
+      - 32
+      - 36
+      - 40
+      - 44
+      - 48
+      - 52
+      - 56
+      - 60
+      - 64
+      - 16
+      - 20
+      - 24
+      - 28
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x1b'
+        values:
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 0
+        - 1
+        - 2
+        - 3
+    - key: expert_mode_life_us
+      label: EXPERT MODE LIFE (US)
+      position: 6
+      native_default: 20
+      observed_values:
+      - 20
+      - 24
+      - 28
+      - 32
+      - 36
+      - 40
+      - 44
+      - 48
+      - 52
+      - 56
+      - 60
+      - 64
+      - 16
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x1c'
+        values:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 0
+    - key: advertise_sound
+      label: ADVERTISE SOUND
+      position: 7
+      native_default: 'ON'
+      observed_values:
+      - 'ON'
+      - 'OFF'
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x18'
+        values:
+        - 0
+        - 1
+  coin_assignments:
+    entry: Enter Test after attract, select COIN ASSIGNMENTS, press Test
+    initial_selected_item: EXIT
+    options:
+    - key: credit_to_start
+      label: CREDIT TO START
+      position: 1
+      native_default: 2
+      observed_values:
+      - 2
+      - 3
+      - 4
+      - 5
+      - 1
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x14'
+        values:
+        - 2
+        - 3
+        - 4
+        - 5
+        - 1
+    - key: credit_to_continue
+      label: CREDIT TO CONTINUE
+      position: 2
+      native_default: 2
+      observed_values:
+      - 2
+      - 3
+      - 4
+      - 5
+      - 1
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offset: '0x15'
+        values:
+        - 2
+        - 3
+        - 4
+        - 5
+        - 1
+    - key: coin_credit_setting
+      label: COIN/CREDIT SETTING
+      position: 3
+      native_default: 1
+      observed_values:
+      - 1
+      - 6
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - 15
+      - 17
+      - 18
+      - 19
+      - 21
+      - 22
+      - 24
+      - 26
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offsets:
+        - '0x0e'
+        - '0x0f'
+        - '0x10'
+        - '0x11'
+        - '0x12'
+        - '0x13'
+        values:
+        - - 0
+          - 0
+          - 1
+          - 1
+          - 1
+          - 0
+        - - 5
+          - 0
+          - 1
+          - 2
+          - 2
+          - 0
+        - - 7
+          - 0
+          - 1
+          - 3
+          - 3
+          - 0
+        - - 8
+          - 0
+          - 1
+          - 4
+          - 4
+          - 0
+        - - 9
+          - 0
+          - 1
+          - 5
+          - 5
+          - 0
+        - - 10
+          - 0
+          - 1
+          - 6
+          - 6
+          - 0
+        - - 11
+          - 0
+          - 2
+          - 1
+          - 1
+          - 0
+        - - 14
+          - 0
+          - 1
+          - 1
+          - 1
+          - 2
+        - - 16
+          - 0
+          - 3
+          - 1
+          - 1
+          - 0
+        - - 17
+          - 0
+          - 4
+          - 1
+          - 1
+          - 0
+        - - 18
+          - 0
+          - 1
+          - 1
+          - 1
+          - 4
+        - - 20
+          - 0
+          - 3
+          - 1
+          - 5
+          - 5
+        - - 21
+          - 0
+          - 2
+          - 1
+          - 1
+          - 5
+        - - 23
+          - 0
+          - 1
+          - 1
+          - 1
+          - 5
+        - - 25
+          - 128
+          - 1
+          - 1
+          - 1
+          - 5
+  manual_setting:
+    entry: Enter Test after attract, select COIN ASSIGNMENTS then MANUAL SETTING
+    initial_selected_item: EXIT
+    options:
+    - key: coin_to_credit
+      label: COIN TO CREDIT
+      position: 1
+      native_default: 1 COIN 1 CREDIT
+      observed_values:
+      - 1 COIN 1 CREDIT
+      - 2 COINS 1 CREDIT
+      - 3 COINS 1 CREDIT
+      - 4 COINS 1 CREDIT
+      - 5 COINS 1 CREDIT
+      - 6 COINS 1 CREDIT
+      - 7 COINS 1 CREDIT
+      - 8 COINS 1 CREDIT
+      - 9 COINS 1 CREDIT
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offsets:
+        - '0x0f'
+        - '0x10'
+        values:
+        - - 0
+          - 1
+        - - 64
+          - 2
+        - - 64
+          - 3
+        - - 64
+          - 4
+        - - 64
+          - 5
+        - - 64
+          - 6
+        - - 64
+          - 7
+        - - 64
+          - 8
+        - - 64
+          - 9
+    - key: bonus_adder
+      label: BONUS ADDER
+      position: 2
+      native_default: NO BONUS ADDER
+      observed_values:
+      - NO BONUS ADDER
+      - 2 COINS GIVE 1 EXTRA COIN
+      - 3 COINS GIVE 1 EXTRA COIN
+      - 4 COINS GIVE 1 EXTRA COIN
+      - 5 COINS GIVE 1 EXTRA COIN
+      - 6 COINS GIVE 1 EXTRA COIN
+      - 7 COINS GIVE 1 EXTRA COIN
+      - 8 COINS GIVE 1 EXTRA COIN
+      - 9 COINS GIVE 1 EXTRA COIN
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offsets:
+        - '0x0f'
+        - '0x13'
+        values:
+        - - 0
+          - 0
+        - - 64
+          - 2
+        - - 64
+          - 3
+        - - 64
+          - 4
+        - - 64
+          - 5
+        - - 64
+          - 6
+        - - 64
+          - 7
+        - - 64
+          - 8
+        - - 64
+          - 9
+    - key: coin_chute_1_multiplier
+      label: 'COIN CHUTE #1 MULTIPLIER'
+      position: 3
+      native_default: 1 COIN COUNT AS 1 COIN
+      observed_values:
+      - 1 COIN COUNT AS 1 COIN
+      - 1 COIN COUNT AS 2 COINS
+      - 1 COIN COUNT AS 3 COINS
+      - 1 COIN COUNT AS 4 COINS
+      - 1 COIN COUNT AS 5 COINS
+      - 1 COIN COUNT AS 6 COINS
+      - 1 COIN COUNT AS 7 COINS
+      - 1 COIN COUNT AS 8 COINS
+      - 1 COIN COUNT AS 9 COINS
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      nvram:
+        eeprom_offsets:
+        - '0x0f'
+        - '0x11'
+        values:
+        - - 0
+          - 1
+        - - 64
+          - 2
+        - - 64
+          - 3
+        - - 64
+          - 4
+        - - 64
+          - 5
+        - - 64
+          - 6
+        - - 64
+          - 7
+        - - 64
+          - 8
+        - - 64
+          - 9
+calibration:
+  volume_setting:
+    type: three_axis_range_procedure
+    axes:
+    - STICK LR
+    - STICK FR
+    - THROTTLE
+    actions:
+    - CANCEL & EXIT
+    - SET & EXIT
+    eeprom_offsets:
+    - '0x1e'
+    - '0x1f'
+    - '0x20'
+    - '0x21'
+    - '0x22'
+    - '0x23'
+    initial_endpoints:
+    - 0
+    - 255
+    - 0
+    - 255
+    - 0
+    - 255
+    full_range_sample_endpoints:
+    - 0
+    - 255
+    - 0
+    - 255
+    - 1
+    - 255
+    sample_status: full_range_saved_and_reloaded_direct_abi
+    recipe: tools/nvram-recipes/wingwarj-volume-calibration.toml
+    note: Simulated full analog sweep, then held Test on SET & EXIT and exited the
+      root Test menu. This is a calibration procedure, not a discrete Core Option
+      or transferable user preset.
+
+# User-approved integration; acquisition evidence above retains its original date.
+core_options_review:
+  date: "2026-10-02"
+  status: approved_and_implemented
+  authority: docs/model1_core_options_review.xlsx
+  nvram_settings: ["network", "game_difficulty", "advertise_sound"]
+  automatic_startup_values: {"NETWORK": "STAND ALONE"}

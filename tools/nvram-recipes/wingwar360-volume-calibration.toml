@@ -1,0 +1,159 @@
+set = "wingwar360"
+
+[[actions]]
+frames = 1200
+
+[[actions]]
+frames = 60
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "before"
+
+[[actions]]
+frames = 60
+analog = {left_x = -32768, left_y = -32768, l2 = 0, r2 = 32767}
+
+[[actions]]
+capture = "low"
+
+[[actions]]
+frames = 60
+analog = {left_x = 32767, left_y = 32767, l2 = 32767, r2 = 0}
+
+[[actions]]
+capture = "high"
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "swept"
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 60
+buttons = ["L3"]
+
+[[actions]]
+frames = 120
+
+[[actions]]
+capture = "after-set"
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["R3"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 60
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "committed"

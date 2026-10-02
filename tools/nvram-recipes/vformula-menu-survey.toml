@@ -1,0 +1,8 @@
+set = "vformula"
+
+[[actions]]
+frames = 120
+buttons = ["L3"]
+
+[[actions]]
+capture = "test-entry-120"

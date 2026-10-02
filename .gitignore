@@ -1,5 +1,11 @@
 # Build output.
 /target
+/outputs/
+__pycache__/
+*.pyc
+/validation/nvram-campaigns/
+/validation/savestate-frontend/
+/validation/gameplay-frontend/
 
 # The NDK's C++ runtime, copied in per ABI so `cargo apk` can package it --
 # see docs/BUILDING.md. It belongs to whichever NDK built the library, so it

@@ -145,6 +145,7 @@ fn build_model1(
     mut regions: std::collections::HashMap<String, Vec<u8>>,
     ioboard_config: Vec<u8>,
     ioboard_kind: crate::model1board::Kind,
+    apply_known_rom_repairs: bool,
 ) -> Result<Model1Roms, String> {
     let dsb = match (
         regions.remove("dsbz80:mpegcpu"),
@@ -184,7 +185,9 @@ fn build_model1(
         },
         tgp: {
             let mut program = take(&mut regions, "tgp_copro", 0x2000);
-            repair_315_5711(&mut program);
+            if apply_known_rom_repairs {
+                repair_315_5711(&mut program);
+            }
             program
         },
         nvram_default: take(&mut regions, "nvram", 0),
@@ -265,6 +268,15 @@ pub fn archive_names(path: &str) -> Result<Vec<String>, String> {
 /// Loads a Model 1 game, dispatching on the ROM set in the archive: Virtua
 /// Racing (315-5573 TGP program) or Virtua Fighter (315-5724).
 pub fn load_model1_zip(path: &str) -> Result<Model1Roms, String> {
+    load_model1_zip_with_options(path, true)
+}
+
+/// Loads Model 1 content with an explicit policy for recognized legacy bad
+/// dumps. Only the fully SHA-1-identified 315-5711 program is repaired, in RAM.
+pub fn load_model1_zip_with_options(
+    path: &str,
+    apply_known_rom_repairs: bool,
+) -> Result<Model1Roms, String> {
     let names = archive_names(path)?;
     let def = crate::roms_db::identify(&names)
         .ok_or_else(|| format!("{path}: no matching Model 1 game in the ROM database"))?;
@@ -282,6 +294,7 @@ pub fn load_model1_zip(path: &str) -> Result<Model1Roms, String> {
         regions,
         ioboard_config,
         crate::model1board::Kind::for_set(&def.name),
+        apply_known_rom_repairs,
     )?;
     roms.comm_board = crate::model1comm::present_for_set(&def.name);
     Ok(roms)
@@ -377,7 +390,8 @@ mod model1_tests {
             ]
             .into_iter()
             .collect();
-            let r = build_model1(regions, vec![], crate::model1board::Kind::Original).unwrap();
+            let r =
+                build_model1(regions, vec![], crate::model1board::Kind::Original, true).unwrap();
             let d = r.dsb.unwrap();
             assert_eq!(d.firmware, vec![0x5a; 0x20000]);
             assert_eq!(d.mpeg, vec![0xa5; size]);
@@ -386,7 +400,8 @@ mod model1_tests {
             assert!(build_model1(
                 [(name.into(), vec![0; 0x20000])].into_iter().collect(),
                 vec![],
-                crate::model1board::Kind::Original
+                crate::model1board::Kind::Original,
+                true
             )
             .is_err());
         }
@@ -413,7 +428,7 @@ mod model1_tests {
             .into_iter()
             .collect();
         assert_eq!(
-            build_model1(regions, vec![], crate::model1board::Kind::Original)
+            build_model1(regions, vec![], crate::model1board::Kind::Original, true)
                 .unwrap()
                 .nvram_default,
             factory
@@ -428,6 +443,7 @@ mod model1_tests {
         let path = std::env::var("TGPULSE_MODEL1_TEST_ZIP").expect("ROM ZIP path");
         let mut archive = ZipArchive::new(File::open(&path).unwrap()).unwrap();
         let mut program = read_chip(&mut archive, "315-5711.bin").unwrap();
+        let original = program.clone();
         repair_315_5711(&mut program);
         assert_eq!(
             format!("{:x}", Sha1::digest(&program)),
@@ -444,6 +460,14 @@ mod model1_tests {
         );
         assert!(repair_315_5711(&mut program));
         assert_eq!(program, corrected);
+        assert_eq!(
+            load_model1_zip_with_options(&path, false).unwrap().tgp,
+            original
+        );
+        assert_eq!(
+            load_model1_zip_with_options(&path, true).unwrap().tgp,
+            corrected
+        );
         assert_eq!(load_model1_zip(&path).unwrap().tgp, corrected);
     }
 }

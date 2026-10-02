@@ -1,0 +1,154 @@
+set = "vformula"
+
+[[actions]]
+frames = 1200
+
+[[actions]]
+frames = 60
+buttons = ["L3"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+capture = "game-selected"
+
+[[actions]]
+frames = 10
+buttons = ["X"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "game-page"
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+capture = "value-0"
+
+[[actions]]
+frames = 10
+buttons = ["A"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+capture = "value-1"
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+capture = "exit-selected"
+
+[[actions]]
+frames = 10
+buttons = ["X"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "after-exit"
+
+[[actions]]
+frames = 10
+buttons = ["B"]
+
+[[actions]]
+frames = 20
+
+[[actions]]
+capture = "yes-selected"
+
+[[actions]]
+frames = 10
+buttons = ["X"]
+
+[[actions]]
+frames = 60
+
+[[actions]]
+capture = "after-yes"

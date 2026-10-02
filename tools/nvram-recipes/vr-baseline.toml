@@ -1,0 +1,13 @@
+set = "vr"
+
+[[actions]]
+frames = 120
+
+[[actions]]
+capture = "boot-120"
+
+[[actions]]
+frames = 480
+
+[[actions]]
+capture = "boot-600"

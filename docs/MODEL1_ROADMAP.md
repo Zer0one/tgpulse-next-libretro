@@ -1,5 +1,9 @@
 # Model 1 roadmap
 
+This is the imported TGPulse-Next standalone source plan. The independent
+Libretro port has one active implementation plan:
+[TGPulse-Next Libretro roadmap](LIBRETRO_ROADMAP.md).
+
 Baseline: 2026-09-27. This is a source-backed work plan, not a claim that every
 game is playable. Keep these changes isolated from Model 2 and from the separate
 macos-emulation-toolkit and MAME projects.

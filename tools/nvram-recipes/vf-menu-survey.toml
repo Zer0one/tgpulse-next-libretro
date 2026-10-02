@@ -1,0 +1,22 @@
+set = "vf"
+
+[[actions]]
+frames = 120
+buttons = ["L3"]
+
+[[actions]]
+capture = "test-entry-120"
+
+[[actions]]
+frames = 180
+buttons = ["L3"]
+
+[[actions]]
+capture = "test-entry-300"
+
+[[actions]]
+frames = 300
+buttons = ["L3"]
+
+[[actions]]
+capture = "test-entry-600"

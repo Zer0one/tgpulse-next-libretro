@@ -1,0 +1,168 @@
+set = "vr"
+
+[[actions]]
+frames = 300
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "X"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "A"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "changed"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "exit-selected"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "X"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "save-prompt"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "B"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+capture = "yes-selected"
+
+[[actions]]
+frames = 10
+buttons = ["L3", "X"]
+
+[[actions]]
+frames = 20
+buttons = ["L3"]
+
+[[actions]]
+frames = 120
+buttons = ["L3"]
+
+[[actions]]
+capture = "saved"

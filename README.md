@@ -1,6 +1,6 @@
 # TGPulse-Next Libretro
 
-This is an independent repository for a future Libretro core named
+This is an independent repository for a Libretro core named
 `tgpulse-next-libretro`, initially targeting Sega Model 1. It is **not** a
 GitHub fork of either source repository. The initial tree is a snapshot of
 [TGPulse-Next](https://github.com/Zer0one/TGPulse-Next) `main` at
@@ -9,10 +9,107 @@ GitHub fork of either source repository. The initial tree is a snapshot of
 as a fresh history; the remotes `upstream-next` and `upstream-original` retain
 access to both source histories.
 
-**Bootstrap status:** no Libretro adapter or playable core has been implemented
-in this repository yet. The standalone source and its documentation below are
-preserved as the emulation baseline. SM2-Emu Libretro is an architectural and
+**Port status:** an experimental Libretro adapter lives in
+`crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
+Virtua Fighter, Wing War, Star Wars Arcade Pilot/Gunner and experimental
+NetMerc input profiles. It has native software and frontend-owned Vulkan/OpenGL compute video, stereo audio, RetroPad
+controls, named cabinet controllers and Core Options for timing, aspect, audio,
+VR-family rumble and ROM compatibility. Save RAM and Save States
+are exposed through Libretro. An isolated RetroArch input replay has reached a
+Virtua Racing race; physical controller and broader gameplay validation remain
+pending. The
+standalone source remains buildable. SM2-Emu Libretro is an architectural and
 workflow reference, not vendored code.
+
+The [Libretro implementation roadmap](docs/LIBRETRO_ROADMAP.md) lists the
+remaining port features. User-run game and controller trials are outside it.
+
+The [preliminary Model 1 frontend map](docs/LIBRETRO_MODEL1_FRONTEND_MAP.md)
+records the first porting checkpoint: applicable SM2-Emu patterns, TGPulse
+machine interfaces, control profiles and initial Core Options.
+
+Build the development core without downloading dependencies:
+
+```sh
+cargo build --offline --release -p tgpulse-libretro
+```
+
+The library appears under `target/release/` as
+`libtgpulse_next_m1_libretro.dylib` on macOS,
+`libtgpulse_next_m1_libretro.so` on Linux or
+`tgpulse_next_m1_libretro.dll` on Windows. macOS ARM64 and Linux x86_64 builds have been verified. Windows has not been
+built in this phase.
+After each verified macOS release build, install the development copy as
+`~/Library/Application Support/RetroArch/cores/tgpulse_next_dev_m1_libretro.dylib`
+and its matching metadata as
+`~/Library/Application Support/RetroArch/info/tgpulse_next_dev_m1_libretro.info`.
+Label the installed metadata **Sega - Model 1 (TGPulse-Next Development)** and compare the
+installed core's SHA-256 with `target/release/libtgpulse_next_m1_libretro.dylib`.
+Its Core Name is **TGPulse-Next: Model 1 Development**; Core Label uses the
+descriptive Sega/Model 1 name above.
+The current M1 artifact is an interim Model 1 core; the future real Tiny build
+will replace it after component selection is implemented.
+Keep updater-managed cores, ROMs, personal settings and saves untouched.
+
+The `A/V Timing` Core Option defaults to native Model 1 timing (about
+57.524 Hz). Its optional 60 Hz mode advances and renders a new machine frame
+on every callback, making gameplay and sound about 4.3% faster. It resamples
+audio to the same frontend output rate. Reload content after changing it.
+The `Aspect Ratio` option defaults to Auto: Virtua Racing follows its saved
+monitor setting, while other Model 1 sets use 4:3 unless explicitly overridden.
+Software retains 496×384 output. Hardware expansion follows the effective wide aspect and the selected Widescreen Mode.
+`Driving Steering Output Range`, `Driving Accelerator Output Range` and
+`Driving Brake Output Range` apply to VR/VFormula: 50–150% in 10% steps,
+default 100%, with immediate updates. Scaling respects Model 1 center/rest and
+native limits. Other profiles hide these options when frontend display hints
+are supported. Frontend remapping still owns physical input assignments.
+`Driving Steering Response` applies to VR/VFormula and defaults to Linear.
+Progressive (Fine Center) and FBNeo Logarithmic (Fine Center) follow the current
+SM2/Supermodel curves, adapted to the native Model 1 steering span. Changes
+apply immediately; the curve is applied before Steering Output Range.
+
+`Automatic Initial NVRAM Setup` defaults to Enabled (restart required). It
+initializes missing or invalid Save RAM using the approved set-specific image;
+valid existing saves take precedence. VR's initial policy is EXPORT / NO LINK /
+SPECIAL. `NVRAM Settings` defaults to Disabled; enabling it exposes the approved
+operator fields for the current set. Their defaults match the native menu.
+Changing an applied setting resets the game to refresh its native settings.
+Nine sets have independent templates and selectors; NetMerc is excluded.
+See the [review workbook](docs/model1_core_options_review.xlsx) and
+[NVRAM procedure](docs/NVRAM_CAPTURE.md) for the reviewed list and evidence.
+
+`Linked Cabinets (Restart Required)` defaults to Disabled and is separate per
+eligible set. It connects the existing Model 1 COMM board through RetroArch
+Netplay/Libretro Netpacket. Configure native MASTER/SLAVE and optional VR LIVE
+roles through NVRAM Settings or the service menu; the transport does not assign
+them. Each frontend needs its own saves. Save States are unavailable with COMM
+fitted. See the [linked-cabinet guide](docs/LIBRETRO_MODEL1_LINKED_CABINETS.md)
+for supported sets, startup and reproducible multi-instance evidence.
+
+`Gamepad Rumble` defaults to On and uses the standalone VR/VFormula pad policy
+through the frontend's P1 strong and weak motors when available.
+`Timing / FPS Overlay` defaults to Off. Auto uses a 13 px font; 11–14 px
+choices match SM2. The panel shows 61-frame averages and draws into software and GPU
+images. Its reported video and callback costs include the overlay itself.
+
+`Renderer (Restart Required)` offers Auto, Vulkan, OpenGL / GLES and Software.
+OpenGL compute requires desktop 4.3 or GLES 3.1. On macOS, use Vulkan through
+MoltenVK; Auto keeps Software when the frontend prefers macOS OpenGL 4.1.
+Native Vulkan images are verified in RetroArch; desktop OpenGL/GLES images and
+context recreation are verified with the isolated Mesa EGL check host. This
+phase adds `Widescreen Mode (Restart Required)`: Stretch Entire Image (default),
+Expand 3D View, or Expand 3D View + Stretch 2D. All modes apply to a wide aspect;
+4:3 keeps native geometry. `Supersampling (Restart Required)` offers scales 1–4
+(default 1), including in 4:3. These options are hidden on Software when frontend
+visibility hints are supported. sRGB correction is not exposed by the core.
+
+See [renderer adaptation](docs/LIBRETRO_GPU_ADAPTATION.md) and
+[reusable GPU verification procedure](docs/LIBRETRO_GPU_VERIFICATION.md).
+After the verified build, the authorized local installation is performed with:
+
+```sh
+python3 tools/install_dev_core.py
+```
 
 ## Imported TGPulse-Next documentation
 
@@ -194,15 +291,9 @@ Striker's versus play run as a single machine.
 
 ## Roadmap
 
-For this fork's source-audited Model 1 gaps, ROM baseline and bounded fixes, see
-[Model 1 roadmap](docs/MODEL1_ROADMAP.md).
-
-- **More games.** New sets tend to expose real bugs: Virtua Fighter 2's hair was an i960 burst-read bug, Wave Runner's failure to boot a missing EEPROM.
-- **Performance improvements.**  Could be achieved by moving the coprocessors to their own threads and a JIT/dynarec. Currently it can be slow on low powered devices.
-- **Multiplayer.** Link two instances over a socket, as MAME's `m2comm` does.
-- **Model 1 save-state acceptance.** Core and desktop integration are implemented for standalone machines; broader in-game/manual frontend validation remains.
-- **Encrypted sets.** The 315-5881 implementation is in the tree but unused, so Dynamite Cop, Zero Gunner and the rest do not run.
-- **`model1io2`.** Not emulated, so Wing War and Sega NetMerc are left out of the database's I/O firmware wiring.
+The [Libretro roadmap](docs/LIBRETRO_ROADMAP.md) is the single active plan for
+this port. The imported [standalone Model 1 roadmap](docs/MODEL1_ROADMAP.md)
+is source history, not a second port plan.
 
 ## Layout
 
