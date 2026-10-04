@@ -31,6 +31,7 @@ use model1_rumble::Model1PadRumble;
 use tgpulse_core::config::{AudioGains, AudioMutes, Config, Inputs, NetmercAudioDonor, System};
 use tgpulse_core::loader;
 use tgpulse_core::model1::{Model1System, CPU_HZ, CYCLES_PER_FRAME};
+use tgpulse_core::sound::AudioSource;
 use tgpulse_core::{model1_video, roms_db, tilemap};
 
 const WIDTH: usize = tilemap::SCREEN_W;
@@ -554,22 +555,28 @@ unsafe extern "C" fn update_nvram_option_display() -> bool {
         let enabled = nvram::supported(set)
             && option_value(env, c"tgpulse_next_nvram_settings").is_some_and(|v| v == "enabled");
         publish_nvram_option_visibility(env, set, enabled);
+        let sources = core.game.as_ref().map_or(&[][..], |game| game.machine.sound.sources());
+        publish_global_option_visibility(env, sources);
         let changed = core.nvram_display_enabled != enabled;
         core.nvram_display_enabled = enabled;
         changed
     })
 }
 
-// General Core Options remain visible. Reviewed NVRAM fields and per-set
-// Linked Cabinets retain their explicitly agreed title-specific selection.
-fn publish_global_option_visibility(environment: ffi::Environment) {
+// General Core Options remain visible. Source gains follow the fitted Model 1
+// sound hardware; their global values remain available across games.
+fn publish_global_option_visibility(environment: ffi::Environment, sources: &[AudioSource]) {
     for definition in &options().definitions {
         if definition.key.is_null() { continue; }
         let key = unsafe { CStr::from_ptr(definition.key) };
         let bytes = key.to_bytes();
         if (bytes.starts_with(b"tgpulse_next_nvram_") && key != c"tgpulse_next_nvram_settings")
             || bytes.starts_with(b"tgpulse_next_linked_cabinets_") { continue; }
-        let mut display = ffi::OptionDisplay { key: definition.key, visible: true };
+        let visible = match AUDIO_GAIN_KEYS.iter().position(|gain| *gain == key) {
+            Some(index) => sources.contains(&AUDIO_GAIN_SOURCES[index]),
+            None => true,
+        };
+        let mut display = ffi::OptionDisplay { key: definition.key, visible };
         unsafe { environment(ffi::SET_CORE_OPTIONS_DISPLAY, (&mut display as *mut ffi::OptionDisplay).cast()); }
     }
 }
@@ -871,6 +878,12 @@ const AUDIO_GAIN_KEYS: [&CStr; 4] = [
     c"tgpulse_next_multipcm2_gain",
     c"tgpulse_next_ym3438_gain",
     c"tgpulse_next_dsb_gain",
+];
+const AUDIO_GAIN_SOURCES: [AudioSource; 4] = [
+    AudioSource::MultiPcm1,
+    AudioSource::MultiPcm2,
+    AudioSource::Ym3438,
+    AudioSource::Dsb,
 ];
 
 const GAIN_VALUES: &[(&CStr, &CStr)] = &[
@@ -1889,8 +1902,7 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
     controllers.publish(environment);
     register_descriptors(environment, profile, core.devices);
     publish_nvram_option_visibility(environment, &definition.name, core.settings.nvram_settings);
-    publish_global_option_visibility(environment);
-    Ok(Game {
+    let game = Game {
         graphics,
         hardware,
         set_name: definition.name.clone(),
@@ -1924,7 +1936,9 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
         mvd_commands: mvd::Commands::default(),
         mvd_sensors: sensors::Sensors::new((profile == Profile::NetMerc).then_some(environment)),
         mvd_holder_notice: mvd::HolderNotice::default(),
-    })
+    };
+    publish_global_option_visibility(environment, game.machine.sound.sources());
+    Ok(game)
 }
 
 fn render(game: &mut Game) {
@@ -2154,7 +2168,7 @@ pub extern "C" fn retro_set_environment(callback: Option<ffi::Environment>) {
         }
 
         publish_nvram_option_visibility(environment, "", false);
-        publish_global_option_visibility(environment);
+        publish_global_option_visibility(environment, &[]);
     }
 }
 
@@ -2325,7 +2339,7 @@ pub extern "C" fn retro_load_game(info: *const ffi::GameInfo) -> bool {
         clear_controls(core.environment);
         if let Some(environment) = core.environment {
             publish_nvram_option_visibility(environment, "", false);
-            publish_global_option_visibility(environment);
+            publish_global_option_visibility(environment, &[]);
         }
         core.game = None;
         core.save_ram.fill(0);
@@ -2365,7 +2379,7 @@ pub extern "C" fn retro_unload_game() {
         clear_controls(core.environment);
         if let Some(environment) = core.environment {
             publish_nvram_option_visibility(environment, "", false);
-            publish_global_option_visibility(environment);
+            publish_global_option_visibility(environment, &[]);
         }
         core.game = None;
     });
@@ -3146,14 +3160,29 @@ mod tests {
     }
 
     #[test]
-    fn general_options_remain_visible_including_inactive_title_features() {
-        AUDIO_VISIBILITY.lock().unwrap().clear();
-        publish_global_option_visibility(audio_visibility_environment);
+    fn only_fitted_audio_sources_have_visible_gains() {
+        let cases: &[(&[AudioSource], [bool; 4])] = &[
+            (&[], [false; 4]),
+            (tgpulse_core::sound::MULTIPCM_SOURCES, [true, true, true, false]),
+            (&AUDIO_GAIN_SOURCES, [true; 4]),
+            (&[AudioSource::MultiPcm2], [false, true, false, false]),
+            (&[AudioSource::Scsp], [false; 4]),
+        ];
+        for &(sources, expected) in cases {
+            AUDIO_VISIBILITY.lock().unwrap().clear();
+            publish_global_option_visibility(audio_visibility_environment, sources);
+            let calls = AUDIO_VISIBILITY.lock().unwrap();
+            for (key, visible) in AUDIO_GAIN_KEYS.into_iter().zip(expected) {
+                assert_eq!(calls.iter().find(|(name, _)| name == key.to_str().unwrap()).map(|(_, shown)| *shown),
+                           Some(visible), "{key:?}, sources: {sources:?}");
+            }
+            assert!(calls.iter().filter(|(name, _)| !name.ends_with("_gain")).all(|(_, shown)| *shown));
+        }
         let calls = AUDIO_VISIBILITY.lock().unwrap();
-        assert!(calls.iter().all(|(_, enabled)| *enabled));
-        for key in AUDIO_GAIN_KEYS.into_iter().chain(DRIVING_RANGE_KEYS).chain(mvd::KEYS)
+        for key in DRIVING_RANGE_KEYS.into_iter().chain(mvd::KEYS)
             .chain([c"tgpulse_next_netmerc_city_workaround", c"tgpulse_next_gamepad_rumble",
-                    c"tgpulse_next_widescreen_mode", c"tgpulse_next_supersampling", c"tgpulse_next_nvram_settings"]) {
+                    c"tgpulse_next_widescreen_mode", c"tgpulse_next_supersampling",
+                    c"tgpulse_next_volume", c"tgpulse_next_nvram_settings"]) {
             assert!(calls.iter().any(|(k, _)| k == key.to_str().unwrap()));
         }
         assert!(!calls.iter().any(|(k, _)| k.starts_with("tgpulse_next_linked_cabinets_")
@@ -3888,7 +3917,7 @@ mod tests {
             assert!((*data.cast::<ffi::OptionDisplay>()).visible);
             true
         }
-        publish_global_option_visibility(visible);
+        publish_global_option_visibility(visible, &AUDIO_GAIN_SOURCES);
     }
 
     #[test]

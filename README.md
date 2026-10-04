@@ -123,8 +123,10 @@ for supported sets, startup and reproducible multi-instance evidence.
 Source Gain options are global across Model 1 sets and default to Auto.
 MultiPCM 1/2, FM (YM3438) and DSB (MPEG) use the standalone reference levels
 50/50/30/100% respectively. Each selector offers Mute, Auto and 0–100% in
-10% steps, with immediate updates. All Gain selectors remain visible; each applies when its sound source is present. Old set-qualified Gain keys are
-ignored; the core does not rewrite personal option files. Global source Gains
+10% steps, with immediate updates. Only Gains for sound sources reported by the
+loaded machine are shown; no source Gain appears without content. Master Volume
+remains visible. Old set-qualified Gain keys are ignored; the core does not
+rewrite personal option files. Global source Gains
 are restored in 0.1.0.1; the 0.1.0.0 preview used per-set Gain keys.
 
 `Sega NetMerc Audio Donor` is always visible and applies only to NetMerc on content
@@ -481,7 +483,8 @@ Targets include `geo`, `fifo`, `io`, `sound`, `copro`, `nvram`, `backup`,
 `comm`, `library` and `video`.
 
 General Core Options remain visible before load, for every title and after
-unload. Applicability is enforced at runtime and described in the option help;
+unload, except source Gains, which follow the loaded machine's sound sources.
+Applicability is enforced at runtime and described in the option help;
 reviewed per-set NVRAM fields and Linked Cabinets selectors retain their agreed
 filtering. **NetMerc City Workaround** is always visible in Video, defaults to
 Enabled and applies live only to NetMerc, using the standalone machine API.

@@ -75,6 +75,14 @@ Auto value is added to Master.
 Per-source Gain uses global core keys shared by all Model 1 sets, with Auto
 as the default and the agreed Mute/Auto/0–100% selector. Follow SM2 and
 Supermodel's global audio option scope. Old set-qualified Gain keys are ignored.
+Filter registered Gain keys against the loaded machine's `SoundSystem::sources()`;
+do not infer hardware from the set name or from allocated ROM buffer sizes.
+Only the Gains for fitted sound sources are shown while content is loaded:
+MultiPCM 1/2 and YM3438 for every Model 1 set, plus DSB for Star Wars Arcade
+and its clone. Hide all four source Gains before load and after unload; keep
+Master Volume visible. Visibility never changes the stored global Gain values.
+Future single-system adapters can map their own Gain keys to their machine's
+declared audio sources through this same frontend rule.
 Order the modern numeric selector ascending and use identical load-time/live parsing.
 Verify live PCM changes from the same restored machine state before claiming
 progressive gain; game progression must not alter the reference segment.
@@ -443,9 +451,10 @@ after successful reset/restore/device changes. Record delivery evidence in
 ## General Core Option Visibility (2026-10-04)
 
 General Core Options remain visible before content load, for every title and
-after unload. State applicability in the description and enforce it at runtime.
-Do not introduce title-based display filtering without an explicit user request.
-This includes audio gains, driving ranges, MVD controls, rumble, video options
+after unload, except source Gains as explicitly requested on 2026-10-04.
+State applicability in the description and enforce it at runtime.
+Do not introduce other title-based display filtering without an explicit user request.
+This includes driving ranges, MVD controls, rumble, video options
 and the general NVRAM Settings toggle. Input descriptors still reflect native
 actions and the selected profile. The existing reviewed per-set NVRAM fields
 and per-set Linked Cabinets selectors retain their explicitly agreed filtering.

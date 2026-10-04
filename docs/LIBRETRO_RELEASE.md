@@ -95,8 +95,11 @@ Future implementation is tracked only in
 
 MultiPCM 1/2, FM (YM3438) and DSB (MPEG) Gain selectors are global across
 Model 1 sets, defaulting to Auto. Auto uses the standalone mix (50/50/30/100%).
-Mute and 0–100% in 10% steps apply immediately. Gain selectors remain visible
-for all titles and apply when the corresponding sound source is present.
+Mute and 0–100% in 10% steps apply immediately. The 0.1.0.1 release showed
+all Gain selectors for every title. Current development builds show only the
+sources fitted to the loaded game: MultiPCM 1/2 and YM3438 for all Model 1
+sets, plus DSB for Star Wars Arcade and its clone. No source Gain is shown
+without loaded content; Master Volume remains visible.
 
 The 0.1.0.0 set-qualified Gain keys are ignored. Existing values under the
 older global keys may become active again. To use the new defaults, select

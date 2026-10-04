@@ -9,7 +9,8 @@ this port.
 This document records design decisions and evidence. The
 [Libretro roadmap](LIBRETRO_ROADMAP.md) is the only active implementation plan.
 
-Current visibility policy (2026-10-04): general Core Options are always visible.
+Current visibility policy (2026-10-04): general Core Options are always visible
+except source Gains, which show only for the fitted sound hardware of loaded content.
 The dated implementation sections below retain earlier verification history;
 the final General Core Option Visibility section supersedes title/board-based
 display restrictions. Reviewed per-set NVRAM/Linked Cabinets are explicit exceptions.
@@ -820,7 +821,13 @@ tests pass. Evidence and the minimal adapter change are in `REFERENCE_WORKFLOW.m
 ## General Core Option Visibility
 
 General options remain visible regardless of the loaded title, including before
-load and after unload. Descriptions state applicability; runtime logic guards
+load and after unload, except source Gains. The adapter compares each Gain key
+with `SoundSystem::sources()` on the loaded machine, without a title-name rule.
+MultiPCM 1/2 and YM3438 appear for every loaded Model 1 set; DSB appears only
+when the loaded machine has that board (Star Wars Arcade parent/clone).
+No source Gain appears without content. Their
+global values persist across games, and Master Volume remains visible.
+Descriptions state applicability; runtime logic guards
 unsupported titles or rendering paths. Reviewed per-set NVRAM fields and
 Linked Cabinets selectors retain their explicitly agreed filtering. Native input
 descriptors remain profile-specific. Sega NetMerc City Workaround is always visible
