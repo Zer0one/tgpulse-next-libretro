@@ -206,3 +206,39 @@ Publication/package checks are separate from listening, gameplay and physical
 controller acceptance. Required reasoning: High; account usage 56% before and
 after publication (rounded shared-account reading). Reset:
 2026-10-07 15:58:51 CEST.
+
+## Verified 0.1.0.3 publication (2026-10-04)
+
+- Release: [0.1.0.3 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.3), marked prerelease.
+- Fixed annotated tag: `v0.1.0.3`; source commit
+  `90a65102fc76f170f7e0c130f734d8259a2f0937`.
+- All five native build/check/package jobs and the publication job passed:
+  [CI 37234302083](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37234302083).
+- This release includes NetMerc U1–U8 integration, the Wing War throttle
+  correction and the user-requested Gain visibility rule. The adapter compares
+  registered Gains with the loaded machine's `SoundSystem::sources()`; global
+  Gain values remain stored across games.
+- Local Model 1 and adapter tests, NVRAM campaign checks, macOS release build,
+  native ABI gate and Development core/info installation were completed before
+  source publication. At the user's request, host/gameplay tests were not
+  repeated for this release.
+- Downloaded all five published ZIPs and `SHA256SUMS`. Each archive matches the
+  published manifest and GitHub asset digest. Embedded `SOURCE_COMMIT.txt`
+  and `BUILD_INFO.json` identify the fixed tag commit, version 0.1.0.3 and
+  Model 1-only scope. The release workflow also checked each package's internal
+  manifest, inventory and licenses before uploading it.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| Linux ARM64 | `d42d4d2771d427b2ae70e9453edd41facbe3aa0f1be67912ad7919765f383873` |
+| Linux x86_64 | `9b4005dd83219fbac7c08d2baf915e30be48caf36b24bf61e943cab5b28a800b` |
+| macOS Apple Silicon | `b89844f94945753b9bc41d95f2bba07c2a823beffff72bf9817475b548e418bf` |
+| macOS Intel | `c74cd583d527c1bbe7693daa1cebe30b7b4ff8edd4be0fef8d3380fa9b216a7a` |
+| Windows x86_64 | `011ac9c6f0f1a2160a924f0153cf5dd0de68138d8773335a0d8c4f5ce518621e` |
+
+The local Development core SHA-256 is
+`7e238aafb5d3a17ce72fa09bf495e9c425b0d263d44ddd8713e0bafcce6f62b9`;
+matching `.info` SHA-256 is
+`956e7f1b8098ecf36ae21b865e2363461d0e0083b661698cc7458e03b014a659`.
+Package verification does not establish physical controller feel or additional
+gameplay acceptance.
