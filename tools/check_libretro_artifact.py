@@ -60,10 +60,14 @@ def main():
         if args.target.endswith('windows-gnu'):
             headers = command('objdump', '-f', str(core))
             assert 'pei-x86-64' in headers, headers
-            symbols = command('objdump', '-p', str(core))
-            exports = set(re.findall(r'^\s*\[\s*\d+\]\s+(retro_\w+)\s*$',
+            symbols = subprocess.check_output(
+                ['objdump', '-p', str(core)], text=True, stderr=subprocess.STDOUT)
+            # Binutils 2.46 adds the ordinal base and hexadecimal hint columns.
+            exports = set(re.findall(r'^\s*\[\s*\d+\]\s+(?:\+base\[\s*\d+\]\s+[0-9a-fA-F]+\s+)?(retro_\w+)\s*$',
                                      symbols, re.M))
             deps = '\n'.join(re.findall(r'DLL Name:\s*(\S+)', symbols))
+            print('PE Libretro exports: ' + ', '.join(sorted(exports)))
+            print('PE dependencies:\n' + deps)
         else:
             # Historical MSVC releases retain their artifact-check contract.
             headers = command('dumpbin', '/headers', str(core))
