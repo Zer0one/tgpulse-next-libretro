@@ -11,7 +11,7 @@ NVRAM tables, so no SM2/Supermodel `system` assets are copied.
 
 ## Build matrix
 
-The workflow uses the hosted runners' Rust, Python and C/C++ toolchains.
+The GitHub release workflow uses the hosted runners' Rust, Python and C/C++ toolchains.
 Cargo.lock fixes crate versions; BUILD_INFO.json records the effective compiler
 and Cargo versions. It does not install tools on the developer's machine.
 
@@ -21,7 +21,7 @@ and Cargo versions. It does not install tools on the developer's machine.
 | Linux ARM64 | ubuntu-24.04-arm | aarch64-unknown-linux-gnu | tgpulse_next_m1_libretro.so |
 | macOS Apple Silicon | macos-15 | aarch64-apple-darwin | tgpulse_next_m1_libretro.dylib |
 | macOS Intel | macos-15-intel | x86_64-apple-darwin | tgpulse_next_m1_libretro.dylib |
-| Windows x86_64 | windows-2022 | x86_64-pc-windows-msvc | tgpulse_next_m1_libretro.dll |
+| Windows x86_64 | windows-2022 | x86_64-pc-windows-gnu | tgpulse_next_m1_libretro.dll |
 
 Build only `tgpulse-libretro`, selecting its Model 1 machine feature and
 preserving both standalone defaults. Check library configurations in separate
@@ -30,10 +30,12 @@ Cargo invocations to avoid feature unification. Require the compiled
 inventory follows the selected core graph. Scope design and local evidence
 are in [LIBRETRO_BUILD_SCOPE.md](LIBRETRO_BUILD_SCOPE.md). Thin LTO and one
 codegen unit already apply. Linux statically links the C++ runtime; system
-glibc/libgcc dependencies remain. Windows reuses the existing static-CRT MSVC
-configuration rather than installing a separate MinGW toolchain. macOS targets
-13.0, replaces the build-local dylib ID with `@rpath`, and signs/verifies the
-finished library before checking and packaging it.
+glibc/libgcc dependencies remain. Windows uses GNU/MinGW and the existing
+static C++ runtime configuration; its ephemeral GitHub runner provisions
+MSYS2 Make/GCC and the GNU Rust target, following Supermodel's Windows setup.
+No developer-host dependency installation is needed for this change. The
+Makefile sets macOS 13.0 and the public `@rpath` dylib ID at link time, then
+signs/verifies the output when building on a native macOS host.
 
 CI runs machine/adapter tests and `tools/check_libretro_artifact.py` on every
 native runner. Linux also audits the source-only NVRAM inventory. Full sample
@@ -41,13 +43,59 @@ audits and `generate_model1_nvram.py --check` require the locally retained raw
 campaign and remain separate from ROM-free CI. Existing frontend evidence is
 in the renderer and linked-cabinet documents; CI is not gameplay proof.
 
+## Shared Libretro Build Recipe
+
+The root [`Makefile.libretro`](../Makefile.libretro) is the sole release build
+recipe for local builds, GitHub release CI and Libretro GitLab jobs. It builds only the
+`tgpulse-libretro` package and copies its library to the public
+`tgpulse_next_m1_libretro` filename. It accepts explicit Linux x86_64/ARM64,
+macOS Intel/Apple Silicon and Windows x86_64 target triples. Linux links the
+target's static C++ runtime and still uses system glibc/libgcc. The proposed
+Linux x86_64 `libretro-super` recipe invokes `platform=unix`; the
+source-side [`.gitlab-ci.yml`](../.gitlab-ci.yml) extends official Libretro
+Rust templates for all five desktop targets. Both CI definitions call the
+same Makefile; neither contains an independent Cargo release command or
+platform linkage policy. Windows uses GNU/MinGW in both. GitHub additionally
+runs native tests, artifact checks and packaging; GitLab supplies Libretro's
+toolchain image and artifact collection.
+
+The current five-platform GitHub workflow and Libretro GitLab jobs both use
+this recipe; earlier releases used direct Cargo commands and Windows MSVC.
+Their recorded results below describe those historical builds, not validation
+of the revised GNU Windows job. The new GitHub matrix has not run remotely.
+
+The template definitions were inspected at
+`libretro-infrastructure/ci-templates` commit
+`96f603ee450eff3e9ad2baeac75b300aa83c1c9e`, and the official Rust image
+definition at `libretro-build-rust` commit
+`674682c815b69127805c44ec9ddee6d5bb69a509`. The Makefile produced a
+Model 1-scoped Linux x86_64 ELF in an isolated Rust builder and a macOS arm64
+dylib locally; both passed the artifact checker. The macOS result was installed
+as the Development core with a matching SHA-256. These checks validate the
+source-side build contract on those two hosts. The Libretro-owned GitLab jobs,
+its cross builds and distribution remain unverified until the source is
+published and their pipeline runs. [Submission details and PR text](LIBRETRO_SUPER_PR_REVIEW.md)
+are prepared for review; no Libretro PR has been opened.
+
+The single-recipe follow-up on 2026-10-05 verified Linux x86_64 and macOS
+arm64 production outputs, all 25 ABI exports, empty lifecycle cycles and
+Model 1 scope. The macOS public `@rpath` ID, signature and 194-file package
+preflight passed. Its Development installation matches SHA-256
+`9cb8f8964dc365f836e1706b3b50f9d33b3bdeb9fedd721652d5b2e43bad98ad`.
+Linux SHA-256 remains
+`9d369ead94b5e49ce802471063073f915969ced08eb7549481b8de3e0cc39371`.
+Both CI YAML files parse, and the GNU Windows PE export parser recognizes
+all 25 exports in an existing published DLL. That parser check is not a
+Windows GNU build or native execution result. Required reasoning: Medium;
+account usage 48%; reset 2026-10-10 09:49:17 CEST.
+
 ## Local preflight and packaging
 
 Use the existing cached toolchain/dependencies:
 
 ```sh
-cargo build --offline --locked --release -p tgpulse-libretro
-python3 tools/check_libretro_artifact.py target/release/libtgpulse_next_m1_libretro.dylib --target aarch64-apple-darwin --machine-scope model1
+CARGO_NET_OFFLINE=true make -f Makefile.libretro
+python3 tools/check_libretro_artifact.py tgpulse_next_m1_libretro.dylib --target aarch64-apple-darwin --machine-scope model1
 python3 tools/install_dev_core.py
 python3 tools/generate_model1_nvram.py --check
 ruby tools/audit_model1_campaign_inventory.rb
@@ -58,7 +106,7 @@ outside Git:
 
 ```sh
 python3 tools/package_libretro.py \
-  --core target/release/libtgpulse_next_m1_libretro.dylib \
+  --core tgpulse_next_m1_libretro.dylib \
   --target aarch64-apple-darwin --offline \
   --output /private/tmp/model1-package \
   --archive /private/tmp/tgpulse-next-m1-libretro-macos-arm64-0.1.0.3.zip
@@ -96,10 +144,13 @@ SOURCE_COMMIT against the tag checkout, writes archive SHA256SUMS, then uploads
 the packages with the English notes. Download the published assets and verify
 their archive/internal checksums and source revisions before reporting success.
 
-If a published tag's workflow fails, keep the tag fixed. Correct the workflow
+For a tag containing `Makefile.libretro`, if its workflow fails, keep the tag
+fixed. Correct the workflow
 on `main` and dispatch `release_tag` again, following the existing TGPulse-Next
 recovery convention. Do not replace the tag or silently publish another source
-commit under its name. The workflow checks out its current ABI validation tool
+commit under its name. Older tags without the shared recipe require their
+historical workflow; the current workflow does not inject a new build recipe
+into an old source tag. The workflow checks out its current ABI validation tool
 separately; that tool reads the tagged core's `.info`. This permits a checker
 fix without modifying the compiled/tagged source. CI artifacts are retained
 for 14 days.

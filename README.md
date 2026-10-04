@@ -16,7 +16,7 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
-is published as 0.1.0.3.
+is prepared as 0.1.0.4.
 
 **Port status:** an experimental Libretro adapter lives in
 `crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
@@ -38,11 +38,18 @@ Potential changes to return to TGPulse-Next are tracked in the maintained
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
-Version [0.1.0.3](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.3)
+Version [0.1.0.4](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.4)
 is available as an experimental prerelease with five native platform packages.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
 for verified binary packages.
+The [shared Libretro build recipe](Makefile.libretro) is the only release
+build entry point. Both GitHub release jobs and [GitLab Rust-template jobs](.gitlab-ci.yml)
+invoke it for the five desktop targets.
+These source-side jobs are prepared for ecosystem review; they have not yet
+run on Libretro infrastructure. The [submission review](docs/LIBRETRO_SUPER_PR_REVIEW.md)
+records the proposed public metadata and Linux recipe separately from the
+GitHub release workflow.
 
 The [preliminary Model 1 frontend map](docs/LIBRETRO_MODEL1_FRONTEND_MAP.md)
 records the first porting checkpoint: applicable SM2-Emu patterns, TGPulse
@@ -51,23 +58,28 @@ machine interfaces, control profiles and initial Core Options.
 Build the development core without downloading dependencies:
 
 ```sh
-cargo build --offline --release -p tgpulse-libretro
+CARGO_NET_OFFLINE=true make -f Makefile.libretro
 ```
 
-The library appears under `target/release/` as
-`libtgpulse_next_m1_libretro.dylib` on macOS,
-`libtgpulse_next_m1_libretro.so` on Linux or
-`tgpulse_next_m1_libretro.dll` on Windows. Release CI verifies native Linux
+Set `TARGET_ARCH` to a target triple when using its cross toolchain.
+The locked release build writes
+`tgpulse_next_m1_libretro.so`, `.dylib` or `.dll` at the repository root.
+The Makefile's `platform=unix` entry point is used by the proposed Linux
+libretro-super recipe. The five GitLab jobs use the official Libretro Rust
+templates; see [build targets and verification](docs/LIBRETRO_CI.md).
+
+Release CI verifies native Linux
 x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64 builds. The published
-libraries omit Cargo's leading `lib` so their names match the `.info` basename.
+libraries use the Makefile's public filenames matching the `.info` basename.
 After each verified macOS release build, install the development copy as
 `~/Library/Application Support/RetroArch/cores/tgpulse_next_dev_m1_libretro.dylib`
 and its matching metadata as
 `~/Library/Application Support/RetroArch/info/tgpulse_next_dev_m1_libretro.info`.
-Label the installed metadata **Sega - Model 1 (TGPulse-Next Development)** and compare the
-installed core's SHA-256 with `target/release/libtgpulse_next_m1_libretro.dylib`.
-Its Core Name is **TGPulse-Next: Model 1 Development**; Core Label uses the
-descriptive Sega/Model 1 name above.
+The public metadata uses Core Name **TGPulse-Next: Model 1** and Core Label
+**Sega - Model 1 (TGPulse-Next)**. The local installer gives only its
+Development copy Core Name **TGPulse-Next: Model 1 Development** and Core Label
+**Sega - Model 1 (TGPulse-Next Development)**. Compare the installed core's
+SHA-256 with the verified build input passed to `tools/install_dev_core.py`.
 The current source builds a **Model 1 single system build**: only Model 1
 machine components and required shared devices are selected, starting with
 version 0.1.0.2. See
@@ -121,8 +133,9 @@ fitted. See the [linked-cabinet guide](docs/LIBRETRO_MODEL1_LINKED_CABINETS.md)
 for supported sets, startup and reproducible multi-instance evidence.
 
 Source Gain options are global across Model 1 sets and default to Auto.
-MultiPCM 1/2, FM (YM3438) and DSB (MPEG) use the standalone reference levels
-50/50/30/100% respectively. Each selector offers Mute, Auto and 0–100% in
+MultiPCM 1/2 and DSB (MPEG) use the standalone reference levels of 50/50/100%.
+FM (YM3438) Auto uses 90%; its standalone reference level remains 30%.
+Each selector offers Mute, Auto and 0–100% in
 10% steps, with immediate updates. Only Gains for sound sources reported by the
 loaded machine are shown; no source Gain appears without content. Master Volume
 remains visible. Old set-qualified Gain keys are ignored; the core does not

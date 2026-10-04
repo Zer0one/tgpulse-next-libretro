@@ -57,14 +57,21 @@ def main():
         assert all(line.strip().startswith(('/usr/lib/', '/System/Library/'))
                    for line in deps.splitlines()[2:]), deps
     elif kind == 'Windows':
-        headers = command('dumpbin', '/headers', str(core))
-        assert re.search(r'8664 machine', headers, re.I), headers
-        symbols = command('dumpbin', '/exports', str(core))
-        # MSVC may append "= <folded implementation>" to exported aliases.
-        # The first name after the ordinal/hint/RVA is the actual ABI export.
-        exports = set(re.findall(r'^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(retro_\w+)(?:\s|$)',
-                                 symbols, re.M | re.I))
-        deps = command('dumpbin', '/dependents', str(core))
+        if args.target.endswith('windows-gnu'):
+            headers = command('objdump', '-f', str(core))
+            assert 'pei-x86-64' in headers, headers
+            symbols = command('objdump', '-p', str(core))
+            exports = set(re.findall(r'^\s*\[\s*\d+\]\s+(retro_\w+)\s*$',
+                                     symbols, re.M))
+            deps = '\n'.join(re.findall(r'DLL Name:\s*(\S+)', symbols))
+        else:
+            # Historical MSVC releases retain their artifact-check contract.
+            headers = command('dumpbin', '/headers', str(core))
+            assert re.search(r'8664 machine', headers, re.I), headers
+            symbols = command('dumpbin', '/exports', str(core))
+            exports = set(re.findall(r'^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(retro_\w+)(?:\s|$)',
+                                     symbols, re.M | re.I))
+            deps = command('dumpbin', '/dependents', str(core))
         assert not re.search(r'libgcc|libstdc|libwinpthread|vcruntime|msvcp|vulkan|SDL', deps, re.I), deps
     else:
         headers = command('readelf', '-h', str(core))

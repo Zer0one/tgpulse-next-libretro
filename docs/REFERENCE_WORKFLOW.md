@@ -73,7 +73,8 @@ Master Volume uses default 100%, standalone 0–800% range and reference-core
 10% steps. At the user's request, zero is labelled OFF. No Mute/Muted label or
 Auto value is added to Master.
 Per-source Gain uses global core keys shared by all Model 1 sets, with Auto
-as the default and the agreed Mute/Auto/0–100% selector. Follow SM2 and
+as the default and the agreed Mute/Auto/0–100% selector. FM Auto uses 90%
+in Libretro; its standalone reference level remains 30%. Follow SM2 and
 Supermodel's global audio option scope. Old set-qualified Gain keys are ignored.
 Filter registered Gain keys against the loaded machine's `SoundSystem::sources()`;
 do not infer hardware from the set name or from allocated ROM buffer sizes.
@@ -238,7 +239,9 @@ publishing; retain this project's independent Git history and remotes.
 
 Build a dedicated core separately from full/default-feature library or
 standalone targets: Cargo unifies dependency features within one invocation.
-Use `cargo build --offline --locked --release -p tgpulse-libretro` for Model 1.
+Use `CARGO_NET_OFFLINE=true make -f Makefile.libretro` for Model 1. This is the
+single release build recipe for local development, GitHub CI and Libretro
+GitLab jobs. Windows uses GNU/MinGW throughout the public core build matrix.
 Require `check_libretro_artifact.py --machine-scope model1` before installing
 or packaging; it rejects a feature-unified combined artifact.
 

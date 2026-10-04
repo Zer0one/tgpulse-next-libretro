@@ -1,0 +1,68 @@
+# Libretro buildbot jobs for the public Model 1 core. The official Rust
+# templates supply the target toolchains; Makefile.libretro selects only the
+# Model 1 Cargo package and emits the matching public Libretro filename.
+
+include:
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/rust-linux-x64.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/rust-linux-aarch64.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/rust-windows-x64.yml'
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/rust-apple.yml'
+
+stages:
+  - build-shared
+
+.model1-build:
+  variables:
+    CORENAME: tgpulse_next_m1
+    STRIP_CORE_LIB: '0'
+  script:
+    - make -f Makefile.libretro TARGET_ARCH="${TARGET_ARCH}"
+  # The stock Rust templates rename lib${CORENAME}, but this package's Cargo
+  # library is already named tgpulse_next_m1_libretro. Make copies it directly.
+  after_script: []
+
+libretro-build-linux-x64:
+  extends:
+    - .libretro-rust-linux-x64-default
+    - .model1-build
+
+libretro-build-linux-aarch64:
+  extends:
+    - .libretro-rust-linux-aarch64-default
+    - .model1-build
+  variables:
+    CC: aarch64-linux-gnu-gcc
+    CXX: aarch64-linux-gnu-g++
+  before_script:
+    - apt-get update -qy && apt-get install -yq gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+libretro-build-windows-x64:
+  extends:
+    - .libretro-rust-windows-x64-default
+    - .model1-build
+  variables:
+    CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+    CC_x86_64_pc_windows_gnu: x86_64-w64-mingw32-gcc
+    CXX_x86_64_pc_windows_gnu: x86_64-w64-mingw32-g++
+
+libretro-build-osx-x64:
+  extends:
+    - .libretro-rust-osx-x86_64-default
+    - .model1-build
+  before_script:
+    - export SDKROOT="$OSX_SDKROOT"
+    - export CC="$X86_64_OSX_CC"
+    - export CXX="$X86_64_OSX_CXX"
+
+libretro-build-osx-arm64:
+  extends:
+    - .libretro-rust-osx-arm64-default
+    - .model1-build
+  before_script:
+    - export SDKROOT="$OSX_SDKROOT"
+    - export CC="$AARCH64_OSX_CC"
+    - export CXX="$AARCH64_OSX_CXX"

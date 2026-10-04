@@ -77,7 +77,10 @@ impl Default for Settings {
             smooth_shadows: config.smooth_shadows,
             netmerc_city_workaround: config.netmerc_city_workaround,
             volume: config.volume,
-            audio_gains: config.audio_gains,
+            audio_gains: AudioGains {
+                ym3438: 90,
+                ..config.audio_gains
+            },
             audio_mutes: config.audio_mutes,
             apply_known_rom_repairs: true,
             fast_60hz: false,
@@ -428,7 +431,7 @@ fn update_audio_settings(settings: &mut Settings, environment: ffi::Environment)
     settings.audio_gains = AudioGains {
         multipcm1: gain_option(environment, AUDIO_GAIN_KEYS[0], reference.multipcm1),
         multipcm2: gain_option(environment, AUDIO_GAIN_KEYS[1], reference.multipcm2),
-        ym3438: gain_option(environment, AUDIO_GAIN_KEYS[2], reference.ym3438),
+        ym3438: gain_option(environment, AUDIO_GAIN_KEYS[2], 90),
         dsb: gain_option(environment, AUDIO_GAIN_KEYS[3], reference.dsb),
         scsp: reference.scsp,
     };
@@ -1108,7 +1111,7 @@ fn options() -> &'static OptionStorage {
             ),
             option_definition(
                 c"tgpulse_next_ym3438_gain", c"FM (YM3438) Gain",
-                c"Set the absolute FM output gain. 30% is selected by Auto and matches the standalone reference mix. Changes take effect immediately without stopping the chip.",
+                c"Set the absolute FM output gain. Auto selects 90%; the standalone reference mix uses 30%. Changes take effect immediately without stopping the chip.",
                 c"audio", GAIN_VALUES, c"auto",
             ),
             option_definition(
@@ -2228,7 +2231,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     unsafe {
         *info = ffi::SystemInfo {
             library_name: c"TGPulse-Next".as_ptr(),
-            library_version: c"0.1.0.3".as_ptr(),
+            library_version: c"0.1.0.4".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
             block_extract: true,
@@ -3086,21 +3089,22 @@ mod tests {
     }
 
     #[test]
-    fn source_audio_options_preserve_reference_defaults_and_read_changes() {
+    fn source_audio_options_use_fm_auto_default_and_read_changes() {
         let mut settings = Settings::default();
-        assert_eq!(settings.audio_gains, AudioGains::REFERENCE);
+        let default_gains = AudioGains { ym3438: 90, ..AudioGains::REFERENCE };
+        assert_eq!(settings.audio_gains, default_gains);
         assert_eq!(settings.audio_mutes, AudioMutes::default());
         update_audio_settings(&mut settings, audio_environment);
         assert_eq!(settings.audio_gains.multipcm1, 70);
         assert_eq!(settings.audio_gains.multipcm2, 0);
-        assert_eq!(settings.audio_gains.ym3438, 30);
+        assert_eq!(settings.audio_gains.ym3438, 90);
         assert_eq!(settings.audio_gains.dsb, 0);
         assert_eq!(settings.audio_gains.scsp, AudioGains::REFERENCE.scsp);
         assert_eq!(settings.audio_mutes, AudioMutes::default());
         assert!(!settings.audio_mutes.multipcm1);
         assert!(!settings.audio_mutes.scsp);
         update_audio_settings(&mut settings, no_rumble_environment);
-        assert_eq!(settings.audio_gains, AudioGains::REFERENCE);
+        assert_eq!(settings.audio_gains, default_gains);
         update_audio_settings(&mut settings, audio_environment);
         assert_eq!(settings.audio_gains.multipcm1, 70);
         assert_eq!(settings.audio_gains.multipcm2, 0);

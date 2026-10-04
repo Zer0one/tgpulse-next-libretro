@@ -15,6 +15,11 @@ The dated implementation sections below retain earlier verification history;
 the final General Core Option Visibility section supersedes title/board-based
 display restrictions. Reviewed per-set NVRAM/Linked Cabinets are explicit exceptions.
 
+Current development audio policy: the global FM (YM3438) Gain selector still
+defaults to Auto, which now applies 90% in Libretro. The standalone reference
+mix remains 30%. This supersedes the older FM Auto values in the preliminary
+table and dated implementation sections below; saved numeric gains are unchanged.
+
 ## Source boundary
 
 | Concern | SM2-Emu Libretro reference | TGPulse-Next Model 1 source | Port decision |

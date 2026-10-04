@@ -1,0 +1,41 @@
+diff --git a/dist/info/tgpulse_next_m1_libretro.info b/dist/info/tgpulse_next_m1_libretro.info
+new file mode 100644
+index 0000000..3b7f28a
+--- /dev/null
++++ b/dist/info/tgpulse_next_m1_libretro.info
+@@ -0,0 +1,23 @@
++display_name = "Sega - Model 1 (TGPulse-Next)"
++authors = "TGPulse-Next contributors"
++corename = "TGPulse-Next: Model 1"
++supported_extensions = "zip"
++license = "MIT"
++categories = "Emulator"
++display_version = "0.1.0.4"
++manufacturer = "Sega"
++systemname = "Model 1"
++systemid = "model1"
++supports_no_game = "false"
++savestate = "true"
++cheats = "false"
++input_descriptors = "true"
++memory_descriptors = "false"
++libretro_saves = "true"
++core_options = "true"
++core_options_version = "2.0"
++hw_render = "true"
++needs_fullpath = "true"
++is_experimental = "true"
++description = "TGPulse-Next Model 1 single system build with Vulkan/OpenGL compute rendering, software fallback and native audio. Compiles only Model 1 machine components and required shared devices."
++notes = "Complete Model 1 ZIPs use game-specific racing, VF, Wing War, SWA Pilot/Gunner or experimental NetMerc controls. Frontend Save RAM and Save States use the existing Model 1 NVRAM and machine-state APIs. Linked cabinets use frontend Netpacket for supported sets; Save States are unavailable while COMM is fitted. Model 2 machine components and catalogue entries are excluded at build time. Physical controller/gameplay validation remains user-run."
+diff --git a/recipes/linux/cores-linux-x64-generic b/recipes/linux/cores-linux-x64-generic
+index 47335f6..0a701c2 100644
+--- a/recipes/linux/cores-linux-x64-generic
++++ b/recipes/linux/cores-linux-x64-generic
+@@ -154,6 +154,7 @@ stella libretro-stella https://github.com/stella-emu/stella.git master YES GENER
+ swanstation libretro-swanstation https://github.com/libretro/swanstation.git main YES CMAKE Makefile build -DCMAKE_BUILD_TYPE=Release -DBUILD_LIBRETRO_CORE=ON
+ tamalibretro libretro-tamalibretro https://github.com/celerizer/tamalibretro.git master YES GENERIC Makefile .
+ tgbdual libretro-tgbdual https://github.com/libretro/tgbdual-libretro.git master YES GENERIC Makefile .
++tgpulse_next_m1 libretro-tgpulse-next-m1 https://github.com/Zer0one/tgpulse-next-libretro.git main YES GENERIC Makefile.libretro .
+ theodore libretro-theodore https://github.com/Zlika/theodore.git master YES GENERIC Makefile .
+ thepowdertoy libretro-thepowdertoy https://github.com/libretro/ThePowderToy.git master YES CMAKE Makefile build -DCMAKE_BUILD_TYPE=Release
+ tic80 libretro-tic80 https://github.com/nesbox/TIC-80.git master YES CMAKE Makefile builddir -DBUILD_PLAYER=OFF -DBUILD_SOKOL=OFF -DBUILD_SDL=OFF -DBUILD_DEMO_CARTS=OFF -DBUILD_LIBRETRO=ON

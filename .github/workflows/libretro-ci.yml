@@ -29,16 +29,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {name: Linux x86_64, os: ubuntu-24.04, target: x86_64-unknown-linux-gnu, binary: libtgpulse_next_m1_libretro.so, artifact: tgpulse-next-m1-libretro-linux-x86_64}
-          - {name: Linux ARM64, os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, binary: libtgpulse_next_m1_libretro.so, artifact: tgpulse-next-m1-libretro-linux-arm64}
-          - {name: macOS Apple Silicon, os: macos-15, target: aarch64-apple-darwin, binary: libtgpulse_next_m1_libretro.dylib, artifact: tgpulse-next-m1-libretro-macos-arm64}
-          - {name: macOS Intel, os: macos-15-intel, target: x86_64-apple-darwin, binary: libtgpulse_next_m1_libretro.dylib, artifact: tgpulse-next-m1-libretro-macos-x86_64}
-          - {name: Windows x86_64, os: windows-2022, target: x86_64-pc-windows-msvc, binary: tgpulse_next_m1_libretro.dll, artifact: tgpulse-next-m1-libretro-windows-x86_64}
+          - {name: Linux x86_64, os: ubuntu-24.04, shell: bash, target: x86_64-unknown-linux-gnu, binary: tgpulse_next_m1_libretro.so, artifact: tgpulse-next-m1-libretro-linux-x86_64}
+          - {name: Linux ARM64, os: ubuntu-24.04-arm, shell: bash, target: aarch64-unknown-linux-gnu, binary: tgpulse_next_m1_libretro.so, artifact: tgpulse-next-m1-libretro-linux-arm64}
+          - {name: macOS Apple Silicon, os: macos-15, shell: bash, target: aarch64-apple-darwin, binary: tgpulse_next_m1_libretro.dylib, artifact: tgpulse-next-m1-libretro-macos-arm64}
+          - {name: macOS Intel, os: macos-15-intel, shell: bash, target: x86_64-apple-darwin, binary: tgpulse_next_m1_libretro.dylib, artifact: tgpulse-next-m1-libretro-macos-x86_64}
+          - {name: Windows x86_64, os: windows-2022, shell: 'msys2 {0}', target: x86_64-pc-windows-gnu, binary: tgpulse_next_m1_libretro.dll, artifact: tgpulse-next-m1-libretro-windows-x86_64}
     defaults:
       run:
-        shell: bash
+        shell: ${{ matrix.shell }}
     env:
-      MACOSX_DEPLOYMENT_TARGET: '13.0'
       CARGO_TERM_COLOR: always
       CARGO_INCREMENTAL: '0'
     steps:
@@ -54,47 +53,38 @@ jobs:
           sparse-checkout: tools/check_libretro_artifact.py
           sparse-checkout-cone-mode: false
           persist-credentials: false
-      - name: Set up existing Windows compiler environment
+      - name: Set up Windows GNU toolchain
         if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: msys2/setup-msys2@v2
         with:
-          arch: x64
-      - name: Record native toolchain and set Linux static C++ linkage
+          msystem: MINGW64
+          path-type: inherit
+          update: false
+          install: make mingw-w64-x86_64-gcc
+      - name: Set up Windows Rust target
+        if: runner.os == 'Windows'
+        run: rustup target add x86_64-pc-windows-gnu
+      - name: Record native toolchain
         run: |
           rustc -Vv
           cargo --version
           python --version
-          if [[ "$RUNNER_OS" == Linux ]]; then
-            archive="$(g++ -print-file-name=libstdc++.a)"
-            test -f "$archive"
-            echo 'CXXSTDLIB=' >> "$GITHUB_ENV"
-            echo "RUSTFLAGS=-Lnative=$(dirname "$archive") -lstatic=stdc++" >> "$GITHUB_ENV"
-          fi
-      - name: Build core with Software, Vulkan and OpenGL/GLES
-        run: |
           if [[ "$RUNNER_OS" == Windows ]]; then
-            export PATH="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64:$PATH"
+            echo 'CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=gcc' >> "$GITHUB_ENV"
+            echo 'CC_x86_64_pc_windows_gnu=gcc' >> "$GITHUB_ENV"
+            echo 'CXX_x86_64_pc_windows_gnu=g++' >> "$GITHUB_ENV"
           fi
-          cargo build --locked --release -p tgpulse-libretro --target '${{ matrix.target }}'
-      - name: Normalize and sign macOS library
-        if: runner.os == 'macOS'
-        run: |
-          core='target/${{ matrix.target }}/release/${{ matrix.binary }}'
-          install_name_tool -id '@rpath/tgpulse_next_m1_libretro.dylib' "$core"
-          codesign --force --sign - "$core"
-          codesign --verify --strict "$core"
+      - name: Build core with the shared Libretro recipe
+        run: make -f Makefile.libretro TARGET_ARCH='${{ matrix.target }}'
       - name: Run machine and adapter checks without ROMs
         run: |
-          if [[ "$RUNNER_OS" == Windows ]]; then
-            export PATH="$(cygpath -u "$VCToolsInstallDir")/bin/Hostx64/x64:$PATH"
-          fi
           # Separate invocations prevent standalone/default feature unification
           # from turning M1 tests into full-system tests.
           cargo test --locked -p tgpulse-core --no-default-features --features model1 --target '${{ matrix.target }}'
           cargo test --locked -p tgpulse-libretro --target '${{ matrix.target }}'
           cargo check --locked -p tgpulse-core --no-default-features --features model2 --target '${{ matrix.target }}'
           cargo test --locked -p tgpulse-core --target '${{ matrix.target }}'
-          python .ci-tools/tools/check_libretro_artifact.py 'target/${{ matrix.target }}/release/${{ matrix.binary }}' --target '${{ matrix.target }}' --info tgpulse_next_m1_libretro.info --machine-scope model1
+          python .ci-tools/tools/check_libretro_artifact.py '${{ matrix.binary }}' --target '${{ matrix.target }}' --info tgpulse_next_m1_libretro.info --machine-scope model1
       - name: Audit committed NVRAM catalogue and documentary screenshots
         if: runner.os == 'Linux'
         run: ruby tools/audit_model1_campaign_inventory.rb --source-only
@@ -102,7 +92,7 @@ jobs:
         run: |
           version="$(python -c 'import pathlib,re; print(re.search(r"^display_version = \"([^\"]+)\"", pathlib.Path("tgpulse_next_m1_libretro.info").read_text(), re.M).group(1))')"
           python tools/package_libretro.py \
-            --core 'target/${{ matrix.target }}/release/${{ matrix.binary }}' \
+            --core '${{ matrix.binary }}' \
             --output dist/package --target '${{ matrix.target }}' \
             --archive "dist/${{ matrix.artifact }}-${version}.zip"
       - uses: actions/upload-artifact@v7

@@ -2,7 +2,7 @@
 
 This experimental core targets Sega Model 1. Current source selects only
 Model 1 machine components and required shared devices (a single system build).
-Version 0.1.0.2 introduced this component split; 0.1.0.3 retains it and adds
+Version 0.1.0.2 introduced this component split; 0.1.0.4 retains it and adds
 the reviewed Model 1 integration described below. Consult the package's
 BUILD_INFO for its compiled scope. Model 2 and combined Libretro
 adapters remain future work. The repository is independent of its TGPulse-Next
@@ -22,8 +22,8 @@ and dependency licenses, and SHA256SUMS.
 
 No separate `system` database is required: the catalogue and approved NVRAM
 tables are embedded. No ROMs or user saves are supplied. Core Name is
-**TGPulse-Next: Model 1 Development**; Core Label is
-**Sega - Model 1 (TGPulse-Next Development)**.
+**TGPulse-Next: Model 1**; Core Label is
+**Sega - Model 1 (TGPulse-Next)**.
 The regular release filename is separate from the locally installed
 `tgpulse_next_dev_m1_libretro` development copy.
 
@@ -32,8 +32,8 @@ The regular release filename is separate from the locally installed
 The release workflow builds native Linux x86_64/ARM64, macOS Intel/Apple Silicon
 and Windows x86_64 artifacts. Only packages that pass all CI gates are published.
 Linux artifacts use Ubuntu 24.04; older glibc distributions are not guaranteed.
-macOS builds target macOS 13 or newer. Windows uses the native MSVC toolchain
-and the existing static C/C++ runtime configuration.
+macOS builds target macOS 13 or newer. Windows uses GNU/MinGW with static
+runtimes. All release jobs invoke the shared `Makefile.libretro` recipe.
 
 Software rendering is retained. Vulkan and OpenGL/GLES rendering use the
 frontend's device/context. OpenGL requires desktop 4.3 or GLES 3.1 compute
@@ -94,7 +94,7 @@ Future implementation is tracked only in
 ## Source Gain update in 0.1.0.1
 
 MultiPCM 1/2, FM (YM3438) and DSB (MPEG) Gain selectors are global across
-Model 1 sets, defaulting to Auto. Auto uses the standalone mix (50/50/30/100%).
+Model 1 sets, defaulting to Auto. In 0.1.0.4, Auto uses 50/50/90/100%; FM Auto is 90%, while the standalone FM reference remains 30%.
 Mute and 0–100% in 10% steps apply immediately. The 0.1.0.1 release showed
 all Gain selectors for every title. Current development builds show only the
 sources fitted to the loaded game: MultiPCM 1/2 and YM3438 for all Model 1

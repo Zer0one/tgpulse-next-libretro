@@ -1,6 +1,9 @@
 # Build output.
 /target
 /outputs/
+/tgpulse_next_m1_libretro.so
+/tgpulse_next_m1_libretro.dylib
+/tgpulse_next_m1_libretro.dll
 __pycache__/
 *.pyc
 /validation/nvram-campaigns/

@@ -1,0 +1,96 @@
+# Single release build recipe for the Model 1 Libretro core.
+# TARGET_ARCH is supplied by Libretro's Rust CI jobs. The platform fallback
+# also supports libretro-super recipes and native developer builds.
+
+CORE := tgpulse_next_m1_libretro
+PACKAGE := tgpulse-libretro
+CARGO_TARGET_DIR ?= target
+
+ifeq ($(TARGET_ARCH),)
+  ifeq ($(platform),win64)
+    TARGET_ARCH := x86_64-pc-windows-gnu
+  else ifeq ($(platform),win)
+    TARGET_ARCH := x86_64-pc-windows-gnu
+  else ifeq ($(platform),linux-aarch64)
+    TARGET_ARCH := aarch64-unknown-linux-gnu
+  else ifeq ($(platform),osx)
+    ifeq ($(ARCH),x86_64)
+      TARGET_ARCH := x86_64-apple-darwin
+    else ifeq ($(ARCH),arm64)
+      TARGET_ARCH := aarch64-apple-darwin
+    else ifeq ($(shell uname -m),x86_64)
+      TARGET_ARCH := x86_64-apple-darwin
+    else
+      TARGET_ARCH := aarch64-apple-darwin
+    endif
+  else ifeq ($(platform),unix)
+    ifeq ($(shell uname -m),aarch64)
+      TARGET_ARCH := aarch64-unknown-linux-gnu
+    else
+      TARGET_ARCH := x86_64-unknown-linux-gnu
+    endif
+  else ifeq ($(shell uname -s),Darwin)
+    ifeq ($(shell uname -m),arm64)
+      TARGET_ARCH := aarch64-apple-darwin
+    else
+      TARGET_ARCH := x86_64-apple-darwin
+    endif
+  else ifeq ($(shell uname -s),Linux)
+    ifeq ($(shell uname -m),aarch64)
+      TARGET_ARCH := aarch64-unknown-linux-gnu
+    else
+      TARGET_ARCH := x86_64-unknown-linux-gnu
+    endif
+  else ifneq ($(filter MINGW% MSYS% CYGWIN%,$(shell uname -s)),)
+    TARGET_ARCH := x86_64-pc-windows-gnu
+  endif
+endif
+
+LINUX_TARGETS := x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+APPLE_TARGETS := x86_64-apple-darwin aarch64-apple-darwin
+WINDOWS_TARGETS := x86_64-pc-windows-gnu
+SUPPORTED_TARGETS := $(LINUX_TARGETS) $(APPLE_TARGETS) $(WINDOWS_TARGETS)
+
+ifeq ($(filter $(TARGET_ARCH),$(SUPPORTED_TARGETS)),)
+  $(error Unsupported TARGET_ARCH '$(TARGET_ARCH)')
+endif
+
+ifneq ($(filter $(TARGET_ARCH),$(LINUX_TARGETS)),)
+  OUTPUT := $(CORE).so
+  CARGO_LIBRARY := lib$(CORE).so
+else ifneq ($(filter $(TARGET_ARCH),$(APPLE_TARGETS)),)
+  OUTPUT := $(CORE).dylib
+  CARGO_LIBRARY := lib$(CORE).dylib
+  export MACOSX_DEPLOYMENT_TARGET := 13.0
+else
+  OUTPUT := $(CORE).dll
+  CARGO_LIBRARY := $(CORE).dll
+endif
+
+.PHONY: all clean
+
+all:
+	@command -v cargo >/dev/null || { echo 'Cargo is required' >&2; exit 1; }
+ifneq ($(filter $(TARGET_ARCH),$(LINUX_TARGETS)),)
+	@command -v $(CXX) >/dev/null || { echo 'A C++ compiler is required' >&2; exit 1; }
+	@archive="$$($(CXX) -print-file-name=libstdc++.a)"; \
+		test -f "$$archive" || { echo 'Static libstdc++.a is required for $(TARGET_ARCH)' >&2; exit 1; }; \
+		RUSTFLAGS="$(RUSTFLAGS) -Lnative=$$(dirname "$$archive") -lstatic=stdc++" \
+		CXXSTDLIB="" \
+		cargo build --locked --release -p $(PACKAGE) --target $(TARGET_ARCH)
+else ifneq ($(filter $(TARGET_ARCH),$(APPLE_TARGETS)),)
+	@cargo rustc --locked --release -p $(PACKAGE) --lib --target $(TARGET_ARCH) -- \
+		-C link-arg=-Wl,-install_name,@rpath/$(OUTPUT)
+else
+	@cargo build --locked --release -p $(PACKAGE) --target $(TARGET_ARCH)
+endif
+	@cp "$(CARGO_TARGET_DIR)/$(TARGET_ARCH)/release/$(CARGO_LIBRARY)" "$(OUTPUT)"
+ifneq ($(filter $(TARGET_ARCH),$(APPLE_TARGETS)),)
+	@if [ "$$(uname -s)" = Darwin ]; then \
+		codesign --force --sign - "$(OUTPUT)" && codesign --verify --strict "$(OUTPUT)"; \
+	fi
+endif
+	@test -s "$(OUTPUT)"
+
+clean:
+	@rm -f "$(CORE).so" "$(CORE).dylib" "$(CORE).dll"
