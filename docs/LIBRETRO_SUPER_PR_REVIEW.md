@@ -30,18 +30,19 @@ x86_64 GNU and macOS Intel/Apple Silicon. Those jobs have not run on
 Libretro-owned runners; the existing GitHub workflow remains the published
 five-platform release baseline. Both CI definitions now invoke the same
 Makefile, with Windows GNU/MinGW in the common target policy; the updated
-GitHub workflow has not yet run remotely.
+GitHub workflow passed all five native jobs for v0.1.0.5.
 
 The source `.info` now has the public name and label. The local
 `tools/install_dev_core.py` derives a separate `.info` with `Development` in
 both fields when installing `tgpulse_next_dev_m1_libretro` into local
-RetroArch. The previously published v0.1.0.3 archives retain their historical
-metadata; a subsequent public package must use the corrected source `.info`.
+RetroArch. Published v0.1.0.5 packages use the corrected public `.info`;
+v0.1.0.3 archives retain their historical metadata.
 An isolated local-installer check retained the agreed Development name and
 label. A separate offline package preflight passed with the public name and
 label, including version, licenses, source revision and checksums. The new
 macOS arm64 Makefile build also passed artifact checks and was installed under
-the Development name with matching SHA-256; no public release was made.
+the Development name with matching SHA-256. Version 0.1.0.5 is now published;
+its exact-source package evidence is recorded in `LIBRETRO_CI.md`.
 
 The updated wrapper was built in an isolated Debian 12 Linux x86_64 container
 with Rust/Cargo 1.97.1. The test used a ROM-free source snapshot based on local
@@ -62,7 +63,10 @@ preflight passed. GitHub's production build now calls this same recipe and
 validates/packages the root artifact; the prior direct Cargo build and
 workflow-local linkage/normalization commands have been removed. The Windows
 native job follows Supermodel's MSYS2 setup and uses the same GNU target as
-Libretro's Rust template. The revised remote matrix remains to be run.
+Libretro's Rust template. The revised remote matrix passed for v0.1.0.5,
+including native GNU Windows loading and lifecycle checks. All five published packages were downloaded and
+verified against their manifests, GitHub digests and tagged source revision.
+The GitHub macOS arm64 build is installed locally under the Development name.
 
 Model 1 embeds its game catalogue and NVRAM tables, so this PR has no required
 `system` asset for the core as a whole. Sega NetMerc requires its I/O BIOS;
@@ -135,13 +139,13 @@ BIOS. Neither is distributed by this recipe.
 
 ### Validation
 
-The published [v0.1.0.3 release](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.3)
-has a passing [multi-platform CI run](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37234302083).
-The new buildbot-style Makefile completed isolated Linux x86_64 and macOS
-arm64 builds with artifact and ABI checks. The Libretro GitLab jobs are
-prepared against the current official Rust templates but have not yet run
-on Libretro-owned infrastructure. Runtime and controller evidence is recorded
-in the source repository.
+The published [v0.1.0.5 release](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.5)
+has a passing [five-platform CI run](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37241965366)
+using the shared Makefile. Published packages were checked for ABI, metadata,
+licenses, source revisions and checksums. The Libretro GitLab jobs use the
+current official Rust templates but have not yet run on Libretro-owned
+infrastructure. Runtime and controller evidence is recorded in the source
+repository.
 
 ### Limitations And Licensing
 
@@ -150,10 +154,6 @@ in the source repository.
   frontend and driver.
 - The project root is MIT licensed; retained third-party source notices and
   packaged dependency licenses remain available in the source repository.
-- Published v0.1.0.3 archives still contain the earlier `Development` display
-  metadata. The public `.info` proposed here and the separate local installer
-  now use their intended names; the next source package will use public
-  metadata.
 
 ### AI-Assisted Development
 
@@ -167,15 +167,13 @@ reviewed design decisions and performed real-game and controller trials.
    installer, source-side Makefile and `.gitlab-ci.yml`. The FM Auto Gain
    change belongs to source release 0.1.0.5 and is outside the two-file
    libretro-super registration patch.
-2. Local Linux x86_64 and macOS arm64 Makefile builds, ABI and Model 1 scope
-   checks passed. Rerun against the exact future source commit. Distinguish
-   these new source checks from the published v0.1.0.3 CI evidence and from
-   the revised GitHub matrix and pending Libretro-owned GitLab pipeline.
-3. After user review and explicit authorization, publish the source wrapper
-   on the branch named in the recipe (`main`), create the upstream PR from a
-   suitable fork, and verify its diff against current `libretro-super/master`.
-   Update the PR body with the exact source revision and validation result.
+2. The exact v0.1.0.5 source commit passed the revised five-platform native
+   GitHub matrix and downloaded-package verification. Libretro-owned GitLab
+   execution remains a separate onboarding gate.
+3. After user review and explicit authorization, create the upstream PR from
+   a suitable fork and verify its diff against current `libretro-super/master`.
+   The source wrapper and public metadata are already published on `main`.
 
 **Current state:** The upstream patch and reviewer text are prepared locally.
-The separate 0.1.0.5 source release is authorized; upstream PR publication
-still awaits user review.
+Version 0.1.0.5 and its revised five-platform packages are published and
+verified; upstream PR publication still awaits user review.

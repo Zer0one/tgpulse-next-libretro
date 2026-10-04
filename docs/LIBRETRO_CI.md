@@ -62,7 +62,8 @@ toolchain image and artifact collection.
 The current five-platform GitHub workflow and Libretro GitLab jobs both use
 this recipe; earlier releases used direct Cargo commands and Windows MSVC.
 Their recorded results below describe those historical builds, not validation
-of the revised GNU Windows job. The new GitHub matrix has not run remotely.
+of the revised GNU Windows job. The revised GitHub matrix passed for the 0.1.0.5 release;
+its downloaded-package evidence is recorded below.
 
 The template definitions were inspected at
 `libretro-infrastructure/ci-templates` commit
@@ -109,7 +110,7 @@ python3 tools/package_libretro.py \
   --core tgpulse_next_m1_libretro.dylib \
   --target aarch64-apple-darwin --offline \
   --output /private/tmp/model1-package \
-  --archive /private/tmp/tgpulse-next-m1-libretro-macos-arm64-0.1.0.3.zip
+  --archive /private/tmp/tgpulse-next-m1-libretro-macos-arm64-0.1.0.5.zip
 python3 tools/package_libretro.py --check --output /private/tmp/model1-package
 ```
 
@@ -293,3 +294,53 @@ matching `.info` SHA-256 is
 `956e7f1b8098ecf36ae21b865e2363461d0e0083b661698cc7458e03b014a659`.
 Package verification does not establish physical controller feel or additional
 gameplay acceptance.
+
+
+## Verified 0.1.0.5 Publication (2026-10-05)
+
+- Release: [0.1.0.5 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.5), marked prerelease.
+- Fixed annotated tag `v0.1.0.5`: source commit
+  `6d37b3481f8d225d660089686b7f6328feae7b1a`.
+- All five native shared-Makefile build/test/artifact/package jobs and the
+  publication job passed: [CI 37241965366](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37241965366).
+  The updated Windows GNU job passed native DLL loading and all three empty
+  lifecycle cycles, in addition to the machine/adapter checks.
+- Reference: SM2 `PORTING_PLAN.md` phase 4 and `CI.md` native matrix,
+  core/info pairing, ABI/dependency, license, source and checksum gates;
+  Supermodel's native MSYS2 Windows job. Adaptation: one Rust Model 1 Makefile
+  recipe shared by GitHub and the proposed Libretro Rust-template jobs.
+- Candidate v0.1.0.4 remains an unchanged, unpublished tag. Its Windows GNU
+  production link exposed native TLS references in GCC 16.2.0's static
+  C++/winpthread archives; v0.1.0.5 includes `-lmingw32` in the existing static
+  link group. Backport candidate B10 records the same inherited upstream
+  configuration; no upstream repository was modified.
+- The first v0.1.0.5 run built Windows successfully but its ABI checker did
+  not recognize Binutils 2.46's added ordinal-base/hint columns. Checker
+  recovery commit `c6fac4a` accepts both real formats and logs only exports and
+  dependencies. The current checker ran separately from the unchanged tagged
+  source. No tag was moved or source substituted.
+- Downloaded all five published ZIPs and `SHA256SUMS`. Verified GitHub asset
+  digests, external/internal checksums, exact inventories, public metadata,
+  version, licenses, Model 1 scope and tagged source in `SOURCE_COMMIT.txt`
+  and `BUILD_INFO.json`. Linux/macOS packages contain 194 files; Windows 202.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| Linux ARM64 | `d7c223896ca5c137b100c3fdfbd9d632be01671275cf8592144575260dd9a5d9` |
+| Linux x86_64 | `ac7b0afe153027f7c730519c33718da1b83512d6cc846da50d8a6c260af15445` |
+| macOS Apple Silicon | `e15f4e40723e24c56a2804072a6e8fc67a779fd1c92e790b3fef01208238c39a` |
+| macOS Intel | `3613f3372b3fcab00f030f7d55e73e5ab66a6fcb733241a3f4ee8fbbd5396fa0` |
+| Windows x86_64 | `0f2b2520559c415ad89cafd1ad3f6dbfeb528158274a32c19905ffef545b86ea` |
+
+The downloaded GitHub macOS arm64 core also passed local native ABI,
+dependency and empty-lifecycle checks. It was installed as
+`tgpulse_next_dev_m1_libretro.dylib` with its matching Development metadata;
+both installed hashes match their inputs:
+
+- Core: `56a46f55ba5fbdf71c867f3716e6b7953cf14b74c80b0ac2583c0a9fb2a5d0fd`.
+- Info: `7f5be1952c4b61b0f7f35b50af5416d5014b0ffcc4f57c5422057e257867a3bb`.
+
+Libretro-owned GitLab execution and ecosystem registration remain pending.
+No additional game, physical controller or rumble/drift acceptance is claimed.
+Required reasoning: Medium; account usage 49% after publication (48% before,
+rounded shared-account reading); next reset 2026-10-10 09:49:17 CEST.

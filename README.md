@@ -16,7 +16,7 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
-is prepared as 0.1.0.5.
+is published as 0.1.0.5.
 
 **Port status:** an experimental Libretro adapter lives in
 `crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
