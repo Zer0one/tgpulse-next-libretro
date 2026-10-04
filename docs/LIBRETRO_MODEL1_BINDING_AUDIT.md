@@ -146,3 +146,12 @@ Physical controller/gameplay acceptance remains separate.
 
 Follow-up deployment: macOS release build and installed Development core match
 SHA-256 `86c51cfb5904175a5f7a8b73138d6d0efd2e204b243f1dd5fd4e2db7c883840c`.
+
+## Subsequent Wing War correction (2026-10-04)
+
+The Wing War throttle result above describes the audited source at that time.
+The user subsequently approved a Libretro-only polarity change for all four
+Wing War sets: right-stick Up/Down keep their named actions but now lower/raise
+ADC 2, while R2/L2 bind Throttle Up/Down and retain their previous physical
+ADC responses. Star Wars Arcade is unchanged. The current behavior and its
+focused checks are recorded in [the frontend map](LIBRETRO_MODEL1_FRONTEND_MAP.md#wing-war-throttle-polarity-correction-2026-10-04).

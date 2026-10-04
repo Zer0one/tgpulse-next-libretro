@@ -130,7 +130,7 @@ still passes.
   share the same generic profile name on both ports. Wing War
   revisions share a profile only where their declared wiring matches.
 - RetroArch descriptors name the action for each port. Wing War uses D-pad
-  directions for its four views, L2/R2 for Throttle Up/Down and left stick for
+  directions for its four views, R2/L2 for Throttle Up/Down and left stick for
   flight X/Y. SWA uses Pilot VR1 on D-pad Down with D-pad Up as an alternate, matching standalone, and separate P2 Gunner descriptors.
 - At this profile expansion checkpoint the full offline workspace suite passed:
   505 tests, 0 failures, 5 ignored.
@@ -473,6 +473,17 @@ Flight profiles gain standalone shoulder aliases and the Pilot right-stick
 throttle. Flight ADC sampling preserves standalone travel outside the deadzone;
 VR steering keeps its racing curve. The Wing War profile is
 `Flight: Wing War + VR4` (V4 was a typo).
+
+## Wing War throttle polarity correction (2026-10-04)
+
+For Wing War World/US/Japan and R360, the user requested a lower ADC for
+Throttle Up while preserving the existing physical response of L2 and R2.
+The right-stick bindings remain Up = Throttle Up and Down = Throttle Down;
+their resulting ADC direction is reversed. R2 now binds Throttle Up and L2
+binds Throttle Down. ADC 2 remains centred at 128, with Up reaching 1 and
+Down reaching 255. Star Wars Arcade retains its previous mappings and
+28–228 range. This is an explicit Libretro adaptation to the imported
+standalone mapping; the separate standalone path was not changed.
 
 ## Master Volume correction (2026-10-02)
 

@@ -41,6 +41,11 @@ The comparison found no further unexplained source-level difference requiring
 a behavioral change in A1. The report does not claim physical-controller
 equivalence: that evidence remains with the user-operated R1 comparison.
 
+The later user-approved Wing War throttle correction is documented separately
+in [the frontend map](LIBRETRO_MODEL1_FRONTEND_MAP.md#wing-war-throttle-polarity-correction-2026-10-04).
+It intentionally differs from the imported standalone's current throttle
+mapping and does not change this earlier audit result.
+
 ## Verification
 
 - 79 Libretro adapter unit tests passed.

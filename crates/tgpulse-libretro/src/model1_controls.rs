@@ -122,7 +122,8 @@ pub enum FlightKind {
 }
 
 /// Signed axes range from -1 to 1. Positive X points right and positive Y
-/// points up as seen by the player. Throttle Up raises the cabinet ADC.
+/// points up as seen by the player. Wing War Throttle Up lowers the cabinet ADC;
+/// Star Wars Arcade retains the standalone's rising-ADC polarity.
 #[derive(Clone, Copy, Debug)]
 pub struct FlightCabinet {
     pub kind: FlightKind,
@@ -205,7 +206,7 @@ impl FlightCabinet {
         match self.kind {
             FlightKind::NetMerc => out.analog[2] = centered(-self.pilot[1], 127, 0, 255),
             FlightKind::WingWar | FlightKind::WingWar360 => {
-                out.analog[2] = centered(self.throttle, 128, 1, 255);
+                out.analog[2] = centered(-self.throttle, 128, 1, 255);
             }
             FlightKind::StarWars => {
                 out.analog[2] = centered(self.throttle, 128, 28, 228);
@@ -352,12 +353,12 @@ mod tests {
         let normal = wing.into_native();
         assert_eq!(normal.in0, 0xff & !0x20);
         assert_eq!(normal.in1, 0xff & !(0x10 | 0x20 | 0x40 | 0x01));
-        assert_eq!(normal.analog[..3], [0, 0, 255]);
+        assert_eq!(normal.analog[..3], [0, 0, 1]);
         wing.kind = FlightKind::WingWar360;
         let r360 = wing.into_native();
         assert_eq!(r360.in0, 0xff);
         assert_eq!(r360.in1, 0xff & !(0x10 | 0x20 | 0x40));
-        assert_eq!(r360.analog[..3], [255, 255, 255]);
+        assert_eq!(r360.analog[..3], [255, 255, 1]);
         let mut netmerc = idle_flight(FlightKind::NetMerc);
         netmerc.start = true;
         netmerc.pilot[1] = 1.0;

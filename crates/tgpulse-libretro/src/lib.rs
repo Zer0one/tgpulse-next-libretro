@@ -1425,8 +1425,8 @@ fn descriptors(profile: Profile) -> Vec<Descriptor> {
                     ANALOG_Y,
                     c"Throttle Up / Down",
                 ),
-                (0, DEVICE_ANALOG, ANALOG_BUTTON, JOY_L2, c"Throttle Up"),
-                (0, DEVICE_ANALOG, ANALOG_BUTTON, JOY_R2, c"Throttle Down"),
+                (0, DEVICE_ANALOG, ANALOG_BUTTON, JOY_L2, c"Throttle Down"),
+                (0, DEVICE_ANALOG, ANALOG_BUTTON, JOY_R2, c"Throttle Up"),
                 (0, DEVICE_JOYPAD, 0, JOY_B, c"Machine Gun"),
                 (0, DEVICE_JOYPAD, 0, JOY_L, c"Machine Gun"),
                 (0, DEVICE_JOYPAD, 0, JOY_A, c"Missile"),
@@ -1722,8 +1722,15 @@ fn flight_inputs(profile: Profile, input: Option<ffi::InputState>, devices: [u32
     } else {
         0.0
     };
-    // Standalone takes the strongest source for each assignable half-axis.
-    let throttle = t(ffi::JOY_L2).max((-right_y).max(0.0)) - t(ffi::JOY_R2).max(right_y.max(0.0));
+    // Wing War keeps each trigger's previous ADC response while reversing the
+    // right stick's response. SWA retains the standalone half-axis bindings.
+    let throttle = if matches!(profile, Profile::WingWar | Profile::WingWar360) {
+        t(ffi::JOY_R2).max((-right_y).max(0.0))
+            - t(ffi::JOY_L2).max(right_y.max(0.0))
+    } else {
+        t(ffi::JOY_L2).max((-right_y).max(0.0))
+            - t(ffi::JOY_R2).max(right_y.max(0.0))
+    };
     FlightCabinet {
         kind,
         coin1: b(0, ffi::JOY_SELECT),
@@ -3928,7 +3935,7 @@ mod tests {
     }
 
     #[test]
-    fn flight_midpoint_and_right_throttle_match_standalone_calibration() {
+    fn flight_midpoint_and_throttle_follow_profile_polarity() {
         use ffi::*;
         for (profile, midpoint) in [
             (Profile::WingWar, 64),
@@ -3970,7 +3977,7 @@ mod tests {
                 if profile == Profile::StarWarsArcade {
                     178
                 } else {
-                    192
+                    65
                 }
             );
             assert_eq!(
@@ -3978,7 +3985,7 @@ mod tests {
                 if profile == Profile::StarWarsArcade {
                     78
                 } else {
-                    64
+                    192
                 }
             );
             assert_eq!(
@@ -3991,6 +3998,28 @@ mod tests {
                 128
             );
         }
+    }
+
+    #[test]
+    fn wing_war_trigger_swap_preserves_adc_response_and_descriptors() {
+        use ffi::*;
+        for profile in [Profile::WingWar, Profile::WingWar360] {
+            let entries = descriptors(profile);
+            assert!(entries.iter().any(|entry| entry.3 == JOY_L2 && entry.4 == c"Throttle Down"));
+            assert!(entries.iter().any(|entry| entry.3 == JOY_R2 && entry.4 == c"Throttle Up"));
+            for (source, expected) in [
+                (axis_value::<0, ANALOG_BUTTON, JOY_L2, 32767> as InputState, 255),
+                (axis_value::<0, ANALOG_BUTTON, JOY_R2, 32767>, 1),
+            ] {
+                assert_eq!(
+                    flight_inputs(profile, Some(source), [DEVICE_JOYPAD; 2]).analog[2],
+                    expected
+                );
+            }
+        }
+        let swa = descriptors(Profile::StarWarsArcade);
+        assert!(swa.iter().any(|entry| entry.3 == JOY_L2 && entry.4 == c"Pilot Throttle Up"));
+        assert!(swa.iter().any(|entry| entry.3 == JOY_R2 && entry.4 == c"Pilot Throttle Down"));
     }
 
     #[test]
