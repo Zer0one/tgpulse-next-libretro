@@ -34,6 +34,14 @@ pub struct Template {
     pub layout: Layout,
 }
 
+/// Backup-RAM settings have no EEPROM checksum or mirror policy.
+pub struct BackupTemplate {
+    pub set: &'static str,
+    pub encoded: &'static [u8],
+    pub payload_crc: u16,
+    pub startup: &'static [(usize, u8)],
+}
+
 fn checksum(bytes: impl IntoIterator<Item = u8>, initial: u16) -> u16 {
     let mut crc = initial;
     for byte in bytes {
@@ -49,7 +57,39 @@ fn template(set: &str) -> Option<&'static Template> {
     data::TEMPLATES.iter().find(|t| t.set == set)
 }
 pub fn supported(set: &str) -> bool {
-    template(set).is_some()
+    template(set).is_some() || data::BACKUP_TEMPLATES.iter().any(|t| t.set == set)
+}
+
+/// NetMerc controller endpoint slots, verified against Service Menu evidence.
+/// Apply only on first initialization; MVD tracking calibration is separate.
+pub fn initial_calibration(set: &str, backup: &mut [u8]) -> bool {
+    if set != "netmerc" || backup.len() != 65536 {
+        return false;
+    }
+    for (offset, value) in [(0x3c, 0xff), (0x38, 0x00), (0x40, 0x00), (0x44, 0xff)] {
+        backup[offset..offset + 4].fill(0xff);
+        backup[offset] = value;
+    }
+    true
+}
+
+#[cfg(test)]
+#[test]
+fn initial_netmerc_calibration_preserves_unrelated_sram() {
+    let mut backup = vec![0x5a; 65536];
+    assert!(initial_calibration("netmerc", &mut backup));
+    for offset in 0..backup.len() {
+        let value = match offset {
+            0x38 | 0x40 => 0,
+            0x39..=0x3f | 0x41..=0x47 => 0xff,
+            _ => 0x5a,
+        };
+        assert_eq!(backup[offset], value, "SRAM offset {offset:#x}");
+    }
+    let expected = backup.clone();
+    assert!(!initial_calibration("vf", &mut backup));
+    assert_eq!(backup, expected);
+    assert!(!initial_calibration("netmerc", &mut backup[..128]));
 }
 
 fn repair(image: &mut [u8], layout: &Layout) {
@@ -77,37 +117,42 @@ pub fn valid(set: &str, image: &[u8]) -> bool {
     fixed == image
 }
 
-/// Complete set-specific backup/EEPROM image, followed only by approved startup patches.
-pub fn seed(set: &str) -> Result<Option<(Vec<u8>, Vec<u8>)>, &'static str> {
-    let Some(t) = template(set) else {
-        return Ok(None);
-    };
+fn decode(encoded: &[u8], payload_crc: u16) -> Result<Vec<u8>, &'static str> {
     let mut payload = Vec::with_capacity(65536 + 128);
     let mut input = 0;
-    while input < t.encoded.len() {
-        let command = t.encoded[input];
+    while input < encoded.len() {
+        let command = encoded[input];
         input += 1;
         let count = usize::from(command & 0x7f) + 1;
         if payload.len() + count > 65536 + 128 {
             return Err("Invalid initial NVRAM template");
         }
         if command & 0x80 != 0 {
-            let Some(&byte) = t.encoded.get(input) else {
+            let Some(&byte) = encoded.get(input) else {
                 return Err("Truncated initial NVRAM template");
             };
             payload.resize(payload.len() + count, byte);
             input += 1;
         } else {
-            let Some(bytes) = t.encoded.get(input..input + count) else {
+            let Some(bytes) = encoded.get(input..input + count) else {
                 return Err("Truncated initial NVRAM template");
             };
             payload.extend_from_slice(bytes);
             input += count;
         }
     }
-    if payload.len() != 65536 + 128 || checksum(payload.iter().copied(), 0) != t.payload_crc {
+    if payload.len() != 65536 + 128 || checksum(payload.iter().copied(), 0) != payload_crc {
         return Err("Initial NVRAM template checksum mismatch");
     }
+    Ok(payload)
+}
+
+/// Complete set-specific backup/EEPROM image, followed only by approved startup patches.
+pub fn seed(set: &str) -> Result<Option<(Vec<u8>, Vec<u8>)>, &'static str> {
+    let Some(t) = template(set) else {
+        return Ok(None);
+    };
+    let mut payload = decode(t.encoded, t.payload_crc)?;
     let mut eeprom = payload.split_off(65536);
     if !valid(set, &eeprom) {
         return Err("Initial NVRAM native integrity mismatch");
@@ -151,14 +196,93 @@ pub fn apply(set: &str, eeprom: &mut [u8], choices: &[usize]) -> Apply {
     }
 }
 
+/// New saves: patch the optional factory image, or initialize from the native
+/// campaign baseline when no factory image was loaded. Existing saves skip this.
+pub fn initial_backup(set: &str, backup: &mut [u8], factory_loaded: bool)
+    -> Result<bool, &'static str> {
+    let Some(t) = data::BACKUP_TEMPLATES.iter().find(|t| t.set == set) else {
+        return Ok(false);
+    };
+    if backup.len() != 65536 { return Err("Invalid backup RAM size"); }
+    if !factory_loaded {
+        let payload = decode(t.encoded, t.payload_crc)?;
+        backup.copy_from_slice(&payload[..65536]);
+    }
+    for &(offset, byte) in t.startup { backup[offset] = byte; }
+    initial_calibration(set, backup);
+    Ok(true)
+}
+
+/// Apply the same reviewed field table to the set's actual storage.
+pub fn apply_settings(set: &str, backup: &mut [u8], eeprom: &mut [u8], choices: &[usize]) -> Apply {
+    if set != "netmerc" { return apply(set, eeprom, choices); }
+    // NetMerc patches the complete supplied backup image. Bookkeeping bytes
+    // are not an operator-layout signature and must neither gate nor be repaired.
+    if backup.len() != 65536 {
+        return Apply::NotReady;
+    }
+    let mut changed = false;
+    for (index, field) in FIELDS.iter().filter(|f| f.set == set).enumerate() {
+        let value = field.values.get(choices.get(index).copied().unwrap_or(field.default))
+            .unwrap_or(&field.values[field.default]);
+        for &(offset, byte) in value.patch {
+            changed |= backup[offset] != byte;
+            backup[offset] = byte;
+        }
+    }
+    if changed { Apply::Changed } else { Apply::Unchanged }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
+    fn netmerc_backup_initialization_overrides_and_preservation() {
+        let mut backup = vec![0; 65536];
+        assert!(initial_backup("netmerc", &mut backup, false).unwrap());
+        assert_eq!(&backup[..4], &[0x0f, 0xff, 0xff, 0xff]);
+        assert_eq!((backup[0x5c], backup[0x28], backup[0x2a], backup[0x2c]), (2, 2, 0, 1));
+        assert_eq!([backup[0x3c],backup[0x38],backup[0x40],backup[0x44]], [255,0,0,255]);
+        let mut factory = vec![0x5a; 65536];
+        assert!(initial_backup("netmerc", &mut factory, true).unwrap());
+        for i in 0..factory.len() {
+            if i != 0x5c && !(0x38..0x48).contains(&i) { assert_eq!(factory[i], 0x5a); }
+        }
+        let fields: Vec<_> = FIELDS.iter().filter(|f| f.set == "netmerc").collect();
+        let mut choices = vec![0; fields.len()];
+        let mut eeprom = vec![0xff; 128];
+        apply_settings("netmerc", &mut backup, &mut eeprom, &choices);
+        for (index, field) in fields.iter().enumerate() {
+            for (step, value) in field.values.iter().enumerate() {
+                let mut trial = backup.clone(); choices[index] = step;
+                assert_ne!(apply_settings("netmerc", &mut trial, &mut eeprom, &choices), Apply::NotReady);
+                for &(offset, byte) in value.patch { assert_eq!(trial[offset], byte); }
+                for i in 0..trial.len() {
+                    if !value.patch.iter().any(|p| p.0 == i) { assert_eq!(trial[i], backup[i]); }
+                }
+                assert_eq!(eeprom, vec![0xff;128]);
+            }
+            choices[index] = 0;
+        }
+        assert_eq!(apply_settings("netmerc", &mut [0; 128], &mut eeprom, &choices), Apply::NotReady);
+        for prefix in [[0;4], [0xff;4], [0x0f,0xff,0xff,0xff]] {
+            let mut image = vec![0xff;65536];
+            image[..4].copy_from_slice(&prefix);
+            let before = image.clone();
+            assert_eq!(apply_settings("netmerc", &mut image, &mut eeprom, &choices), Apply::Changed);
+            assert_eq!(&image[..4], &prefix);
+            for offset in 0..image.len() {
+                if !fields.iter().any(|f| f.values[f.default].patch.iter().any(|p| p.0 == offset)) {
+                    assert_eq!(image[offset], before[offset]);
+                }
+            }
+        }
+    }
+    #[test]
     fn nine_distinct_templates_valid_startup_and_preservation() {
         assert_eq!(data::TEMPLATES.len(), 9);
-        assert_eq!(FIELDS.len(), 39);
-        assert!(!supported("netmerc"));
+        assert_eq!(FIELDS.len(), 43);
+        assert!(supported("netmerc"));
         for t in data::TEMPLATES {
             let (backup, mut eeprom) = seed(t.set).unwrap().unwrap();
             assert_eq!(backup.len(), 65536);

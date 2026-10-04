@@ -132,6 +132,7 @@ mod tests {
     }
     fn system() -> Model1System {
         Model1System::new(&loader::Model1Roms {
+            netmerc_procedural_audio: false,
             maincpu: vec![0],
             tgp: vec![],
             copro_tables: vec![],

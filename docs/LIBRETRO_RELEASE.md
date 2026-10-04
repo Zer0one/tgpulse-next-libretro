@@ -2,8 +2,9 @@
 
 This experimental core targets Sega Model 1. Current source selects only
 Model 1 machine components and required shared devices (a single system build).
-Version 0.1.0.2 introduces this component split; previous previews used the
-combined library. Consult the package's BUILD_INFO for its compiled scope. Model 2 and combined Libretro
+Version 0.1.0.2 introduced this component split; 0.1.0.3 retains it and adds
+the reviewed Model 1 integration described below. Consult the package's
+BUILD_INFO for its compiled scope. Model 2 and combined Libretro
 adapters remain future work. The repository is independent of its TGPulse-Next
 and TGPulse source repositories.
 
@@ -38,32 +39,44 @@ Software rendering is retained. Vulkan and OpenGL/GLES rendering use the
 frontend's device/context. OpenGL requires desktop 4.3 or GLES 3.1 compute
 support; macOS OpenGL 4.1 cannot run it. On macOS select RetroArch's Vulkan
 driver with an available MoltenVK runtime. This package does not install or
-replace RetroArch's drivers. Widescreen expansion and 1–4x supersampling are
-available on hardware renderers; all Widescreen Mode choices apply to a wide
-aspect ratio.
+replace RetroArch's drivers. The Widescreen Hack applies only to games without
+native widescreen support and only with a wide Aspect Ratio. It defaults to
+Expand 3D View Only; the other modes also stretch 2D or stretch the full image.
+Supersampling offers 1–4x on hardware renderers, including in 4:3.
 
 ## Included features
 
 - Native Model 1 timing; optional Supermodel-style 60 Hz mode advances a new
   machine frame each callback and speeds game/sound by approximately 4.3%.
-- Per-title controls for Virtua Racing/Formula, Virtua Fighter, Wing War and
-  Star Wars Arcade, including distinct Pilot/Gunner roles. Test is L3 and
-  Service is R3. Driving ranges/response and supported frontend rumble are exposed.
-- Live master/source audio gain controls and optional timing/FPS overlay.
+- Per-title controls for Virtua Racing/Formula, Virtua Fighter, Wing War,
+  Star Wars Arcade and Sega NetMerc, including distinct Pilot/Gunner roles and
+  full or reduced Test/Service profiles. Test is L3 and Service is R3 in the
+  full profiles. Driving ranges/response and frontend rumble are exposed.
+- Sega NetMerc MVD supports right-stick, calibrated P1 sensors and fixed-camera
+  control, with virtual Holder, Calibrate and Recenter actions. Sensor drift
+  compensation defaults to 50%; optional CSV diagnostics write to the frontend
+  Save Directory. Sensor behavior and physical rumble require controller tests.
+- Live master/source audio gain controls, NetMerc audio donor selection and
+  conditional fallback notices. Donor game ZIPs belong beside `netmerc.zip`.
+  Optional timing/FPS and HD44780 diagnostic LCD overlays are available.
 - Frontend Save RAM and Save States; approved automatic initial NVRAM and
-  configurable operator settings for nine independently acquired sets. Existing
-  valid user Save RAM takes precedence over automatic initial setup.
+  configurable operator settings for ten independently acquired sets, including
+  NetMerc. Existing valid user Save RAM takes precedence over automatic initial
+  setup. `netmerc_nvram.bin` is an optional initial seed; its absence is silent.
+  Current machine Save State format is 5, without migration from old formats.
 - Experimental linked cabinets through Libretro Netpacket for supported
   Virtua Racing/Formula and Wing War sets. Configure native MASTER/SLAVE/LIVE
   roles using the service menu or NVRAM options. Save States are unavailable
   while the COMM board is fitted.
 - Optional, hash-guarded in-memory repair of the known 315-5711 bad dump.
 
-NetMerc cannot currently start and is excluded from NVRAM management. Physical
-controller behavior, broad gameplay acceptance and distributed race/dogfight
-validation remain user-run. CI format/API/package gates do not establish those
-results. Vulkan is verified in macOS RetroArch; OpenGL/GLES image delivery and
-context recreation are verified through the isolated Linux Mesa host.
+NetMerc remains experimental. Its required Model 1 I/O BIOS can be found in the
+frontend System directory, beside the game or inside its ZIP, in that order.
+The optional `hd44780.zip` follows the same lookup order when the diagnostic
+display is enabled. Physical-controller behavior and broad gameplay acceptance
+remain user-run. CI format/API/package gates do not establish those results.
+Vulkan is verified in macOS RetroArch; OpenGL/GLES image delivery and context
+recreation are verified through the isolated Linux Mesa host.
 
 ## Integrity and source
 
@@ -82,8 +95,8 @@ Future implementation is tracked only in
 
 MultiPCM 1/2, FM (YM3438) and DSB (MPEG) Gain selectors are global across
 Model 1 sets, defaulting to Auto. Auto uses the standalone mix (50/50/30/100%).
-Mute and 0–100% in 10% steps apply immediately; DSB is shown only with a fitted
-board when frontend visibility hints are supported.
+Mute and 0–100% in 10% steps apply immediately. Gain selectors remain visible
+for all titles and apply when the corresponding sound source is present.
 
 The 0.1.0.0 set-qualified Gain keys are ignored. Existing values under the
 older global keys may become active again. To use the new defaults, select

@@ -61,7 +61,7 @@ python3 tools/package_libretro.py \
   --core target/release/libtgpulse_next_m1_libretro.dylib \
   --target aarch64-apple-darwin --offline \
   --output /private/tmp/model1-package \
-  --archive /private/tmp/tgpulse-next-m1-libretro-macos-arm64-0.1.0.0.zip
+  --archive /private/tmp/tgpulse-next-m1-libretro-macos-arm64-0.1.0.3.zip
 python3 tools/package_libretro.py --check --output /private/tmp/model1-package
 ```
 

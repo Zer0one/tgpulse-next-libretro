@@ -73,7 +73,7 @@ menus:
         values_status: cycle_closed
         nvram: {eeprom_offset: 0x0a, values: [1, 0]}
         sample_status: all_values_saved_and_reloaded_direct_abi
-        selected_for_core: false
+        selected_for_core: true
       - {key: cabinet, label: CABINET, position: 9, native_default: STANDARD, observed_values: [STANDARD, SPECIAL, 2P LINK, UPRIGHT], values_status: cycle_closed, sample_status: all_values_saved_and_reloaded_direct_abi, nvram: {eeprom_offset: 0x1b, values: [1, 0, 3, 2]}}
       - {key: difficulty, label: DIFFICULTY, position: 10, native_default: NORMAL, observed_values: [NORMAL, EASY, HARDEST, HARD], values_status: cycle_closed, sample_status: all_values_saved_and_reloaded_direct_abi, nvram: {eeprom_offset: 0x21, values: [1, 0, 3, 2]}}
     display_only:
@@ -84,8 +84,8 @@ menus:
 
 # User-approved integration; acquisition evidence above retains its original date.
 core_options_review:
-  date: "2026-10-02"
+  date: "2026-10-03"
   status: approved_and_implemented
   authority: docs/model1_core_options_review.xlsx
-  nvram_settings: ["car_color", "course_select", "link_id", "race_mode", "country", "cabinet", "difficulty"]
+  nvram_settings: ["car_color", "course_select", "link_id", "race_mode", "country", "monitor", "cabinet", "difficulty"]
   automatic_startup_values: {"COUNTRY": "EXPORT", "LINK ID": "NO LINK", "CABINET": "SPECIAL"}

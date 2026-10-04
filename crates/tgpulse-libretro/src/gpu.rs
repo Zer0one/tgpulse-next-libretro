@@ -45,7 +45,7 @@ pub const GET_HW_RENDER_INTERFACE: u32 = 41 | 0x10000;
 pub const HW_FRAME: *const c_void = usize::MAX as *const c_void;
 
 pub const RASTER: &str = include_str!("../../tgpulse/src/platform/gpu_model1.wgsl");
-pub const RESOLVE: &str = include_str!("../../tgpulse/src/platform/gpu_resolve.wgsl");
+pub const RESOLVE: &str = include_str!("gpu/resolve.wgsl");
 pub fn shader(source: &str) -> Result<(naga::Module, naga::valid::ModuleInfo), String> {
     let module = naga::front::wgsl::parse_str(source).map_err(|e| e.emit_to_string(source))?;
     let info = naga::valid::Validator::new(
@@ -69,6 +69,25 @@ pub fn spirv(source: &str, entry: &str) -> Result<Vec<u32>, String> {
     )
     .map_err(|e| e.to_string())
 }
+/// Reproduce the resolve's native 2D mapping before drawing screen-space UI.
+/// Used only with the panel enabled; the reusable output avoids frame allocations.
+pub fn map_foreground_for_panel(native: &[u32], width: usize, stretch: bool, output: &mut Vec<u32>) {
+    const NATIVE_WIDTH: usize = 496;
+    const HEIGHT: usize = 384;
+    output.resize(width * HEIGHT, 0);
+    let margin = (width - NATIVE_WIDTH) / 2;
+    for y in 0..HEIGHT {
+        for x in 0..width {
+            let source_x = if stretch {
+                Some(x * NATIVE_WIDTH / width)
+            } else if x >= margin && x < margin + NATIVE_WIDTH {
+                Some(x - margin)
+            } else { None };
+            output[y * width + x] = source_x.map_or(0, |sx| native[y * NATIVE_WIDTH + sx]);
+        }
+    }
+}
+
 pub struct FrameData {
     pub width: u32,
     pub height: u32,
@@ -77,6 +96,13 @@ pub struct FrameData {
     pub buffers: [Vec<u8>; 7],
 }
 impl FrameData {
+    pub fn use_display_foreground(&mut self, foreground: &[u32]) {
+        assert_eq!(foreground.len(), (self.width * self.height) as usize);
+        self.buffers[6] = bytemuck::cast_slice(foreground).to_vec();
+        let flags = u32::from_ne_bytes(self.buffers[2][28..32].try_into().unwrap()) | 4;
+        self.buffers[2][28..32].copy_from_slice(&flags.to_ne_bytes());
+    }
+
     pub fn buffer_size(&self, index: usize) -> usize {
         match index {
             1 => (self.stride * self.ss * self.height * self.ss * 4) as usize,
@@ -141,6 +167,30 @@ impl FrameData {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn display_foreground_preserves_native_tiles_and_widescreen_margins() {
+        let mut native = vec![0; 496 * 384];
+        native[0] = 0xfe12_3456;
+        native[495] = 0xfeab_cdef;
+        let mut output = Vec::new();
+        super::map_foreground_for_panel(&native, 683, false, &mut output);
+        assert_eq!(output[0], 0);
+        assert_eq!(output[92], 0);
+        assert_eq!(output[93], native[0]);
+        assert_eq!(output[588], native[495]);
+        assert_eq!(output[589], 0);
+        super::map_foreground_for_panel(&native, 683, true, &mut output);
+        assert_eq!(output[0], native[0]);
+        assert_eq!(output[682], native[495]);
+        super::map_foreground_for_panel(&native, 496, false, &mut output);
+        assert_eq!(output, native);
+        let mut frame = super::FrameData::new(496, 1, &[], &native, &native, true, false);
+        frame.use_display_foreground(&output);
+        let flags = u32::from_ne_bytes(frame.buffers[2][28..32].try_into().unwrap());
+        assert_eq!(flags, 5);
+        assert_eq!(frame.buffers[6], bytemuck::cast_slice::<u32, u8>(&native));
+    }
+
+    #[test]
     fn wide_supersampling_preserves_standalone_uniforms_and_buffer_bounds() {
         let frame = super::FrameData::new(
             683,
@@ -188,7 +238,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             backend: Backend::Auto,
-            wide: 0,
+            wide: 1,
             ss: 1,
             srgb: false,
         }

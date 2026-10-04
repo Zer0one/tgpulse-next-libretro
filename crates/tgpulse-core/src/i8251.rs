@@ -107,7 +107,8 @@ impl Uart {
         self.status &= !1;
         Ok(())
     }
-    /// One external 500 kHz clock, CTS permanently asserted by the DSB.
+    /// One external x16 clock (500 kHz on DSB). The caller owns clock timing;
+    /// CTS is permanently asserted by the connected emulated device.
     pub fn tick(&mut self) {
         if self.mode & 3 == 0 {
             return;

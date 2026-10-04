@@ -161,6 +161,10 @@ impl Model1System {
         main_cpu.op_unimpl.fill(0);
         let mut tgp_cpu = state.tgp_cpu.clone();
         tgp_cpu.cov = Default::default();
+        // ROM/board-selected arithmetic and user preference are not firmware
+        // state. In-memory and decoded restores retain the destination policy.
+        tgp_cpu.float_mode = self.tgp_cpu.float_mode;
+        tgp_cpu.netmerc_city_conversion = self.tgp_cpu.netmerc_city_conversion;
         self.main_cpu = main_cpu;
         self.tgp_cpu = tgp_cpu;
         self.tgp_clock_remainder = state.tgp_clock_remainder;
@@ -206,6 +210,7 @@ mod tests {
 
     fn roms(program: &[u8]) -> Model1Roms {
         Model1Roms {
+            netmerc_procedural_audio: false,
             dsb: None,
             comm_board: false,
             ioboard_kind: crate::model1board::Kind::Original,

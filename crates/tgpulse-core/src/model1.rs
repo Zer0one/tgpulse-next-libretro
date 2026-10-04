@@ -145,7 +145,39 @@ pub struct Model1System {
     pub fifo_events: VecDeque<(char, u32, usize, usize)>,
 }
 
+/// Read-only NetMerc program state, derived from existing SRAM/work RAM.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MvdHolderContext {
+    pub latched: bool,
+    pub credits: u16,
+    pub in_game: bool,
+}
+
 impl Model1System {
+    /// Frontend-owned preference; changes the next matching TGP conversion,
+    /// without rewriting ROM, RAM, ALU pipeline results or persistent data.
+    pub fn set_netmerc_city_workaround(&mut self, enabled: bool) {
+        self.config.netmerc_city_workaround = enabled;
+        self.tgp_cpu.netmerc_city_conversion =
+            enabled && self.ioboard.kind() == crate::model1board::Kind::NetMerc;
+    }
+    /// NetMerc's game-acknowledged MVD Holder latch, not the live switch level.
+    /// The supported program stores this word at V60 address 0x52766a and
+    /// clears it when starting a game. Work RAM already belongs to save states.
+    pub fn mvd_holder_latched(&self) -> Option<bool> {
+        self.mvd_holder_context().map(|state| state.latched)
+    }
+
+    /// Supported NetMerc program: Holder 0x52766a, session 0x527668,
+    /// credits 0x400018. This query does not change input or game memory.
+    pub fn mvd_holder_context(&self) -> Option<MvdHolderContext> {
+        (self.ioboard.kind() == crate::model1board::Kind::NetMerc).then(|| MvdHolderContext {
+            latched: u16::from_le_bytes([self.work_ram[0x2766a], self.work_ram[0x2766b]]) != 0,
+            credits: u16::from_le_bytes([self.nvram[0x18], self.nvram[0x19]]),
+            in_game: u16::from_le_bytes([self.work_ram[0x27668], self.work_ram[0x27669]]) == 1,
+        })
+    }
+
     /// Battery-backed SRAM at 0x400000, plus the I/O board's 93C45 image as
     /// the second block. The Model 1 boards have no EEPROM of their own, but
     /// the I/O board does, and the game keeps its operator settings there.
@@ -193,7 +225,22 @@ impl Model1System {
                 eeprom.data[word] = u16::from_le_bytes([chunk[0], chunk[1]]);
             }
         }
-        let ioboard = crate::model1board::IoBoard::new(roms.ioboard_kind, &roms.iocpu, eeprom)?;
+        let mut ioboard = crate::model1board::IoBoard::new(roms.ioboard_kind, &roms.iocpu, eeprom)?;
+        if roms.ioboard_kind == crate::model1board::Kind::NetMerc {
+            // MAME netmerc_state::machine_reset: stationary HMD pose facing
+            // forward (12868 ~= 90 degrees, 25736 ~= 180 degrees). This is
+            // power-on data, not an i386SX tracking or a ready handshake. The
+            // serial peer publishes the same initial pose after firmware setup.
+            // Snapshot restore retains the saved DPRAM without reseeding it.
+            for (i, value) in crate::model1io2::HmdPose::default()
+                .words()
+                .into_iter()
+                .enumerate()
+            {
+                ioboard.dpram_mut()[0x80 + i * 2..0x82 + i * 2]
+                    .copy_from_slice(&value.to_le_bytes());
+            }
+        }
         let mut sound = if let Some(dsb) = &roms.dsb {
             SoundSystem::with_dsb_audio(
                 roms.sndcpu.clone(),
@@ -207,6 +254,9 @@ impl Model1System {
         };
         sound.set_mutes(config.audio_mutes);
         sound.enable_model1_serial();
+        if roms.ioboard_kind == crate::model1board::Kind::NetMerc && roms.netmerc_procedural_audio {
+            sound.enable_netmerc_recovery();
+        }
 
         // Battery-backed work RAM (RAMA). Use a shipped factory image when present
         // (NetMerc); otherwise retain our zero-filled boot state. Games initialise bytes
@@ -224,7 +274,14 @@ impl Model1System {
         Ok(Self {
             resource_identity: save::resource_identity(roms),
             main_cpu: V60::new(),
-            tgp_cpu: Mb86233::new(),
+            tgp_cpu: {
+                let mut cpu = Mb86233::new();
+                if roms.ioboard_kind == crate::model1board::Kind::NetMerc {
+                    cpu.float_mode = mb86233::FloatMode::Finite;
+                    cpu.netmerc_city_conversion = config.netmerc_city_workaround;
+                }
+                cpu
+            },
             tgp_clock_remainder: 0,
 
             maincpu_rom: roms.maincpu.clone(),
@@ -1001,6 +1058,7 @@ mod persistence_tests {
 
     fn empty_roms() -> Model1Roms {
         Model1Roms {
+            netmerc_procedural_audio: false,
             dsb: None,
             comm_board: false,
             ioboard_kind: crate::model1board::Kind::Original,
@@ -1307,6 +1365,45 @@ mod persistence_tests {
     }
 
     #[test]
+    fn netmerc_saved_sram_and_state_restore_are_not_automatically_repaired() {
+        let mut roms = empty_roms();
+        roms.ioboard_kind = crate::model1board::Kind::NetMerc;
+        roms.iocpu = vec![0x76; 0x10000];
+        // Loader supplies an initialized default; motherboard copies it as-is.
+        roms.nvram_default = vec![0; 0x10000];
+        roms.nvram_default[0] = 0x0f;
+        let mut sys = Model1System::new(&roms).unwrap();
+        assert_eq!(sys.nvram, roms.nvram_default);
+
+        // Even the old uninitialized signature is preserved in personal saves.
+        let mut personal = vec![0xff; 0x10000];
+        personal[4..8].copy_from_slice(&12345u32.to_le_bytes());
+        personal[0x5c..0x60].copy_from_slice(&2u32.to_le_bytes());
+        let eeprom: Vec<_> = (0..128).map(|i| (i * 7) as u8).collect();
+        sys.set_nvram_blocks(&personal, &eeprom);
+        assert_eq!(sys.nvram_blocks(), (personal.clone(), eeprom.clone()));
+        assert_eq!(personal[0], 0xff); // Caller-owned SRAM stays unchanged.
+
+        let (backup, stored_eeprom) = sys.nvram_blocks();
+        let container = crate::nvram::encode(&backup, &stored_eeprom);
+        let (backup, stored_eeprom) = crate::nvram::decode(&container, 65536, 128).unwrap();
+        let mut restarted = Model1System::new(&roms).unwrap();
+        restarted.set_nvram_blocks(&backup, &stored_eeprom);
+        assert_eq!(restarted.nvram_blocks(), (personal.clone(), eeprom));
+
+        // A machine snapshot must retain even the uninitialized signature:
+        // restore is exact state replacement, never automatic SRAM repair.
+        let saved = sys.save_state().unwrap();
+        restarted.load_state(&saved).unwrap();
+        assert_eq!(restarted.nvram, personal);
+        assert_eq!(restarted.save_state().unwrap(), saved);
+
+        // Partial loads cannot accidentally manufacture a matching signature.
+        restarted.set_nvram_blocks(&[0xff], &[]);
+        assert_eq!(restarted.nvram, personal);
+    }
+
+    #[test]
     fn absent_or_invalid_factory_nvram_preserves_zero_default() {
         let mut roms = empty_roms();
         for size in [0, 1, 0x10001] {
@@ -1316,10 +1413,80 @@ mod persistence_tests {
     }
 
     #[test]
+    fn city_preference_changes_only_netmerc_conversion_and_survives_state_restore() {
+        use crate::model1board::Kind;
+        for kind in [Kind::Original, Kind::WingWar, Kind::NetMerc] {
+            let mut roms = empty_roms();
+            roms.ioboard_kind = kind;
+            if kind != Kind::Original { roms.iocpu = vec![0x76; 0x10000]; }
+            let mut machine = Model1System::new(&roms).unwrap();
+            let arithmetic = machine.tgp_cpu.float_mode;
+            let saved_enabled = machine.save_state().unwrap();
+            machine.set_netmerc_city_workaround(false);
+            assert!(!machine.tgp_cpu.netmerc_city_conversion);
+            assert!(!machine.config.netmerc_city_workaround);
+            assert_eq!(machine.tgp_cpu.float_mode, arithmetic);
+            assert_eq!(machine.save_state().unwrap(), saved_enabled);
+            machine.load_state(&saved_enabled).unwrap();
+            assert!(!machine.tgp_cpu.netmerc_city_conversion);
+            let saved_disabled = machine.save_state().unwrap();
+            machine.set_netmerc_city_workaround(true);
+            assert_eq!(machine.tgp_cpu.netmerc_city_conversion, kind == Kind::NetMerc);
+            assert!(machine.config.netmerc_city_workaround);
+            machine.load_state(&saved_disabled).unwrap();
+            assert_eq!(machine.tgp_cpu.netmerc_city_conversion, kind == Kind::NetMerc);
+            assert_eq!(machine.tgp_cpu.float_mode, arithmetic);
+        }
+    }
+
+    #[test]
+    fn netmerc_forward_pose_is_cold_boot_data_not_a_restore_side_effect() {
+        use crate::model1board::Kind;
+        let mut roms = empty_roms();
+        roms.iocpu = vec![0x76; 0x10000];
+        roms.ioboard_kind = Kind::WingWar;
+        assert_eq!(
+            &Model1System::new(&roms).unwrap().ioboard.dpram()[0x80..0x8c],
+            &[0; 12]
+        );
+        roms.ioboard_kind = Kind::NetMerc;
+        let mut original = Model1System::new(&roms).unwrap();
+        let expected: Vec<_> = [0i16, 0, 0, 12868, 25736, 12868]
+            .into_iter()
+            .flat_map(i16::to_le_bytes)
+            .collect();
+        assert_eq!(&original.ioboard.dpram()[0x80..0x8c], &expected);
+        assert_eq!(original.mvd_holder_latched(), Some(false));
+        original.nvram[0x18..0x1a].copy_from_slice(&1u16.to_le_bytes());
+        original.work_ram[0x27668..0x2766a].copy_from_slice(&1u16.to_le_bytes());
+        original.work_ram[0x2766a..0x2766c].copy_from_slice(&1u16.to_le_bytes());
+        assert_eq!(original.mvd_holder_latched(), Some(true));
+        original.ioboard.dpram_mut()[0x86..0x88].copy_from_slice(&0x1234i16.to_le_bytes());
+        let saved = original.save_state().unwrap();
+        let mut restored = Model1System::new(&roms).unwrap();
+        restored.load_state(&saved).unwrap();
+        assert_eq!(restored.mvd_holder_latched(), Some(true));
+        assert_eq!(
+            restored.mvd_holder_context(),
+            Some(MvdHolderContext {
+                latched: true,
+                credits: 1,
+                in_game: true
+            })
+        );
+        assert_eq!(
+            &restored.ioboard.dpram()[0x80..0x8c],
+            &original.ioboard.dpram()[0x80..0x8c]
+        );
+        assert_eq!(&restored.ioboard.dpram()[0x86..0x88], &[0x34, 0x12]);
+    }
+
+    #[test]
     fn nvram_container_round_trips_complete_eeprom() {
         for kind in [
             crate::model1board::Kind::Original,
             crate::model1board::Kind::WingWar,
+            crate::model1board::Kind::NetMerc,
         ] {
             let mut roms = empty_roms();
             roms.ioboard_kind = kind;
@@ -1330,16 +1497,23 @@ mod persistence_tests {
             for (index, word) in original.ioboard.eeprom_mut().data.iter_mut().enumerate() {
                 *word = 0xa500 | index as u16;
             }
+            original.ioboard.dpram_mut()[0x20] = 0x5a;
+            original.ioboard.dpram_mut()[0x80..0x8c].fill(0xa5);
             let (backup, eeprom) = original.nvram_blocks();
             assert_eq!(eeprom.len(), 128);
             let blob = crate::nvram::encode(&backup, &eeprom);
             let mut restored = Model1System::new(&roms).unwrap();
+            let cold_pose = restored.ioboard.dpram()[0x80..0x8c].to_vec();
             let (backup_len, eeprom_len) = restored.nvram_sizes();
             let (loaded_backup, loaded_eeprom) =
                 crate::nvram::decode(&blob, backup_len, eeprom_len)
                     .expect("a Model 1 save must be accepted by the next instance");
             restored.set_nvram_blocks(&loaded_backup, &loaded_eeprom);
             assert_eq!(restored.nvram_blocks(), (backup, eeprom));
+            // Persistent operator data must not import a volatile mailbox or
+            // the previous session's HMD pose into a fresh machine.
+            assert_eq!(restored.ioboard.dpram()[0x20], 0);
+            assert_eq!(&restored.ioboard.dpram()[0x80..0x8c], &cold_pose);
         }
     }
 

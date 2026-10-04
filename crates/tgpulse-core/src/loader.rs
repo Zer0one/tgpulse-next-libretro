@@ -7,6 +7,44 @@ use std::fs::File;
 use std::io::Read;
 use zip::ZipArchive;
 
+/// Optional diagnostic CGROM: game archive first, then adjacent MAME device BIOS.
+/// Not required to boot and never part of mutable machine snapshots.
+#[cfg(feature = "model1")]
+pub fn load_hd44780_font(rom_path: &str) -> Option<Box<[u8; 4096]>> {
+    let bios = std::path::Path::new(rom_path).with_file_name("hd44780.zip");
+    for path in [std::path::Path::new(rom_path), bios.as_path()] {
+        let Ok(file) = File::open(path) else { continue };
+        let mut archive = match ZipArchive::new(file) {
+            Ok(archive) => archive,
+            Err(error) => {
+                log::warn!(target: "loader", "{}: diagnostic font archive: {error}", path.display());
+                continue;
+            }
+        };
+        let Ok(mut file) = archive.by_name("hd44780_a00.bin") else {
+            continue;
+        };
+        // MAME's original HD44780 A00, reconstructed from the 1985 datasheet;
+        // not the different HD44780U font or an authenticated silicon dump.
+        let mut image = Vec::new();
+        if file.size() != 4096
+            || file.read_to_end(&mut image).is_err()
+            || Sha1::digest(&image)[..]
+                != [
+                    0x65, 0xcf, 0x07, 0x5a, 0x98, 0x8c, 0xdc, 0xbb, 0x31, 0x6b, 0x9a, 0xfd, 0xd0,
+                    0x52, 0x9b, 0x37, 0x4a, 0x1a, 0x65, 0xec,
+                ]
+        {
+            log::warn!(target: "loader", "{}: invalid hd44780_a00.bin; trying diagnostic font fallback", path.display());
+            continue;
+        }
+        log::info!(target: "loader", "HD44780 A00 diagnostic font from {}", path.display());
+        return image.into_boxed_slice().try_into().ok();
+    }
+    log::info!(target: "loader", "HD44780 diagnostic font unavailable; using Text rendering");
+    None
+}
+
 /// MAME #15649: repair only the fully identified old 315-5711 dump, never
 /// a different program or an unknown/corrupted revision. ZIPs remain untouched.
 #[cfg(feature = "model1")]
@@ -23,6 +61,35 @@ fn repair_315_5711(program: &mut [u8]) -> bool {
     program[0x67e * 4] &= !2;
     log::info!(target: "loader", "315-5711: repaired legacy bad dump in memory (MAME #15649)");
     true
+}
+
+/// Initialize only the known NetMerc ROM-set default, never persistent SRAM.
+/// The ZIP and all bytes outside bookkeeping and the credit word stay unchanged.
+#[cfg(feature = "model1")]
+fn repair_netmerc_nvram_default(image: &mut [u8]) -> bool {
+    const DEFAULT_SHA1: [u8; 20] = [
+        0x41, 0x11, 0x34, 0xc1, 0xe6, 0x30, 0x7f, 0x2e, 0x32, 0xc3, 0xb4, 0xb3, 0x72, 0x59, 0x7b,
+        0x45, 0xb1, 0x4a, 0x98, 0x34,
+    ];
+    if image.len() != 0x10000 || Sha1::digest(&*image)[..] != DEFAULT_SHA1 {
+        return false;
+    }
+    // epr-18120.ic5, FDD4F3: zero both 4 KiB bookkeeping banks and
+    // the checksum, then select the first bank. Preserve calibration and
+    // other SRAM fields; initialize the erased credit word as the native
+    // clear does, without executing the full service clear.
+    image[0x1000..0x3004].fill(0);
+    image[0] = 0x0f;
+    image[0x18..0x1a].fill(0);
+    log::info!(target: "loader", "NetMerc: initialized ROM-set default bookkeeping and credits in memory; calibration preserved");
+    true
+}
+
+/// Initialize the recognized factory seed only when the caller needs it.
+/// Persistent saves and state/reset paths must never call this operation.
+#[cfg(feature = "model1")]
+pub fn initialize_netmerc_nvram_seed(image: &mut [u8]) -> bool {
+    repair_netmerc_nvram_default(image)
 }
 
 /// The ROM regions the i960 and the TGP see. Each is a byte image of a the reference
@@ -148,10 +215,22 @@ fn build_model2(
 /// are little-endian views of their byte images.
 #[cfg(feature = "model1")]
 fn build_model1(
+    regions: std::collections::HashMap<String, Vec<u8>>,
+    ioboard_config: Vec<u8>,
+    ioboard_kind: crate::model1board::Kind,
+    apply_known_rom_repairs: bool,
+) -> Result<Model1Roms, String> {
+    build_model1_with_nvram_policy(regions, ioboard_config, ioboard_kind,
+                                  apply_known_rom_repairs, true)
+}
+
+#[cfg(feature = "model1")]
+fn build_model1_with_nvram_policy(
     mut regions: std::collections::HashMap<String, Vec<u8>>,
     ioboard_config: Vec<u8>,
     ioboard_kind: crate::model1board::Kind,
     apply_known_rom_repairs: bool,
+    initialize_seed: bool,
 ) -> Result<Model1Roms, String> {
     let dsb = match (
         regions.remove("dsbz80:mpegcpu"),
@@ -176,10 +255,16 @@ fn build_model1(
             .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
             .collect()
     };
+    let mpcm1 = take(&mut regions, "m1audio:pcm1", 0x400000);
+    let netmerc_procedural_audio = ioboard_kind == crate::model1board::Kind::NetMerc
+        && mpcm1
+            .get(..512 * 12)
+            .is_some_and(|table| table.iter().all(|&b| b == 0xff));
     Ok(Model1Roms {
         dsb,
         comm_board: false,
         ioboard_kind,
+        netmerc_procedural_audio,
         maincpu: {
             let mut m = take(&mut regions, "maincpu", 0x2000000);
             // The V60 region is ROMREGION_ERASEFF; build_regions already filled
@@ -196,12 +281,26 @@ fn build_model1(
             }
             program
         },
-        nvram_default: take(&mut regions, "nvram", 0),
+        nvram_default: {
+            let mut image = take(&mut regions, "nvram", 0);
+            if ioboard_kind == crate::model1board::Kind::NetMerc {
+                if image.is_empty() {
+                    // Optional calibration file absent: create blank SRAM with
+                    // valid empty bookkeeping, leaving calibration to the host.
+                    image = vec![0xff; 0x10000];
+                    image[0x1000..0x3004].fill(0);
+                    image[0] = 0x0f;
+                } else if initialize_seed {
+                    repair_netmerc_nvram_default(&mut image);
+                }
+            }
+            image
+        },
         copro_tables: words(take(&mut regions, "copro_tables", 0x40000)),
         polygons: words(take(&mut regions, "polygons", 0x1000000)),
         copro_data: words(take(&mut regions, "copro_data", 0x200000)),
         sndcpu: take(&mut regions, "m1audio:sndcpu", 0xc0000),
-        mpcm1: take(&mut regions, "m1audio:pcm1", 0x400000),
+        mpcm1,
         mpcm2: take(&mut regions, "m1audio:pcm2", 0x400000),
         iocpu: take(&mut regions, "ioboard:iocpu", 0x10000),
         ioboard_config: {
@@ -285,6 +384,44 @@ pub fn load_model1_zip_with_options(
     path: &str,
     apply_known_rom_repairs: bool,
 ) -> Result<Model1Roms, String> {
+    load_model1_zip_policy(path, apply_known_rom_repairs, true)
+}
+
+/// Load the complete seed without repairing it before persistent-save import.
+/// The caller initializes the factory seed only if no valid saved image exists.
+#[cfg(feature = "model1")]
+pub fn load_model1_zip_with_deferred_nvram(
+    path: &str,
+    apply_known_rom_repairs: bool,
+) -> Result<Model1Roms, String> {
+    load_model1_zip_policy(path, apply_known_rom_repairs, false)
+}
+
+/// Frontend-supplied BIOS paths; preserve strict game-chip identification and
+/// defer optional calibration seed patching until Save RAM initialization.
+#[cfg(feature = "model1")]
+pub fn load_model1_zip_with_bios(path: &str, apply_known_rom_repairs: bool,
+                               system: Option<&std::path::Path>) -> Result<Model1Roms, String> {
+    let names = archive_names(path)?;
+    let def = crate::roms_db::identify_complete_with_external_io(&names)
+        .filter(|def| def.board.is_model1()).ok_or("Incomplete or unrecognized Model 1 game ZIP")?;
+    let firmware = model1_bios::load_io(std::path::Path::new(path), system, def)?;
+    let mut archive = ZipArchive::new(File::open(path).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let ioboard_config = read_chip(&mut archive, "vr_defaults.nv").unwrap_or_default();
+    let regions = crate::roms_db::build_regions_with_io(def, &mut archive, &firmware)?;
+    let mut roms = build_model1_with_nvram_policy(regions, ioboard_config,
+        crate::model1board::Kind::for_set(&def.name), apply_known_rom_repairs, false)?;
+    roms.comm_board = crate::model1comm::present_for_set(&def.name);
+    Ok(roms)
+}
+
+#[cfg(feature = "model1")]
+pub mod model1_bios;
+
+#[cfg(feature = "model1")]
+fn load_model1_zip_policy(path: &str, apply_known_rom_repairs: bool,
+                          initialize_seed: bool) -> Result<Model1Roms, String> {
     let names = archive_names(path)?;
     let def = crate::roms_db::identify(&names)
         .ok_or_else(|| format!("{path}: no matching Model 1 game in the ROM database"))?;
@@ -298,20 +435,27 @@ pub fn load_model1_zip_with_options(
     // Z80 firmware mirrors it into dpram so the game boots configured.
     let ioboard_config = read_chip(&mut archive, "vr_defaults.nv").unwrap_or_default();
     let regions = crate::roms_db::build_regions(def, &mut archive)?;
-    let mut roms = build_model1(
-        regions,
-        ioboard_config,
-        crate::model1board::Kind::for_set(&def.name),
-        apply_known_rom_repairs,
-    )?;
+    let kind = crate::model1board::Kind::for_set(&def.name);
+    let mut roms = if initialize_seed {
+        build_model1(regions, ioboard_config, kind, apply_known_rom_repairs)?
+    } else {
+        build_model1_with_nvram_policy(regions, ioboard_config, kind,
+                                      apply_known_rom_repairs, false)?
+    };
     roms.comm_board = crate::model1comm::present_for_set(&def.name);
     Ok(roms)
 }
+
+#[cfg(feature = "model1")]
+pub mod audio_donor;
 
 /// Loads Star Wars Arcade, building the V60 memory image
 /// `ROM_START(swa)` lays it out.
 #[cfg(feature = "model1")]
 pub struct Model1Roms {
+    /// Load-time fallback policy for the known NetMerc blank descriptor dump.
+    /// A frontend providing valid donor banks clears this; no paths in core state.
+    pub netmerc_procedural_audio: bool,
     pub dsb: Option<DsbRoms>,
     /// MAME machine configuration selects the M1COMM board, not the filename.
     pub comm_board: bool,
@@ -390,6 +534,112 @@ pub(crate) fn read_chip(archive: &mut ZipArchive<File>, name: &str) -> Result<Ve
 #[cfg(all(test, feature = "model1"))]
 mod model1_tests {
     use super::*;
+
+    #[test]
+    fn netmerc_recovery_requires_its_known_blank_descriptor_table() {
+        use crate::model1board::Kind;
+        for (kind, fill, expected) in [
+            (Kind::NetMerc, 0xff, true),
+            (Kind::NetMerc, 0, false),
+            (Kind::Original, 0xff, false),
+        ] {
+            let regions = [
+                ("maincpu".into(), vec![0; 16]),
+                ("tgp_copro".into(), vec![]),
+                ("copro_tables".into(), vec![]),
+                ("polygons".into(), vec![]),
+                ("copro_data".into(), vec![]),
+                ("m1audio:pcm1".into(), vec![fill; 512 * 12]),
+            ]
+            .into();
+            let loaded = build_model1(regions, vec![], kind, true).unwrap();
+            assert_eq!(loaded.netmerc_procedural_audio, expected);
+        }
+    }
+
+    fn blank_netmerc_default() -> Vec<u8> {
+        // Handcrafted calibration seed, not a copyrighted ROM fixture.
+        let mut image = vec![0xff; 0x10000];
+        image[0x38] = 0;
+        image[0x40] = 0;
+        image
+    }
+
+    #[test]
+    fn netmerc_default_initializes_bookkeeping_and_credits_and_is_idempotent() {
+        let mut image = blank_netmerc_default();
+        let original = image.clone();
+        assert!(repair_netmerc_nvram_default(&mut image));
+        assert_eq!(image[0], 0x0f);
+        assert!(image[0x1000..0x3004].iter().all(|&b| b == 0));
+        assert_eq!(image[1..0x18], original[1..0x18]);
+        assert_eq!(image[0x18..0x1a], [0, 0]);
+        assert_eq!(image[0x1a..0x1000], original[0x1a..0x1000]);
+        assert_eq!(image[0x3004..], original[0x3004..]);
+        let initialized = image.clone();
+        assert!(!repair_netmerc_nvram_default(&mut image));
+        assert_eq!(image, initialized);
+    }
+
+    #[test]
+    fn unknown_netmerc_defaults_are_never_patched() {
+        for offset in [0, 4, 0x38, 0x40, 0x1000, 0x1fff, 0x2000, 0x3003, 0xffff] {
+            let mut image = blank_netmerc_default();
+            image[offset] ^= 1;
+            let original = image.clone();
+            assert!(!repair_netmerc_nvram_default(&mut image));
+            assert_eq!(image, original);
+        }
+        for size in [0, 1, 0xffff, 0x10001] {
+            let mut image = vec![0xff; size];
+            let original = image.clone();
+            assert!(!repair_netmerc_nvram_default(&mut image));
+            assert_eq!(image, original);
+        }
+    }
+
+    #[test]
+    fn deferred_seed_is_untouched_until_required_initialization() {
+        let original = blank_netmerc_default();
+        let regions = [("nvram".to_owned(), original.clone())].into();
+        let roms = build_model1_with_nvram_policy(regions, vec![],
+            crate::model1board::Kind::NetMerc, true, false).unwrap();
+        assert_eq!(roms.nvram_default, original);
+        let mut needed = roms.nvram_default;
+        assert!(initialize_netmerc_nvram_seed(&mut needed));
+        assert_eq!(needed[0], 0x0f);
+        assert!(needed[0x1000..0x3004].iter().all(|&v| v == 0));
+        assert_eq!(&needed[1..0x18], &original[1..0x18]);
+        assert_eq!(&needed[0x18..0x1a], &[0, 0]);
+        assert_eq!(&needed[0x1a..0x1000], &original[0x1a..0x1000]);
+        assert_eq!(&needed[0x3004..], &original[0x3004..]);
+        assert!(!initialize_netmerc_nvram_seed(&mut needed));
+    }
+
+    #[test]
+    fn only_netmerc_rom_loading_initializes_the_known_default() {
+        for kind in [
+            crate::model1board::Kind::Original,
+            crate::model1board::Kind::WingWar,
+            crate::model1board::Kind::WingWarR360,
+            crate::model1board::Kind::NetMerc,
+        ] {
+            let original = blank_netmerc_default();
+            let regions = [("nvram".to_owned(), original.clone())]
+                .into_iter()
+                .collect();
+            let roms = build_model1(regions, vec![], kind, true).unwrap();
+            if kind == crate::model1board::Kind::NetMerc {
+                let mut expected = original;
+                expected[0] = 0x0f;
+                expected[0x1000..0x3004].fill(0);
+                expected[0x18..0x1a].fill(0);
+                assert_eq!(roms.nvram_default, expected);
+            } else {
+                assert_eq!(roms.nvram_default, original);
+            }
+        }
+    }
 
     #[test]
     fn dsb_regions_are_preserved_and_incomplete_resources_are_rejected() {

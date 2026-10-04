@@ -90,6 +90,7 @@ mod tests {
 
     fn machine() -> Model1System {
         Model1System::new(&Model1Roms {
+            netmerc_procedural_audio: false,
             dsb: None,
             comm_board: false,
             ioboard_kind: crate::model1board::Kind::Original,

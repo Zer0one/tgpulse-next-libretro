@@ -4,6 +4,13 @@ use crate::types::*;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Mb86233 {
+    /// Board-selected arithmetic policy, not mutable firmware state.
+    /// The owner reconnects it when restoring a snapshot.
+    #[serde(skip)]
+    pub float_mode: crate::FloatMode,
+    /// Optional NetMerc firmware conversion override at instruction 02E1.
+    #[serde(skip)]
+    pub netmerc_city_conversion: bool,
     // Registers
     pub pc: u16,
     pub ppc: u16,
@@ -97,6 +104,8 @@ impl Default for Mb86233 {
 impl Mb86233 {
     pub fn new() -> Self {
         let mut cpu = Self {
+            float_mode: crate::FloatMode::default(),
+            netmerc_city_conversion: false,
             pc: 0,
             ppc: 0,
             st: 0,

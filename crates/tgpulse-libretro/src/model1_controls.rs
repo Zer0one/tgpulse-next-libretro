@@ -203,7 +203,7 @@ impl FlightCabinet {
             centered(self.pilot[1] * polarity, rest, lo, hi)
         };
         match self.kind {
-            FlightKind::NetMerc => out.analog[2] = centered(self.pilot[1], 127, 0, 255),
+            FlightKind::NetMerc => out.analog[2] = centered(-self.pilot[1], 127, 0, 255),
             FlightKind::WingWar | FlightKind::WingWar360 => {
                 out.analog[2] = centered(self.throttle, 128, 1, 255);
             }
@@ -365,6 +365,6 @@ mod tests {
         let net = netmerc.into_native();
         assert_eq!(net.in0, 0xff);
         assert_eq!(net.in1, 0xff & !0x04);
-        assert_eq!(net.analog[..3], [127, 255, 255]);
+        assert_eq!(net.analog[..3], [127, 255, 0]);
     }
 }

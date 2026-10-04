@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Compare a Tiny M1 core with its pre-split core through the existing ABI host.
+"""Compare Model 1 cores through the existing ABI host.
 
 No frontend settings or saves are read or written. Check frame/audio/state/Save
-RAM equality and restore a pre-split Save State into the Tiny machine. This is
+RAM equality and check the selected Save State compatibility policy. This is
 an implementation regression gate, not gameplay or controller acceptance.
 """
 import argparse
 import ctypes as c
 import hashlib
 import json
+import struct
 from pathlib import Path
 
 from libretro_nvram_capture import ENV, VIDEO, BATCH, POLL, INPUT, GameInfo, Variable
@@ -88,6 +89,12 @@ class Host:
         buffer = c.create_string_buffer(data, len(data))
         assert self.lib.retro_unserialize(buffer, len(data))
 
+    def reject_state(self, data):
+        before = self.snapshot()
+        buffer = c.create_string_buffer(data, len(data))
+        assert not self.lib.retro_unserialize(buffer, len(data)), 'Legacy state was accepted'
+        assert self.snapshot() == before, 'Rejected state changed the machine'
+
     def save_ram(self):
         size = self.lib.retro_get_memory_size(0)
         assert size == 65728
@@ -103,6 +110,8 @@ def main():
     for name in ('baseline-core', 'core', 'rom-dir', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--frames', type=int, default=120)
+    parser.add_argument('--state-policy', choices=('identical', 'format-1-to-4', 'format-1-to-5'), default='identical',
+                        help='Explicitly verify an approved incompatible machine-state update')
     args = parser.parse_args()
     if not 1 <= args.frames <= 600 or args.output.exists():
         parser.error('Use a new output file and 1–600 frames')
@@ -117,17 +126,36 @@ def main():
             expected = baseline.run(args.frames)
             assert candidate.run(args.frames) == expected, (name, 'video/audio mismatch')
             snapshot = baseline.snapshot()
-            assert candidate.snapshot() == snapshot, (name, 'machine snapshot mismatch')
+            current = candidate.snapshot()
+            if args.state_policy == 'identical':
+                assert current == snapshot, (name, 'machine snapshot mismatch')
+                candidate.restore(snapshot)
+            else:
+                version = 4 if args.state_policy == 'format-1-to-4' else 5
+                for saved, version in ((snapshot, 1), (current, version)):
+                    assert saved[32:40] == b'TGP1STAT'
+                    assert struct.unpack_from('<I', saved, 40)[0] == version
+                candidate.reject_state(snapshot)
+                candidate.restore(current)
             assert candidate.save_ram() == baseline.save_ram(), (name, 'Save RAM mismatch')
-            candidate.restore(snapshot)
             continuation = baseline.run(5)
             assert candidate.run(5) == continuation, (name, 'pre-split state continuation mismatch')
-            assert candidate.snapshot() == baseline.snapshot(), (name, 'continued state mismatch')
+            continued = candidate.snapshot()
+            if args.state_policy == 'identical':
+                assert continued == baseline.snapshot(), (name, 'continued state mismatch')
+            else:
+                candidate.restore(current)
+                assert candidate.run(5) == continuation, (name, 'new state continuation mismatch')
+                assert candidate.snapshot() == continued, (name, 'new state replay mismatch')
             result = {'set': name, **expected, 'state_sha256': hashlib.sha256(snapshot).hexdigest(),
+                      'current_state_sha256': hashlib.sha256(current).hexdigest(),
                       'save_ram_sha256': hashlib.sha256(candidate.save_ram()).hexdigest(),
-                      'pre_split_state_continuation': True}
+                      'state_policy': args.state_policy,
+                      'pre_split_state_continuation': args.state_policy == 'identical',
+                      'legacy_state_rejected_atomically': args.state_policy != 'identical',
+                      'new_state_continuation': True}
             results.append(result)
-            print('PASS:', name, 'frames/audio/Save RAM/state and pre-split state continuation', flush=True)
+            print('PASS:', name, 'frames/audio/Save RAM and', args.state_policy, 'state continuation', flush=True)
         finally:
             candidate.close()
             baseline.close()

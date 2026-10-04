@@ -37,7 +37,7 @@ operator menu value with verified network gameplay.
 | Wing War | `wingwaru` | Root, Game, Coin, Volume and Communication pages observed | 14 closed cycles, 134/134 values saved and reloaded; calibration sampled separately | [Root](diagnostic-evidence/wingwaru/test-root.png), [network values](#wing-war-communication-setting) |
 | Wing War | `wingwarj` | Root, Game, Coin, Volume and Communication pages observed | 14 closed cycles, 134/134 values saved and reloaded; calibration sampled separately | [Root](diagnostic-evidence/wingwarj/test-root.png), [network values](#wing-war-communication-setting) |
 | Wing War R360 | `wingwar360` | Root, Game, Coin, Volume and Communication pages observed | 14 closed cycles, 149/149 values saved and reloaded; calibration sampled separately | [Root](diagnostic-evidence/wingwar360/test-root.png), [network values](#wing-war-communication-setting) |
-| Net Merc | `netmerc` | Deferred: game does not start | Excluded from current campaign | Boot/test timing only |
+| Sega NetMerc | `netmerc` | Root, Game, Coin and Controller pages observed | 4 closed cycles, 20/20 values saved and reloaded; controller calibration verified separately | [Root](diagnostic-evidence/netmerc/test-menu.png), [campaign](LIBRETRO_U3_NETMERC_CAMPAIGN.md) |
 
 ## Virtua Racing (`vr`): Game System
 
@@ -395,13 +395,25 @@ separate runtime gate.
 
 ## Remaining games and completion rule
 
-`netmerc` remains excluded from this campaign by user direction because the
-game does not start. The direct ABI Test startup and postboot surveys remained
-on an orange screen; no readable operator page is available yet. It can enter
-the campaign after startup works. A clone inherits no parent default,
+`netmerc` was excluded from the initial nine-set campaign by user direction
+because its earlier core startup remained on an orange screen. U1 now verifies
+its title screen in RetroArch Vulkan. U3 now completes all four operator fields and 20 values, with full-range
+controller calibration saved and reloaded; the approved initial controller calibration is documented
+in [U1 integration](LIBRETRO_U1_INTEGRATION.md). A clone inherits no parent default,
 value list, recipe or NVRAM template until its own Test menu and samples agree.
 
 The catalogue is complete for a set only after every page, setting, reachable
 value and conditional/dependent display is documented with screenshots and
 the cycle returns to its initial value. Only then can the corresponding
 per-set TOML variation campaign and complete YAML/workbook rows be generated.
+
+## Sega NetMerc (`netmerc`)
+
+The [U3 campaign](LIBRETRO_U3_NETMERC_CAMPAIGN.md) documents Game Difficulty,
+Country, Advertise Sound and Coin Chute #1 in native menu order. All cycles
+close and all 20 values persist after native Exit and fresh import. No networking
+selector is present. Controller endpoint calibration is separate from the MVD
+diagnostic display and is also saved/reloaded. The YAML records backup RAM
+selector/dependent bytes; the EEPROM CRC used by other sets does not apply.
+The user approved the workbook on 2026-10-04. The three selected fields and
+automatic policy are implemented in [U8](LIBRETRO_U8_NETMERC_SETTINGS.md).

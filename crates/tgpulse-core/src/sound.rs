@@ -31,6 +31,7 @@ use m68000::memory_access::MemoryAccess;
 use m68000::M68000;
 mod dsb;
 mod fm;
+mod netmerc;
 mod serial;
 mod state;
 pub use crate::i8251::Error as SerialError;
@@ -518,6 +519,8 @@ const UART_TX_EMPTY: u8 = 0x04;
 
 /// The board's memory map and devices, everything except the 68000 itself.
 pub struct SoundBoard {
+    /// Load-time substitute output; physical chips still receive every write.
+    netmerc: Option<netmerc::Recovery>,
     serial: Option<serial::SerialState>,
     /// Optional DSB link, selected by Model 1 ROM resources. The Model 1 owner
     /// propagates its sticky errors through the normal machine error path.
@@ -548,6 +551,7 @@ pub struct SoundBoard {
 impl SoundBoard {
     pub fn new(rom: Vec<u8>, pcm1: Vec<u8>, pcm2: Vec<u8>) -> Self {
         Self {
+            netmerc: None,
             serial: None,
             dsb: None,
             rom,
@@ -735,14 +739,21 @@ impl SoundBoard {
 
             // The chips sit on the odd byte lanes (the reference: umask16(0x00ff)), so
             // 68000 address 0xc40001 is chip offset 0, 0xc40003 offset 1,...
-            0xc40001..=0xc40007 if a & 1 == 1 => self.pcm[0].write((a - 0xc40001) >> 1, val),
-            0xc60001..=0xc60007 if a & 1 == 1 => self.pcm[1].write((a - 0xc60001) >> 1, val),
+            0xc40001..=0xc40007 if a & 1 == 1 => self.write_pcm(0, (a - 0xc40001) >> 1, val),
+            0xc60001..=0xc60007 if a & 1 == 1 => self.write_pcm(1, (a - 0xc60001) >> 1, val),
             0xd00001..=0xd00007 if a & 1 == 1 => {
                 self.ym_writes += 1;
                 self.ym.write(((a - 0xd00001) >> 1) as u8, val);
             }
             0x000000..=0x09ffff => {} // ROM
             _ => {}
+        }
+    }
+
+    fn write_pcm(&mut self, chip: usize, offset: u32, value: u8) {
+        self.pcm[chip].write(offset, value);
+        if let Some(recovery) = &mut self.netmerc {
+            recovery.write(chip, offset, value);
         }
     }
 }
@@ -835,7 +846,21 @@ fn mix_with_gains(
     )
 }
 
+fn generate_pcm(
+    pcm: &mut [MultiPcm; 2],
+    recovery: &mut Option<netmerc::Recovery>,
+) -> [(i32, i32); 2] {
+    let original = [pcm[0].generate(), pcm[1].generate()];
+    recovery
+        .as_mut()
+        .map_or(original, netmerc::Recovery::generate)
+}
+
 impl SoundSystem {
+    /// Select before running the machine. No host resources or game commands.
+    pub(crate) fn enable_netmerc_recovery(&mut self) {
+        self.board.netmerc = Some(netmerc::Recovery::default());
+    }
     /// Select at construction before running slices; Model 2 retains its HLE interface.
     pub(crate) fn enable_model1_serial(&mut self) {
         self.board.serial = Some(serial::SerialState::default());
@@ -1043,19 +1068,15 @@ impl SoundSystem {
                 if self.dsb_muted {
                     dsb_sample = [0; 2];
                 }
-                let SoundBoard { ym, pcm, .. } = &mut self.board;
+                let SoundBoard {
+                    ym, pcm, netmerc, ..
+                } = &mut self.board;
                 let muted = self.muted;
                 let gains = self.gains;
                 let samples = &mut self.samples;
                 ym.advance(step, |fm| {
-                    let mixed = mix_with_gains(
-                        pcm[0].generate(),
-                        pcm[1].generate(),
-                        fm,
-                        muted,
-                        dsb_sample,
-                        gains,
-                    );
+                    let [pcm1, pcm2] = generate_pcm(pcm, netmerc);
+                    let mixed = mix_with_gains(pcm1, pcm2, fm, muted, dsb_sample, gains);
                     if samples.len() < MAX_BUFFERED_SAMPLES {
                         samples.push_back(mixed);
                     }
@@ -1064,13 +1085,14 @@ impl SoundSystem {
             }
             return;
         }
-        let SoundBoard { ym, pcm, .. } = &mut self.board;
+        let SoundBoard {
+            ym, pcm, netmerc, ..
+        } = &mut self.board;
         let muted = self.muted;
         let samples = &mut self.samples;
         ym.advance(cycles, |fm| {
             // All chips run even if muted or if the bounded output queue is full.
-            let pcm1 = pcm[0].generate();
-            let pcm2 = pcm[1].generate();
+            let [pcm1, pcm2] = generate_pcm(pcm, netmerc);
             let mixed = mix_with_gains(pcm1, pcm2, fm, muted, [0; 2], self.gains);
             if samples.len() < MAX_BUFFERED_SAMPLES {
                 samples.push_back(mixed);

@@ -39,7 +39,8 @@ def send_command(command_port: int, command: str) -> None:
         sock.sendto(f"{command}\n".encode(), ("127.0.0.1", command_port))
 
 
-def crop_game_region(source: Path, destination: Path) -> None:
+def crop_game_region(source: Path, destination: Path, *, top: float | None = None,
+                     height_fraction: float = 0.60) -> None:
     """Exclude RetroArch notifications while retaining a large game region."""
     properties = subprocess.run(
         ["/usr/bin/sips", "-g", "pixelWidth", "-g", "pixelHeight", str(source)],
@@ -55,9 +56,9 @@ def crop_game_region(source: Path, destination: Path) -> None:
     }
     width, height = values["pixelWidth"], values["pixelHeight"]
     crop_width = max(1, round(width * 0.40))
-    crop_height = max(1, round(height * 0.60))
+    crop_height = max(1, round(height * height_fraction))
     offset_x = (width - crop_width) // 2
-    offset_y = (height - crop_height) // 2
+    offset_y = (height - crop_height) // 2 if top is None else round(height * top)
     subprocess.run(
         [
             "/usr/bin/sips", "--cropToHeightWidth", str(crop_height), str(crop_width),
@@ -104,7 +105,15 @@ def main() -> None:
     parser.add_argument("--replay", type=Path)
     parser.add_argument("--boot-wait", type=float, default=38.0)
     parser.add_argument("--advance-wait", type=float, default=3.0)
+    parser.add_argument("--reset-before-advance", action="store_true",
+                        help="For static title screens, reset before each resumed interval")
+    parser.add_argument("--crop-top", type=float,
+                        help="Normalized top of the compared region; default is centered")
+    parser.add_argument("--crop-height", type=float, default=0.60)
     args = parser.parse_args()
+    if not 0 < args.crop_height <= 1 or (args.crop_top is not None and
+            not 0 <= args.crop_top <= 1 - args.crop_height):
+        parser.error("Compared region must fit inside the game image")
 
     retroarch = args.retroarch.resolve(strict=True)
     core = args.core.resolve(strict=True)
@@ -160,6 +169,8 @@ def main() -> None:
         "input_save_state": "f2",
         "input_load_state": "f4",
         "video_shader_enable": "false",
+        "menu_enable_widgets": "false",
+        "video_font_enable": "false",
         "video_threaded": "false",
         "auto_overrides_enable": "false",
         "auto_remaps_enable": "false",
@@ -189,6 +200,13 @@ def main() -> None:
             wait_while_alive(process, 2.5)
             saved = take_screenshot(process, output, command_port, "saved")
             send_command(command_port, "PAUSE_TOGGLE")
+            if args.reset_before_advance:
+                # This RetroArch build handles RESET/LOAD only while running.
+                wait_while_alive(process, 0.2)
+                send_command(command_port, "RESET")
+                # Confirm this build's double-press Reset policy.
+                wait_while_alive(process, 0.1)
+                send_command(command_port, "RESET")
             wait_while_alive(process, args.advance_wait)
             send_command(command_port, "PAUSE_TOGGLE")
             wait_while_alive(process, 1.0)
@@ -204,6 +222,13 @@ def main() -> None:
             wait_while_alive(process, 1.0)
             restored = take_screenshot(process, output, command_port, "restored")
             send_command(command_port, "PAUSE_TOGGLE")
+            if args.reset_before_advance:
+                # This RetroArch build handles RESET/LOAD only while running.
+                wait_while_alive(process, 0.2)
+                send_command(command_port, "RESET")
+                # Confirm this build's double-press Reset policy.
+                wait_while_alive(process, 0.1)
+                send_command(command_port, "RESET")
             wait_while_alive(process, args.advance_wait)
             send_command(command_port, "PAUSE_TOGGLE")
             wait_while_alive(process, 1.0)
@@ -231,11 +256,12 @@ def main() -> None:
     restored_again_crop = output / "screenshots" / "restored-again-game-region.png"
     advanced_crop = output / "screenshots" / "advanced-game-region.png"
     advanced_again_crop = output / "screenshots" / "advanced-again-game-region.png"
-    crop_game_region(saved, saved_crop)
-    crop_game_region(restored, restored_crop)
-    crop_game_region(restored_again, restored_again_crop)
-    crop_game_region(advanced, advanced_crop)
-    crop_game_region(advanced_again, advanced_again_crop)
+    crop = {"top": args.crop_top, "height_fraction": args.crop_height}
+    crop_game_region(saved, saved_crop, **crop)
+    crop_game_region(restored, restored_crop, **crop)
+    crop_game_region(restored_again, restored_again_crop, **crop)
+    crop_game_region(advanced, advanced_crop, **crop)
+    crop_game_region(advanced_again, advanced_again_crop, **crop)
     saved_game_hash = digest(saved_crop)
     restored_game_hash = digest(restored_crop)
     restored_again_game_hash = digest(restored_again_crop)
@@ -244,6 +270,8 @@ def main() -> None:
     log_text = (output / "run.log").read_text(encoding="utf-8", errors="replace")
     result = {
         "set_name": args.set_name,
+        "advance_policy": "reset_then_run" if args.reset_before_advance else "run",
+        "compared_region": {"top": args.crop_top, "height": args.crop_height, "width": 0.40},
         "state": str(state),
         "state_size": state.stat().st_size,
         "state_sha256": digest(state),
@@ -279,6 +307,8 @@ def main() -> None:
     (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     if not result["advanced_changed"]:
         raise RuntimeError("The game image did not advance after saving")
+    if args.reset_before_advance and not result["restored_game_region_exactly"]:
+        raise RuntimeError("Loaded state did not restore the saved title region")
     if not result["two_restores_game_region_exactly"]:
         raise RuntimeError("Two loads of the same state produced different game regions")
     if not result["second_advance_changed"]:

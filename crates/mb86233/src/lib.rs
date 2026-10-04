@@ -8,6 +8,8 @@ pub mod cpu_state;
 pub mod decode;
 pub mod memory;
 pub mod types;
+mod float;
+pub use float::FloatMode;
 
 pub use cpu_state::Mb86233;
 pub use memory::Mb86233Bus;

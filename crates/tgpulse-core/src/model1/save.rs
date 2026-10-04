@@ -4,7 +4,10 @@ use bincode::Options;
 use sha1::{Digest, Sha1};
 
 const MAGIC: &[u8; 8] = b"TGP1STAT";
-const VERSION: u32 = 1;
+// v2 adds the board identity and write-only diagnostic LCD state.
+// v3 adds the clocked NetMerc tracking peer, including in-flight serial state.
+// v5 preserves NetMerc's first-decoded-record startup publication gate.
+const VERSION: u32 = 5;
 // magic + version + resource hash + payload length + payload checksum
 const HEADER_BYTES: usize = 8 + 4 + 20 + 8 + 20;
 /// Maximum complete encoded state. Frontends should enforce this before reading
@@ -48,9 +51,11 @@ pub(super) fn resource_identity(roms: &Model1Roms) -> [u8; 20] {
             crate::model1board::Kind::Original => 0,
             crate::model1board::Kind::WingWar => 1,
             crate::model1board::Kind::WingWarR360 => 2,
+            crate::model1board::Kind::NetMerc => 3,
         },
         u8::from(roms.comm_board),
         u8::from(roms.dsb.is_some()),
+        u8::from(roms.netmerc_procedural_audio),
     ]);
     for data in [
         &roms.maincpu,
@@ -179,6 +184,7 @@ mod tests {
 
     fn roms(kind: crate::model1board::Kind, dsb: bool) -> Model1Roms {
         Model1Roms {
+            netmerc_procedural_audio: false,
             dsb: dsb.then(|| crate::loader::DsbRoms {
                 firmware: vec![0x76; crate::dsbz80::FIRMWARE_SIZE],
                 mpeg: vec![0; 16],
@@ -216,6 +222,87 @@ mod tests {
     }
 
     #[test]
+    fn netmerc_donor_preserves_program_and_active_audio_continuation() {
+        use crate::{
+            config::NetmercAudioDonor, loader::audio_donor::SampleBanks, model1board::Kind,
+        };
+        let mut resources = roms(Kind::NetMerc, false);
+        resources.netmerc_procedural_audio = true;
+        resources.sndcpu = vec![0; 16];
+        resources.sndcpu[..4].copy_from_slice(&0x00f0fff0u32.to_be_bytes());
+        resources.sndcpu[4..8].copy_from_slice(&8u32.to_be_bytes());
+        resources.sndcpu[8..12].copy_from_slice(&[0x4e, 0x71, 0x60, 0xfc]);
+        let original_program = resources.sndcpu.clone();
+        let original_identity = resource_identity(&resources);
+        let bank = || {
+            let mut data = vec![0; 0x400000];
+            data[..12].copy_from_slice(&[0, 1, 0, 0, 0, 0xff, 0xc0, 0, 0xf0, 0, 0xff, 0]);
+            for i in 0..64 {
+                data[0x100 + i] = (i as i8 * 2 - 64) as u8;
+            }
+            data
+        };
+        SampleBanks {
+            pcm1: bank(),
+            pcm2: bank(),
+        }
+        .apply(&mut resources)
+        .unwrap();
+        assert_eq!(resources.sndcpu, original_program);
+        assert!(
+            !resources.netmerc_procedural_audio,
+            "valid donor replaces the fallback"
+        );
+        assert_ne!(resource_identity(&resources), original_identity);
+        let identity = resource_identity(&resources);
+        // Failed replacement is atomic; Off does not search the filesystem.
+        assert!(SampleBanks {
+            pcm1: bank(),
+            pcm2: vec![]
+        }
+        .apply(&mut resources)
+        .is_err());
+        assert_eq!(resource_identity(&resources), identity);
+        assert!(!crate::loader::audio_donor::apply_adjacent(
+            &mut resources,
+            std::path::Path::new("/absent/netmerc.zip"),
+            NetmercAudioDonor::Off
+        )
+        .unwrap());
+        let mut a = machine(&resources);
+        for chip in &mut a.sound.board.pcm {
+            for (reg, value) in [(0, 0), (1, 0), (2, 0), (3, 0x10), (5, 1), (4, 0x80)] {
+                chip.write(2, reg);
+                chip.write(0, value);
+            }
+        }
+        a.run_slice(1237).unwrap();
+        let saved = a.save_state().unwrap();
+        let mut b = machine(&resources);
+        b.load_state(&saved).unwrap();
+        a.sound.samples.clear();
+        for cycles in [127, 8119, 40003] {
+            a.run_slice(cycles).unwrap();
+            b.run_slice(cycles).unwrap();
+            assert_eq!(a.sound.samples, b.sound.samples);
+            assert_eq!(a.save_state().unwrap(), b.save_state().unwrap());
+        }
+        assert!(a.sound.samples.iter().any(|&(l, r)| l != 0 || r != 0));
+        resources.mpcm1[0x110] ^= 1;
+        assert!(machine(&resources)
+            .load_state(&saved)
+            .unwrap_err()
+            .contains("different ROM resources"));
+        resources.ioboard_kind = Kind::Original;
+        assert!(SampleBanks {
+            pcm1: bank(),
+            pcm2: bank()
+        }
+        .apply(&mut resources)
+        .is_err());
+    }
+
+    #[test]
     fn envelope_restores_all_variants_and_dsb_without_replacing_preferences() {
         use crate::model1board::Kind;
         for (kind, dsb) in [
@@ -223,15 +310,18 @@ mod tests {
             (Kind::Original, true),
             (Kind::WingWar, false),
             (Kind::WingWarR360, false),
+            (Kind::NetMerc, false),
         ] {
             let roms = roms(kind, dsb);
             let mut a = machine(&roms);
+            a.set_netmerc_city_workaround(false);
             a.frame_num = 17;
             a.palette_ram[7] = 0x5a;
             a.ioboard.eeprom_mut().data[3] = 0x1234;
             let saved = a.save_state().unwrap();
             assert!(saved.len() < MAX_STATE_BYTES);
             let mut b = machine(&roms);
+            b.set_netmerc_city_workaround(true);
             b.run_slice(444).unwrap();
             b.nvram[0] = 0;
             b.config.smooth_shadows = true;
@@ -239,6 +329,16 @@ mod tests {
             b.main_cpu.trace_cap = 10;
             b.sound.samples.push_back((123, 456));
             b.load_state(&saved).unwrap();
+            assert!(b.config.netmerc_city_workaround);
+            assert_eq!(b.tgp_cpu.netmerc_city_conversion, kind == Kind::NetMerc);
+            assert_eq!(
+                b.tgp_cpu.float_mode,
+                if kind == Kind::NetMerc {
+                    mb86233::FloatMode::Finite
+                } else {
+                    mb86233::FloatMode::Ieee
+                }
+            );
             assert!(b.sound.samples.is_empty());
             assert_eq!(b.save_state().unwrap(), saved);
             assert_eq!(b.ioboard.eeprom().data[3], 0x1234);
@@ -247,6 +347,7 @@ mod tests {
             assert!(b.config.smooth_shadows && b.video.smooth_shadows);
             assert_eq!(b.main_cpu.trace_cap, 10);
             a.sound.samples.clear();
+            a.set_netmerc_city_workaround(true);
             for cycles in [1, 3, 64, 127, 999] {
                 a.run_slice(cycles).unwrap();
                 b.run_slice(cycles).unwrap();
@@ -267,7 +368,7 @@ mod tests {
             match case {
                 0 => bad.truncate(HEADER_BYTES - 1),
                 1 => bad[0] ^= 1,
-                2 => bad[8..12].copy_from_slice(&2u32.to_le_bytes()),
+                2 => bad[8..12].copy_from_slice(&1u32.to_le_bytes()), // legacy layout
                 3 => bad[12] ^= 1,
                 4 => bad[32..40].copy_from_slice(&u64::MAX.to_le_bytes()),
                 5 => bad[HEADER_BYTES + 100] ^= 1,
@@ -312,7 +413,7 @@ mod tests {
         other.ioboard.eeprom_mut().data[0] = 0x9876;
         let mut state = decode(&other.save_state().unwrap(), &s.resource_identity).unwrap();
         let mut sound = bincode::serialize(&state.sound).unwrap();
-        sound[..4].copy_from_slice(&2u32.to_le_bytes()); // unsupported sound version
+        sound[..4].copy_from_slice(&u32::MAX.to_le_bytes()); // unsupported sound version
         state.sound = bincode::deserialize(&sound).unwrap();
         let bad = encode(&state, &s.resource_identity).unwrap();
         assert!(s.load_state(&bad).unwrap_err().contains("sound"));
@@ -333,7 +434,7 @@ mod tests {
         use crate::model1board::Kind;
         let base = roms(Kind::Original, true);
         let identity = resource_identity(&base);
-        for field in 0..14 {
+        for field in 0..15 {
             let mut changed = roms(Kind::Original, true);
             match field {
                 0 => changed.maincpu.push(1),
@@ -349,7 +450,8 @@ mod tests {
                 10 => changed.dsb.as_mut().unwrap().mpeg[0] ^= 1,
                 11 => changed.dsb = None,
                 12 => changed.ioboard_kind = Kind::WingWar,
-                _ => changed.comm_board = false,
+                13 => changed.comm_board = false,
+                _ => changed.netmerc_procedural_audio = true,
             }
             assert_ne!(resource_identity(&changed), identity, "resource {field}");
         }

@@ -7,6 +7,7 @@ pub struct SoundState {
     cpu: m68000::state::State,
     ram: Vec<u8>,
     pcm: [crate::multipcm::State; 2],
+    netmerc: Option<netmerc::Recovery>,
     fm: FmPathState,
     serial: SerialState,
     dsb: Option<DsbPathState>,
@@ -49,6 +50,47 @@ mod tests {
     }
     fn encoded(s: &SoundSystem) -> Vec<u8> {
         bincode::serialize(&s.snapshot_model1().unwrap()).unwrap()
+    }
+
+    #[test]
+    fn netmerc_recovery_uses_bus_and_native_clock_with_output_only_mutes() {
+        let mut a = fixture(false);
+        a.enable_netmerc_recovery();
+        for base in [0xc40001, 0xc60001] {
+            for (reg, value) in [(0, 0), (1, 83), (2, 0), (3, 0x10), (5, 1), (4, 0x80)] {
+                a.board.write8(base + 4, reg);
+                a.board.write8(base, value);
+            }
+        }
+        a.run(40003, 16_000_000);
+        let saved = a.snapshot_model1().unwrap();
+        let mut b = fixture(false);
+        assert!(b.restore_model1(&saved).is_err(), "audio mode must match");
+        b.enable_netmerc_recovery();
+        b.restore_model1(&saved).unwrap();
+        b.set_mutes(AudioMutes {
+            multipcm1: true,
+            multipcm2: true,
+            ym3438: true,
+            ..Default::default()
+        });
+        a.samples.clear();
+        for cycles in [1, 127, 8119, 40003] {
+            a.run(cycles, 16_000_000);
+            for _ in 0..cycles {
+                b.run(1, 16_000_000);
+            }
+            assert_eq!(encoded(&a), encoded(&b));
+        }
+        assert_eq!(a.samples.len(), b.samples.len());
+        assert!(a.samples.iter().any(|&s| s != (0, 0)));
+        assert!(b.samples.iter().all(|&s| s == (0, 0)));
+        b.set_mutes(AudioMutes::default());
+        a.samples.clear();
+        b.samples.clear();
+        a.run(8119, 16_000_000);
+        b.run(8119, 16_000_000);
+        assert_eq!(a.samples, b.samples);
     }
 
     #[test]
@@ -167,10 +209,11 @@ impl SoundSystem {
             .clone()
             .ok_or("not a Model 1 sound board")?;
         Ok(SoundState {
-            version: 1,
+            version: 2,
             cpu: self.cpu.snapshot(),
             ram: self.board.ram.clone(),
             pcm: [self.board.pcm[0].snapshot(), self.board.pcm[1].snapshot()],
+            netmerc: self.board.netmerc.clone(),
             fm: self.snapshot_fm_path(),
             serial,
             dsb: self.snapshot_dsb_path(),
@@ -190,13 +233,15 @@ impl SoundSystem {
     /// NVRAM nor replays bus writes; ROMs and frontend preferences stay owned by
     /// the current machine. Serialized bytes still need bounded outer decoding.
     pub fn restore_model1(&mut self, state: &SoundState) -> Result<(), &'static str> {
-        if state.version != 1
+        if state.version != 2
             || self.board.serial.is_none()
             || !state.serial.valid()
             || state.ram.len() != SND_RAM_SIZE
             || state.rx.len() > 8
             || state.main_fraction >= 16_000_000
             || state.dsb.is_some() != self.board.dsb.is_some()
+            || state.netmerc.is_some() != self.board.netmerc.is_some()
+            || state.netmerc.as_ref().is_some_and(|r| !r.valid())
         {
             return Err("invalid Model 1 sound state");
         }
@@ -219,6 +264,7 @@ impl SoundSystem {
             chip.restore(saved).expect("validated PCM state");
         }
         self.board.ym = fm;
+        self.board.netmerc.clone_from(&state.netmerc);
         self.board.serial = Some(state.serial.clone());
         self.board.rx.clone_from(&state.rx);
         self.board.tx = state.tx;

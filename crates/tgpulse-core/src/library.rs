@@ -73,6 +73,8 @@ pub fn scan(dir: impl AsRef<Path>) -> Vec<Entry> {
     let mut out: Vec<Entry> = read
         .filter_map(Result::ok)
         .map(|e| e.path())
+        // Optional LCD device BIOS is a resource, not a selectable game.
+        .filter(|p| !p.file_name().is_some_and(|name| name == "hd44780.zip"))
         .filter(|p| {
             p.extension()
                 .and_then(|e| e.to_str())

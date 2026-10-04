@@ -37,7 +37,7 @@ commands (one per line; # starts a comment)
   unbreak [addr]               remove one breakpoint, or all of them *
   step [n]                     execute n i960 instructions, printing each *
   itrace <n> <file>            record the next n executed addresses to a file *
-  regs [main|sharc|tgpx4|tgp]  dump a processor's registers
+  regs [main|sharc|tgpx4|tgp|io] dump registers (io = advanced Model 1 I/O + LCD)
   state                        one-line summary of the whole machine
   mem <addr> [count]           hex dump of 32-bit words (default 16)
   poke <addr> <value>          write one 32-bit word
@@ -49,6 +49,7 @@ commands (one per line; # starts a comment)
   irq                          interrupt request/enable, lines and last vector *
   fifo                         coprocessor FIFO depths and counters *
   input <field> <value>        set in0/in1/in2/steer/accel/brake/analogN
+  hmd [x y z ax ay az]         NetMerc raw signed decimal pose / tracking status
   coin [frames]                hold coin for a few frames, then start
   save <slot> | load <slot>    save state to/from states/<game>.<slot>.state *
   nvram save|defaults          write NVRAM, or record it as this game's default
@@ -312,6 +313,40 @@ impl Debugger {
             "echo" => out!(self, "echo {}", args.join(" ")),
             "quit" | "exit" => return false,
 
+            "hmd" => {
+                let Machine::Model1(sys) = &mut self.machine else {
+                    out!(self, "error cmd=hmd reason=model-1-only");
+                    return true;
+                };
+                if !args.is_empty() {
+                    let words: Result<Vec<i16>, _> =
+                        args.iter().map(|s| s.parse::<i16>()).collect();
+                    let Ok(words) = words else {
+                        out!(self, "error cmd=hmd reason=need-six-signed-decimal-words");
+                        return true;
+                    };
+                    if words.len() != 6 {
+                        out!(self, "error cmd=hmd reason=need-six-signed-decimal-words");
+                        return true;
+                    }
+                    if !sys.ioboard.set_hmd_pose(crate::model1io2::HmdPose {
+                        position: [words[0], words[1], words[2]],
+                        orientation: [words[3], words[4], words[5]],
+                    }) {
+                        out!(self, "error cmd=hmd reason=no-tracking-peer");
+                        return true;
+                    }
+                }
+                let status = sys.ioboard.tracking_status();
+                if let Some(status) = status {
+                    out!(self, "hmd words={:?} streaming={} records={} last={:02X} unsupported={} uart_errors={:02X}",
+                        status.pose.words(), status.streaming, status.records,
+                        status.last_command, status.unsupported_commands, status.uart_errors);
+                } else {
+                    out!(self, "error cmd=hmd reason=no-tracking-peer");
+                }
+            }
+
             "run" => {
                 let n = arg(0).and_then(num).unwrap_or(1) as u64;
                 match self.run(n) {
@@ -410,6 +445,19 @@ impl Debugger {
                         }
                     }
                     "tgp" => out!(self, "regs cpu=tgp pc={:04X}", sys.tgp_cpu.pc),
+                    "io" => {
+                        if let Some((cpu, clocks)) = sys.ioboard.advanced_cpu_state() {
+                            let lines = sys.ioboard.diagnostic_lines().unwrap();
+                            out!(self, "regs cpu=io board={:?} pc={:04X} clocks={} halted={} fault={:?} lcd0={:?} lcd1={:?}",
+                                sys.ioboard.kind(), cpu.pc, clocks, cpu.halted, sys.ioboard.fault(),
+                                String::from_utf8_lossy(&lines[0]), String::from_utf8_lossy(&lines[1]));
+                        } else {
+                            out!(
+                                self,
+                                "error cmd=regs reason=io-view-requires-advanced-board"
+                            );
+                        }
+                    }
                     other => out!(self, "error cmd=regs reason=unknown-cpu value={other}"),
                 },
                 Machine::Model2(sys) => match arg(0).unwrap_or("main") {

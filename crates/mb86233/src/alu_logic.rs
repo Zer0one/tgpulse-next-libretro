@@ -1,20 +1,6 @@
 use crate::cpu_state::Mb86233;
 use crate::types::*;
 
-// --- Helper Functions for Bit-Casting ---
-// In C++: *(float *)&u
-// In Rust: f32::from_bits(u)
-
-#[inline(always)]
-fn u2f(u: u32) -> f32 {
-    f32::from_bits(u)
-}
-
-#[inline(always)]
-fn f2u(f: f32) -> u32 {
-    f.to_bits()
-}
-
 impl Mb86233 {
     // --- Flag Helpers ---
 
@@ -91,7 +77,7 @@ impl Mb86233 {
             0x05 => {
                 // fcpd (Float Compare: D - A)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                let r = f2u(u2f(self.d) - u2f(self.a));
+                let r = self.float_mode.subtract(self.d, self.a);
                 self.stset_set_sz_fp(r);
                 // Note: fcpd updates flags but does NOT update D (handled in post_2)
             }
@@ -99,37 +85,37 @@ impl Mb86233 {
             0x06 => {
                 // fadd (D + A)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                self.alu.r1 = f2u(u2f(self.d) + u2f(self.a));
+                self.alu.r1 = self.float_mode.add(self.d, self.a);
                 self.stset_set_sz_fp(self.alu.r1);
             }
 
             0x07 => {
                 // fsbd (D - A)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                self.alu.r1 = f2u(u2f(self.d) - u2f(self.a));
+                self.alu.r1 = self.float_mode.subtract(self.d, self.a);
                 self.stset_set_sz_fp(self.alu.r1);
             }
 
             0x08 => {
                 // fml (A * B) -> P
                 self.alu.stmask = 0;
-                self.alu.r1 = f2u(u2f(self.a) * u2f(self.b));
+                self.alu.r1 = self.float_mode.multiply(self.a, self.b);
                 self.alu.stset = 0;
             }
 
             0x09 => {
                 // fmsd (D + P -> D, A * B -> P)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                self.alu.r1 = f2u(u2f(self.d) + u2f(self.p)); // New D
-                self.alu.r2 = f2u(u2f(self.a) * u2f(self.b)); // New P
+                self.alu.r1 = self.float_mode.add(self.d, self.p); // New D
+                self.alu.r2 = self.float_mode.multiply(self.a, self.b); // New P
                 self.stset_set_sz_fp(self.alu.r1);
             }
 
             0x0A => {
                 // fmrd (D - P -> D, A * B -> P)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                self.alu.r1 = f2u(u2f(self.d) - u2f(self.p)); // New D
-                self.alu.r2 = f2u(u2f(self.a) * u2f(self.b)); // New P
+                self.alu.r1 = self.float_mode.subtract(self.d, self.p); // New D
+                self.alu.r2 = self.float_mode.multiply(self.a, self.b); // New P
                 self.stset_set_sz_fp(self.alu.r1);
             }
 
@@ -143,7 +129,7 @@ impl Mb86233 {
             0x0C => {
                 // fsmd (D + P)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                self.alu.r1 = f2u(u2f(self.d) + u2f(self.p));
+                self.alu.r1 = self.float_mode.add(self.d, self.p);
                 self.stset_set_sz_fp(self.alu.r1);
             }
 
@@ -151,7 +137,7 @@ impl Mb86233 {
                 // fspd (P -> D, A * B -> P)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
                 self.alu.r1 = self.p; // New D
-                self.alu.r2 = f2u(u2f(self.a) * u2f(self.b)); // New P
+                self.alu.r2 = self.float_mode.multiply(self.a, self.b); // New P
                 self.stset_set_sz_fp(self.alu.r1);
             }
 
@@ -159,7 +145,7 @@ impl Mb86233 {
                 // cxfd (Int to Float)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
                 // Treat D as signed 32-bit int, convert to float
-                self.alu.r1 = f2u((self.d as i32) as f32);
+                self.alu.r1 = self.float_mode.encode_int(self.d as i32);
                 // "stset_set_sz_int" is used in original code for cxfd result,
                 // likely because the input was int, or checking result as bits.
                 // The status flags are set from the ALU result here.
@@ -169,13 +155,12 @@ impl Mb86233 {
             0x0F => {
                 // cfxd (Float to Int)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                let val_f = u2f(self.d);
-                let result_i32: i32 = match (self.m >> 1) & 3 {
-                    0 => val_f.round() as i32, // to nearest
-                    1 => val_f.ceil() as i32,  // up
-                    2 => val_f.floor() as i32, // down
-                    _ => val_f as i32,         // truncate
+                let mode = if self.netmerc_city_conversion && self.ppc == 0x02e1 {
+                    0
+                } else {
+                    (self.m >> 1) & 3
                 };
+                let result_i32 = self.float_mode.to_int(self.d, mode);
 
                 self.alu.r1 = result_i32 as u32;
                 self.stset_set_sz_int(self.alu.r1);
@@ -184,7 +169,7 @@ impl Mb86233 {
             0x10 => {
                 // fdvd (D / A)
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                self.alu.r1 = f2u(u2f(self.d) / u2f(self.a));
+                self.alu.r1 = self.float_mode.divide(self.d, self.a);
                 self.stset_set_sz_fp(self.alu.r1);
             }
 
@@ -198,14 +183,14 @@ impl Mb86233 {
             0x13 => {
                 // d = b + a
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                self.alu.r1 = f2u(u2f(self.b) + u2f(self.a));
+                self.alu.r1 = self.float_mode.add(self.b, self.a);
                 self.stset_set_sz_fp(self.alu.r1);
             }
 
             0x14 => {
                 // d = b - a
                 self.alu.stmask = F_ZRD | F_SGD | F_CPD | F_OVD | F_DVZD;
-                self.alu.r1 = f2u(u2f(self.b) - u2f(self.a));
+                self.alu.r1 = self.float_mode.subtract(self.b, self.a);
                 self.stset_set_sz_fp(self.alu.r1);
             }
 

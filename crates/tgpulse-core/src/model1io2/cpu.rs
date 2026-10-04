@@ -39,7 +39,25 @@ impl Z80_io for CpuBus {
     }
     fn write_byte(&mut self, address: u16, value: u8) {
         if self.fault.get().is_none() {
+            // Observe the physical NetMerc motor latch at the write boundary,
+            // including direction-register changes, rather than once per frame.
+            let before = if (0x8000..=0x800f).contains(&address)
+                && log::log_enabled!(target: "model1_motor", log::Level::Trace)
+            {
+                let bus = self.bus.borrow();
+                bus.state.tracking.as_ref().map(|_| bus.outputs().lamps)
+            } else {
+                None
+            };
             self.latch(self.bus.borrow_mut().write_memory(address, value), ());
+            if let Some(before) = before {
+                let after = self.bus.borrow().outputs().lamps;
+                if (before ^ after) & 4 != 0 {
+                    log::trace!(target: "model1_motor",
+                        "clock={} on={} port_d={after:02X}",
+                        self.elapsed, u8::from(after & 4 != 0));
+                }
+            }
         }
     }
     fn port_in(&self, address: u16) -> u8 {
@@ -89,21 +107,17 @@ impl Z80_io for CpuBus {
         }
         let elapsed = self.elapsed;
         let events = &mut self.events;
-        self.bus
-            .borrow_mut()
-            .state
-            .cpu_peripherals
-            .advance_observed(
-                clocks,
-                |_, _, _| {},
-                |offset, channel, pins| {
-                    events.push(SerialEvent {
-                        clock: elapsed + u64::from(offset),
-                        channel,
-                        pins,
-                    });
-                },
-            );
+        self.bus.borrow_mut().advance_observed(
+            clocks,
+            |_, _, _| {},
+            |offset, channel, pins| {
+                events.push(SerialEvent {
+                    clock: elapsed + u64::from(offset),
+                    channel,
+                    pins,
+                });
+            },
+        );
         self.elapsed += u64::from(clocks);
     }
 }
@@ -139,6 +153,13 @@ impl IoBoard {
     pub fn new_r360(firmware: &[u8], eeprom: Eeprom93c46) -> Result<Self, BusError> {
         let mut board = Self::new(firmware, eeprom)?;
         board.cpu.io.bus.get_mut().state.r360 = Some(Default::default());
+        Ok(board)
+    }
+    /// NetMerc CN7 has a protocol-level HMD peer. CN8 remains disconnected.
+    pub fn new_netmerc(firmware: &[u8], eeprom: Eeprom93c46) -> Result<Self, BusError> {
+        let mut board = Self::new(firmware, eeprom)?;
+        board.cpu.io.bus.get_mut().state.tracking = Some(Default::default());
+        board.set_inputs(super::Inputs::default());
         Ok(board)
     }
     pub fn is_r360(&self) -> bool {
@@ -188,8 +209,14 @@ impl IoBoard {
     pub fn bus(&self) -> Ref<'_, Bus> {
         self.cpu.io.bus.borrow()
     }
+    pub(crate) fn take_netmerc_motor_activity(&mut self) -> bool {
+        self.cpu.io.bus.get_mut().take_netmerc_motor_activity()
+    }
     pub fn set_inputs(&mut self, inputs: Inputs) {
         self.cpu.io.bus.borrow_mut().set_inputs(inputs);
+    }
+    pub fn set_hmd_pose(&mut self, pose: super::HmdPose) -> bool {
+        self.cpu.io.bus.get_mut().set_hmd_pose(pose)
     }
     pub fn set_serial_inputs(&mut self, channel: u8, inputs: SerialInputs) -> Result<(), BusError> {
         self.cpu

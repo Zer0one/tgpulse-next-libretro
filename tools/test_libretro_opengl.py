@@ -27,6 +27,9 @@ def main():
     p.add_argument('--context-cycle', type=int, default=0)
     p.add_argument('--context-loss-cycle', type=int, default=0)
     p.add_argument('--overlay', action='store_true')
+    p.add_argument('--diagnostic-display', choices=('off','overlay','overlay_half'), default='off')
+    p.add_argument('--diagnostic-position', choices=('top_left','top_right','bottom_right','bottom_left'), default='top_right')
+    p.add_argument('--system-dir', type=Path, help='Isolated frontend system directory with device BIOSes')
     p.add_argument('--aspect', choices=('auto','4_3','16_9'), default='auto')
     p.add_argument('--widescreen', choices=('stretch','expand_3d','expand_3d_2d'), default='stretch')
     p.add_argument('--supersampling', type=int, choices=range(1,5), default=1)
@@ -44,11 +47,16 @@ def main():
     host.tgpulse_gl_pixels.restype = c.c_void_p
     width = 683 if a.api != 'software' and a.aspect == '16_9' and a.widescreen != 'stretch' else 496
     warming = [False]
+    system = str(a.system_dir.resolve()).encode() if a.system_dir else None
     options = {b'tgpulse_next_aspect_ratio':a.aspect.encode(), b'tgpulse_next_widescreen_mode':a.widescreen.encode(), b'tgpulse_next_supersampling':str(a.supersampling).encode(), b'tgpulse_next_renderer': b'software' if a.api == 'software' else b'opengl',
                b'tgpulse_next_timing_overlay': b'auto' if a.overlay else b'disabled'}
     shutdown = []; pixels = []; pcm = bytearray(); frames = [0]; errors = []
+    options[b'tgpulse_next_netmerc_diagnostic_display'] = a.diagnostic_display.encode()
+    options[b'tgpulse_next_netmerc_diagnostic_position'] = a.diagnostic_position.encode()
     @ENV
     def env(cmd, data):
+        if cmd == 9 and system:
+            c.cast(data, c.POINTER(c.c_char_p))[0] = system; return True
         if cmd == 15:
             v = c.cast(data, c.POINTER(Variable)).contents; v.value = options.get(v.key); return v.value is not None
         if cmd == 17:
@@ -125,6 +133,7 @@ def main():
         nvram=c.string_at(core.retro_get_memory_data(0),core.retro_get_memory_size(0));(out/'save.srm').write_bytes(nvram)
         sha=lambda b:hashlib.sha256(b).hexdigest()
         report={'width':width,'aspect':a.aspect,'widescreen':a.widescreen,'supersampling':a.supersampling,'software_warmup':a.software_warmup,'api':a.api,'frames':frames[0],'hardware_frames':frames[0] if context else 0,'context_cycle':a.context_cycle,'context_loss_cycle':a.context_loss_cycle,'overlay':a.overlay,'image_sha256':sha(image),'audio_sha256':sha(pcm),'audio_frames':len(pcm)//4,'nvram_sha256':sha(nvram),'core_sha256':sha(a.core.read_bytes())}
+        report.update(diagnostic_display=a.diagnostic_display,diagnostic_position=a.diagnostic_position)
         (out/'result.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))
     finally:
         if context: host.tgpulse_gl_stop()

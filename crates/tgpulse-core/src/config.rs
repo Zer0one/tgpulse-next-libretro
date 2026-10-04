@@ -1,6 +1,53 @@
 //! Runtime configuration for the machine. Nothing game-specific should be
 //! hardcoded in the emulation itself; it comes through here.
 
+/// Optional substitute sample banks for NetMerc; never a recovered original ROM.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NetmercAudioDonor {
+    #[default]
+    Vf,
+    Vr,
+    Swa,
+    Wingwar,
+    Off,
+}
+
+impl NetmercAudioDonor {
+    pub const ALL: [Self; 5] = [Self::Vf, Self::Vr, Self::Swa, Self::Wingwar, Self::Off];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Vf => "vf",
+            Self::Vr => "vr",
+            Self::Swa => "swa",
+            Self::Wingwar => "wingwar",
+            Self::Off => "off",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Vf => "Virtua Fighter",
+            Self::Vr => "Virtua Racing",
+            Self::Swa => "Star Wars Arcade",
+            Self::Wingwar => "Wing War",
+            Self::Off => "Off",
+        }
+    }
+}
+
+impl std::str::FromStr for NetmercAudioDonor {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|mode| mode.as_str().eq_ignore_ascii_case(value))
+            .ok_or_else(|| {
+                format!("invalid NetMerc audio donor '{value}' (want vf, vr, swa, wingwar or off)")
+            })
+    }
+}
+
 /// Manual widescreen override, or the game's persisted cabinet/monitor choice.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Widescreen {
@@ -221,6 +268,12 @@ impl AudioGains {
         dsb: 100,
         scsp: 100,
     };
+    /// Alternative donor mixer, not original NetMerc hardware levels.
+    pub const NETMERC_DONOR_ALTERNATIVE: Self = Self {
+        multipcm1: 38,
+        multipcm2: 38,
+        ..Self::REFERENCE
+    };
     pub fn clamped(self) -> Self {
         Self {
             multipcm1: self.multipcm1.min(Self::MAX),
@@ -266,6 +319,10 @@ pub struct Config {
     /// translated to a pad it means near-constant buzzing.
     pub rumble: bool,
 
+    /// Host pad output intensity, 0..100%; 100 preserves the decoder's levels.
+    /// Does not change emulated drive-board commands or machine snapshots.
+    pub rumble_intensity: u32,
+
     /// Blend the stippled-transparency quads instead of dithering them.
     ///
     /// The board has no alpha channel: "transparent" shadows are drawn as a
@@ -286,6 +343,12 @@ pub struct Config {
     pub volume: u32,
     pub audio_mutes: AudioMutes,
     pub audio_gains: AudioGains,
+    /// Resource selection applied by the frontend before constructing NetMerc.
+    pub netmerc_audio_donor: NetmercAudioDonor,
+    /// Frontend output preset; the caller supplies actual donor availability.
+    pub netmerc_alternative_gains: bool,
+    /// Optional firmware-specific rounding override; live, NetMerc only.
+    pub netmerc_city_workaround: bool,
 
     /// Off: legacy native framing. On: widen the 3D field of view.
     /// Auto: present the native image at the saved cabinet's 4:3/16:9 aspect.
@@ -329,12 +392,16 @@ impl Default for Config {
             cabinet: Cabinet::Single,
             ssaa: 2,
             rumble: false,
+            rumble_intensity: 100,
             // The blended stipple reads the way the hardware's checkerboard
             // did on a CRT; the exact dither is one flag away for purists.
             smooth_shadows: true,
             volume: 100,
             audio_mutes: AudioMutes::default(),
             audio_gains: AudioGains::default(),
+            netmerc_audio_donor: NetmercAudioDonor::default(),
+            netmerc_alternative_gains: false,
+            netmerc_city_workaround: true,
             widescreen: Widescreen::Off,
             widescreen_stretch_2d: true,
             reverse_landscape: false,
@@ -343,6 +410,20 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Resolve output preferences without changing stored manual gains or state.
+    /// Recovery retains its internal 0.105 normalization and 50% route scaling.
+    pub fn effective_audio_gains(&self, game: &str, donor_active: bool) -> AudioGains {
+        if self.netmerc_alternative_gains && game == "netmerc" {
+            if donor_active {
+                AudioGains::NETMERC_DONOR_ALTERNATIVE
+            } else {
+                AudioGains::REFERENCE
+            }
+        } else {
+            self.audio_gains
+        }
+    }
+
     /// A short label for the loaded game, used in the window title.
     pub fn title(&self) -> String {
         let stem = std::path::Path::new(&self.rom_path)
@@ -354,5 +435,35 @@ impl Config {
             System::Model2 => "Model 2",
         };
         format!("{stem} ({board})")
+    }
+}
+
+#[cfg(test)]
+mod audio_gain_tests {
+    use super::*;
+
+    #[test]
+    fn netmerc_alternative_preset_uses_actual_donor_without_changing_manual_gains() {
+        let mut config = Config::default();
+        config.audio_gains.multipcm1 = 15;
+        config.audio_gains.multipcm2 = 100;
+        let manual = config.audio_gains;
+        assert_eq!(config.effective_audio_gains("netmerc", true), manual);
+        config.netmerc_alternative_gains = true;
+        assert_eq!(
+            config.effective_audio_gains("netmerc", true),
+            AudioGains::NETMERC_DONOR_ALTERNATIVE
+        );
+        // A selected donor may be unavailable: use the running fallback path.
+        assert_eq!(
+            config.effective_audio_gains("netmerc", false),
+            AudioGains::REFERENCE
+        );
+        for game in ["vr", "swa", "vf", "daytona"] {
+            assert_eq!(config.effective_audio_gains(game, true), manual);
+        }
+        config.netmerc_alternative_gains = false;
+        assert_eq!(config.effective_audio_gains("netmerc", true), manual);
+        assert_eq!(config.audio_gains, manual);
     }
 }

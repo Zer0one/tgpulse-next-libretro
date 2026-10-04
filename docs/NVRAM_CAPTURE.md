@@ -186,8 +186,9 @@ set; the VF route above does not establish other families' routes.
 ## Full campaign scope and completion criteria
 
 The active campaign covers **every operator setting and every reachable value**
-in each currently starting Model 1 parent and clone. `netmerc` is deferred by
-user direction until its game starts. This includes game-specific menus,
+in each Model 1 parent and clone available for that acquisition. `netmerc` was
+excluded from the initial nine-set campaign because it did not start. U1 now
+verifies startup; its complete campaign follows the separate U3 authorization. This includes game-specific menus,
 networking and linked-cabinet entries,
 settings that will not become Core Options, and settings that prove unsafe to
 override. The workbook selection is a later product decision; acquisition covers
@@ -209,7 +210,7 @@ native default, unless a value cannot be reached; document such gaps.
 | Wing War | `wingwaru` | clone | captured | Game/Coin/Manual/Communication 134/134 values saved, CRC-checked and reloaded | 14 mapped cycles; calibration and operator settings complete |
 | Wing War | `wingwarj` | clone | captured | Game/Coin/Manual/Communication 134/134 values saved, CRC-checked and reloaded | 14 mapped cycles; calibration and operator settings complete |
 | Wing War | `wingwar360` | clone | captured | Game/Coin/Manual/Communication 149/149 values saved, CRC-checked and reloaded | 14 mapped cycles; calibration and operator settings complete |
-| Net Merc | `netmerc` | parent | captured | deferred: game does not start | deferred |
+| Net Merc | `netmerc` | parent | captured | 4 cycles / 20 values saved and reloaded | complete; controller full range verified |
 
 For each set, inventory all menu pages and selectable fields in visible order;
 record the native default, full value cycle, unavailable/conditional fields,
@@ -235,7 +236,7 @@ freshly reloaded full-range calibration samples, kept separate from discrete
 Core Options. The fields and dependent displays are catalogued in
 [the operator settings catalogue](MODEL1_DIAGNOSTIC_SETTINGS_CATALOG.md).
 The [review workbook](model1_core_options_review.xlsx) records the user's
-approved selection: 39 NVRAM Settings fields across nine sets. Automatic setup
+approved selection: 40 NVRAM Settings fields across nine sets. Automatic setup
 has nine approved complete native templates with explicit country/offline
 startup overrides. On 2026-10-02 the user added VR CABINET = SPECIAL.
 The menu fields and automatic templates are now implemented. Automatic setup
@@ -350,7 +351,7 @@ native EEPROM encodings, CRC byte order and mirrored regions.
 `tools/generate_model1_nvram.py` reconciles the approved workbook, YAML mappings
 and all 953 saved samples, including fields excluded from the menu. Generated
 adapter data contains derived settings/Save RAM payloads, source hashes and
-39 field maps; no ROM data. Original recipes and samples remain ignored.
+40 field maps; no ROM data. Original recipes and samples remain ignored.
 Regenerate after approved catalogue changes, then check:
 
 ```sh
@@ -384,3 +385,37 @@ frontend integration and persistence, not user gameplay/controller acceptance.
 The existing runner accepts `--initial-nvram`, `--nvram-settings`, repeatable
 `--nvram-setting KEY=VALUE`, and `--nvram-sample` for an isolated existing-save
 fixture. User saves and configuration are untouched.
+
+## Workbook Presentation And Monitor Follow-Up (2026-10-03)
+
+The review workbook now uses green native filterable tables on all four sheets,
+Title Case labels, readable columns and frozen headers. Each native default is
+bold within Observed Values, with no separate default column. The generator
+and ABI runner resolve columns by name and display labels to raw catalogue
+identifiers; keys and byte encodings are unchanged. Monitor is included after
+Country and before Cabinet for VR, bringing the approved selection to 40
+fields. Both values reuse the existing committed/reloaded campaign samples and
+have isolated RetroArch Save RAM readback evidence. Procedures and formatting
+helpers are documented in `REFERENCE_WORKFLOW.md`.
+
+## NetMerc Startup And Initial Calibration — 2026-10-04
+
+[U1](LIBRETRO_U1_INTEGRATION.md) makes the calibration seed optional and
+implements the explicitly approved Automatic Initial NVRAM Setup endpoint
+policy. This does not establish complete operator-menu coverage or select
+NetMerc NVRAM fields. For native-default acquisition, disable automatic setup
+and record whether the optional seed was supplied. Keep controller endpoint
+calibration separate from MVD pose calibration and use the established
+screenshot/catalogue/workbook/recipe workflow.
+
+## NetMerc Campaign Completion (2026-10-04)
+
+U3 supersedes NetMerc's initial exclusion: four discrete fields and all 20
+values have documentary screenshots, isolated native-exit samples, backup RAM
+byte mappings and fresh-instance menu readback. Full-range controller endpoints
+are saved and reloaded separately. The detailed procedure, evidence and pending
+workbook proposals are in [U3 campaign](LIBRETRO_U3_NETMERC_CAMPAIGN.md).
+The complete catalogue now covers 10 sets, 114 fields and 973 discrete values.
+Raw NetMerc evidence is ignored under `validation/nvram-campaigns/2026-10-04/`;
+the earlier nine-set evidence remains unchanged. The user approved the workbook; [U8](LIBRETRO_U8_NETMERC_SETTINGS.md) implements
+the three reviewed fields and automatic Country = Export policy.

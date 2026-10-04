@@ -7,14 +7,23 @@ GitHub fork of either source repository. The initial tree is a snapshot of
 `3c75f9b2b155e8bb50a225c69520948ef72ecd48`, itself based on
 [TGPulse](https://github.com/deepblueworks/TGPulse). The snapshot was imported
 as a fresh history; the remotes `upstream-next` and `upstream-original` retain
-access to both source histories.
+access to both source histories. The local U1 integration selectively imports
+NetMerc machine changes from `27db9fa`; see [scope and verification](docs/LIBRETRO_U1_INTEGRATION.md).
+Its machine Save State format is 5: older formats are rejected without
+migration. Existing Save RAM remains compatible. Local U2 adds the approved
+Special: Sega NetMerc profile and right-stick MVD controls; see
+[controls and verification](docs/LIBRETRO_U2_CONTROLS.md). U5 adds frontend-owned
+MVD sensors, three-second calibration, gravity stabilization and adjustable
+drift compensation (50% default); see
+[sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current source is the
+0.1.0.3 release candidate; published 0.1.0.2 is unchanged.
 
 **Port status:** an experimental Libretro adapter lives in
 `crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
 Virtua Fighter, Wing War, Star Wars Arcade Pilot/Gunner and experimental
 NetMerc input profiles. It has native software and frontend-owned Vulkan/OpenGL compute video, stereo audio, RetroPad
 controls, named cabinet controllers and Core Options for timing, aspect, audio,
-VR-family rumble and ROM compatibility. Save RAM and Save States
+VR-family/NetMerc rumble and ROM compatibility. Save RAM and Save States
 are exposed through Libretro. An isolated RetroArch input replay has reached a
 Virtua Racing race; physical controller and broader gameplay validation remain
 pending. The
@@ -22,7 +31,10 @@ standalone source remains buildable. SM2-Emu Libretro is an architectural and
 workflow reference, not vendored code.
 
 The [Libretro implementation roadmap](docs/LIBRETRO_ROADMAP.md) lists the
-remaining port features. User-run game and controller trials are outside it.
+remaining port features. User-run game and controller trials are outside it
+except the specifically requested DualSense rumble/MVD comparison.
+Potential changes to return to TGPulse-Next are tracked in the maintained
+[upstream backport register](docs/UPSTREAM_BACKPORT_CANDIDATES.md).
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
@@ -69,12 +81,18 @@ on every callback, making gameplay and sound about 4.3% faster. It resamples
 audio to the same frontend output rate. Reload content after changing it.
 The `Aspect Ratio` option defaults to Auto: Virtua Racing follows its saved
 monitor setting, while other Model 1 sets use 4:3 unless explicitly overridden.
-Software retains 496×384 output. Hardware expansion follows the effective wide aspect and the selected Widescreen Mode.
+Software retains 496×384 output. Hardware expansion follows the effective wide aspect and the selected Widescreen Hack.
 `Driving Steering Output Range`, `Driving Accelerator Output Range` and
 `Driving Brake Output Range` apply to VR/VFormula: 50–150% in 10% steps,
 default 100%, with immediate updates. Scaling respects Model 1 center/rest and
-native limits. Other profiles hide these options when frontend display hints
-are supported. Frontend remapping still owns physical input assignments.
+native limits. The options remain visible for every title and apply only to
+the recognized driving profiles. Frontend remapping still owns physical input assignments.
+
+Each controller port offers two Device Type variants: the default full profile
+with `+ Test/Service Slots`, and the same profile without that suffix, which
+disables Test and Service while retaining gameplay and analog controls. Model 1
+uses Test on L3 and Service on R3. Player 2 can select its variant independently;
+Star Wars Arcade retains separate Pilot and Gunner names.
 `Driving Steering Response` applies to VR/VFormula and defaults to Linear.
 Progressive (Fine Center) and FBNeo Logarithmic (Fine Center) follow the current
 SM2/Supermodel curves, adapted to the native Model 1 steering span. Changes
@@ -86,7 +104,11 @@ valid existing saves take precedence. VR's initial policy is EXPORT / NO LINK /
 SPECIAL. `NVRAM Settings` defaults to Disabled; enabling it exposes the approved
 operator fields for the current set. Their defaults match the native menu.
 Changing an applied setting resets the game to refresh its native settings.
-Nine sets have independent templates and selectors; NetMerc is excluded.
+Ten sets have reviewed selectors. NetMerc uses backup RAM and exposes Game
+Difficulty, Country and Advertise Sound. Its automatic policy selects Export
+and the approved initial controller endpoints. Its `netmerc_nvram.bin` seed is
+optional: preserve and patch a loaded seed, or use the validated native baseline
+when absent. See [NetMerc settings integration](docs/LIBRETRO_U8_NETMERC_SETTINGS.md).
 See the [review workbook](docs/model1_core_options_review.xlsx) and
 [NVRAM procedure](docs/NVRAM_CAPTURE.md) for the reviewed list and evidence.
 
@@ -101,27 +123,65 @@ for supported sets, startup and reproducible multi-instance evidence.
 Source Gain options are global across Model 1 sets and default to Auto.
 MultiPCM 1/2, FM (YM3438) and DSB (MPEG) use the standalone reference levels
 50/50/30/100% respectively. Each selector offers Mute, Auto and 0–100% in
-10% steps, with immediate updates. DSB is shown only when the board is fitted
-and the frontend supports visibility hints. Old set-qualified Gain keys are
+10% steps, with immediate updates. All Gain selectors remain visible; each applies when its sound source is present. Old set-qualified Gain keys are
 ignored; the core does not rewrite personal option files. Global source Gains
 are restored in 0.1.0.1; the 0.1.0.0 preview used per-set Gain keys.
 
-`Gamepad Rumble` defaults to On and uses the standalone VR/VFormula pad policy
-through the frontend's P1 strong and weak motors when available.
+`Sega NetMerc Audio Donor` is always visible and applies only to NetMerc on content
+reload. It defaults to Virtua Fighter; Virtua Racing, Star Wars Arcade, Wing War
+and Off are also available. Place `vf.zip`, `vr.zip`, `swa.zip` or `wingwar.zip`
+beside `netmerc.zip`: donor game ROMs are never searched in the system directory.
+Only the two MultiPCM sample banks are needed. Missing or invalid donors retain
+the available audio path; Off retains procedural audio for missing original
+samples. Notifications identify fallback/procedural operation and incomplete
+original audio; successful donor loading is silent. Substitute samples are not
+recovered original audio. See [NetMerc audio integration](docs/LIBRETRO_U4_AUDIO.md).
+
+`Gamepad Rumble` defaults to Enabled. It uses the standalone VR/VFormula pad policy
+and Sega NetMerc's cabinet motor through the frontend's P1 strong and weak
+motors when available. Adjust intensity through RetroArch's rumble gain.
 `Timing / FPS Overlay` defaults to Off. Auto uses a 13 px font; 11–14 px
 choices match SM2. The panel shows 61-frame averages and draws into software and GPU
 images. Its reported video and callback costs include the overlay itself.
+
+`Sega NetMerc Diagnostic Display` offers OFF (default), ON (100%) and ON (50%),
+drawing the cabinet's HD44780 LCD at full or half size. Timing is drawn over
+the LCD when their selected corners overlap; neither panel is repositioned. Position defaults Top Right; background opacity defaults
+80%. These Video options remain visible and update live. Supply the optional
+validated `hd44780.zip` in `system/tgpulse-next/`, beside the game, or its
+`hd44780_a00.bin` inside the game ZIP, in that priority order. If the display is
+active without a valid BIOS, a queued notification appears and no LCD is drawn.
+The same ordered lookup applies to the required `model1io.zip`/`model1io2.zip`
+firmware selected by the game. Donor game ZIPs remain adjacent only.
+See [Diagnostic LCD delivery](docs/LIBRETRO_U7_LCD.md).
+Startup camera investigation and the reusable read-only trace runner are
+documented in [MVD sensor and pose evidence](docs/LIBRETRO_U5_SENSORS.md).
+
+`Sega NetMerc MVD Drift Compensation` offers Off and 10–100% in 10% steps,
+default 50%. It gradually learns residual gyro bias after three seconds of
+detected stillness, preserving the current view. Higher percentages learn
+faster; very slow intentional turns may resemble drift. The option is always
+visible in Input and changes live. Its default is initial moderate tuning,
+not a claim of validation across physical controller models.
+
+For physical-controller tuning, enable `Sega NetMerc MVD Sensor Diagnostics`.
+It defaults to Disabled and records raw motion, calibration, drift correction
+and orientation under `<Save Directory>/tgpulse-next/diagnostics/`. Notifications
+show the CSV path. Disable it to flush and close; send the CSV with the pad model
+and USB/Bluetooth connection. See the [capture procedure](docs/LIBRETRO_U5_SENSORS.md#optional-sensor-recording--2026-10-04).
 
 `Renderer (Restart Required)` offers Auto, Vulkan, OpenGL / GLES and Software.
 OpenGL compute requires desktop 4.3 or GLES 3.1. On macOS, use Vulkan through
 MoltenVK; Auto keeps Software when the frontend prefers macOS OpenGL 4.1.
 Native Vulkan images are verified in RetroArch; desktop OpenGL/GLES images and
-context recreation are verified with the isolated Mesa EGL check host. This
-phase adds `Widescreen Mode (Restart Required)`: Stretch Entire Image (default),
-Expand 3D View, or Expand 3D View + Stretch 2D. All modes apply to a wide aspect;
-4:3 keeps native geometry. `Supersampling (Restart Required)` offers scales 1–4
-(default 1), including in 4:3. These options are hidden on Software when frontend
-visibility hints are supported. sRGB correction is not exposed by the core.
+context recreation are verified with the isolated Mesa EGL check host.
+
+`Widescreen Hack (Restart Required)` applies to games without native widescreen
+support. It defaults to Expand 3D View Only; the other choices expand the 3D
+view and stretch 2D, or stretch the complete image. These choices apply only
+with a widescreen aspect; 4:3 keeps native geometry. Native widescreen settings
+remain authoritative. `Supersampling (Restart Required)` offers scales 1–4
+(default 1), including in 4:3. These options remain visible; supersampling requires Vulkan or OpenGL/GLES. sRGB correction is not exposed by the core.
 
 See [renderer adaptation](docs/LIBRETRO_GPU_ADAPTATION.md) and
 [reusable GPU verification procedure](docs/LIBRETRO_GPU_VERIFICATION.md).
@@ -419,3 +479,9 @@ RUST_LOG=warn,geo=trace ./target/release/tgpulse vf2
 
 Targets include `geo`, `fifo`, `io`, `sound`, `copro`, `nvram`, `backup`,
 `comm`, `library` and `video`.
+
+General Core Options remain visible before load, for every title and after
+unload. Applicability is enforced at runtime and described in the option help;
+reviewed per-set NVRAM fields and Linked Cabinets selectors retain their agreed
+filtering. **NetMerc City Workaround** is always visible in Video, defaults to
+Enabled and applies live only to NetMerc, using the standalone machine API.

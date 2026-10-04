@@ -1922,6 +1922,7 @@ R polygons 1000000 00
 R copro_data 200000 00
 R polhemus 8000 00
 R nvram 10000 00
+R ioboard:iocpu 10000 00
 L copro_tables opr14742.bin 0 20000 4w
 L copro_tables opr14743.bin 2 20000 4w
 L other_data opr-14744.58 0 20000 4w
@@ -1954,6 +1955,7 @@ L polygons mpr-18133.ic31 800002 200000 4w
 L polhemus u1 0 4000 2b
 L polhemus u2 1 4000 2b
 L nvram netmerc_nvram.bin 0 10000 p
+L ioboard:iocpu epr-18021.6 0 10000 p
 G overrev m2c racing steer accel brake
 T Over Rev (Model 2C, Revision A)	1997	Jaleco
 R maincpu 200000 00

@@ -9,6 +9,8 @@ MAME reference implementations adapted in:
   crates/tgpulse-core/src/sega3155338.rs — copyright-holder Dirk Best
   crates/tgpulse-core/src/msm6253.rs — copyright-holder AJR
   crates/tgpulse-core/src/model1io2.rs — copyright-holder Dirk Best
+  crates/tgpulse-core/src/model1io2/lcd.rs — copyright-holder Sandro Ronco;
+    board write qualification reference: copyright-holder Dirk Best
   crates/tgpulse-core/src/tmpz84c015.rs — copyright-holder hap;
     daisy-chain arbitration reference: copyright-holder Juergen Buchmueller
   crates/tgpulse-core/src/z80ctc.rs — copyright-holder Wilbert Pol;
@@ -18,7 +20,7 @@ MAME reference implementations adapted in:
     Joakim Larsson Edstrom
 
 Copyright holders: R. Belmont, Olivier Galibert, smf, Dirk Best, AJR, hap, Juergen Buchmueller, Wilbert Pol,
-Tatsuyuki Satoh, Curt Coder, Joakim Larsson Edstrom, Ariane Fugmann
+Tatsuyuki Satoh, Curt Coder, Joakim Larsson Edstrom, Ariane Fugmann, Sandro Ronco
 (respective components above).
 
 Redistribution and use in source and binary forms, with or without

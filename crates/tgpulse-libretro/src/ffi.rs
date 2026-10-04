@@ -14,6 +14,8 @@ pub type SetRumbleState = unsafe extern "C" fn(u32, u32, u16) -> bool;
 pub const API_VERSION: u32 = 1;
 pub const MEMORY_SAVE_RAM: u32 = 0;
 pub const SET_MESSAGE: u32 = 6;
+pub const GET_MESSAGE_INTERFACE_VERSION: u32 = 59;
+pub const SET_MESSAGE_EXT: u32 = 60;
 pub const SHUTDOWN: u32 = 7;
 pub const SET_PIXEL_FORMAT: u32 = 10;
 pub const SET_INPUT_DESCRIPTORS: u32 = 11;
@@ -23,6 +25,8 @@ pub const GET_RUMBLE_INTERFACE: u32 = 23;
 pub const RUMBLE_STRONG: u32 = 0;
 pub const RUMBLE_WEAK: u32 = 1;
 pub const GET_VARIABLE: u32 = 15;
+pub const GET_SYSTEM_DIRECTORY: u32 = 9;
+pub const GET_SAVE_DIRECTORY: u32 = 31;
 pub const SET_VARIABLES: u32 = 16;
 pub const GET_VARIABLE_UPDATE: u32 = 17;
 pub const GET_CORE_OPTIONS_VERSION: u32 = 52;
@@ -98,6 +102,17 @@ pub struct GameInfo {
 pub struct Message {
     pub msg: *const c_char,
     pub frames: u32,
+}
+
+#[repr(C)]
+pub struct MessageExt {
+    pub msg: *const c_char,
+    pub duration: u32,
+    pub priority: u32,
+    pub level: u32,
+    pub target: u32,
+    pub message_type: u32,
+    pub progress: i8,
 }
 
 #[repr(C)]
@@ -189,4 +204,15 @@ pub struct NetCallbacks {
     pub connected: Option<unsafe extern "C" fn(u16) -> bool>,
     pub disconnected: Option<unsafe extern "C" fn(u16)>,
     pub protocol_version: *const c_char,
+}
+
+// Experimental sensor extension: ABI and units follow libretro.h.
+pub const GET_SENSOR_INTERFACE: u32 = 25 | 0x10000;
+pub type SetSensorState = unsafe extern "C" fn(u32, u32, u32) -> bool;
+pub type GetSensorInput = unsafe extern "C" fn(u32, u32) -> f32;
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct SensorInterface {
+    pub set_sensor_state: Option<SetSensorState>,
+    pub get_sensor_input: Option<GetSensorInput>,
 }

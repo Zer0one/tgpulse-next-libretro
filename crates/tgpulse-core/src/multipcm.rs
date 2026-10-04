@@ -40,6 +40,11 @@ const VALUE_TO_CHANNEL: [i32; 32] = [
     23, 24, 25, 26, 27, -1,
 ];
 
+/// Shared physical register-selector decoding, including the unused entries.
+pub(crate) fn voice_slot(data: u8) -> Option<usize> {
+    usize::try_from(VALUE_TO_CHANNEL[(data & 0x1f) as usize]).ok()
+}
+
 fn value_to_fixed(bits: u32, value: f32) -> u32 {
     ((1u64 << bits) as f32 * value) as u32
 }
@@ -590,9 +595,8 @@ impl MultiPcm {
                 self.write_slot(self.cur_slot, self.address, data)
             }
             1 => {
-                let ch = VALUE_TO_CHANNEL[(data & 0x1f) as usize];
-                if ch >= 0 {
-                    self.cur_slot = ch as usize;
+                if let Some(ch) = voice_slot(data) {
+                    self.cur_slot = ch;
                 }
             }
             2 => self.address = (data as usize).min(7),

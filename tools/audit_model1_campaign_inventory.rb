@@ -13,7 +13,8 @@ base = root / "validation/nvram-campaigns/2026-10-01"
 expected = {"vf" => [13, 98], "vr" => [10, 63], "vformula" => [9, 59],
             "swa" => [11, 92], "swaj" => [11, 90],
             "wingwar" => [14, 134], "wingwaru" => [14, 134],
-            "wingwarj" => [14, 134], "wingwar360" => [14, 149]}
+            "wingwarj" => [14, 134], "wingwar360" => [14, 149],
+            "netmerc" => [4, 20]}
 errors = []
 total_fields = 0
 total_values = 0
@@ -47,8 +48,9 @@ expected.each do |set, (field_count, value_count)|
   end
   next if source_only
 
-  samples = base / set / "samples"
-  reloads = base / set / "reloads"
+  set_base = set == "netmerc" ? root / "validation/nvram-campaigns/2026-10-04/netmerc" : base / set
+  samples = set_base / "samples"
+  reloads = set_base / "reloads"
   sample_count = samples.directory? ? samples.children.count(&:directory?) : 0
   reload_count = reloads.directory? ? reloads.children.count(&:directory?) : 0
   errors << "#{set}: #{sample_count} sample directories != #{value_count}" unless sample_count == value_count
@@ -61,11 +63,17 @@ expected.each do |set, (field_count, value_count)|
     (base / set / "calibration/sample/committed.srm").file? &&
     (base / set / "calibration/reload/volume-default.srm").file?
 end
-errors << "total fields #{total_fields} != 110" unless total_fields == 110
-errors << "total values #{total_values} != 953" unless total_values == 953
+unless source_only
+  evidence = root / "validation/nvram-campaigns/2026-10-04/netmerc"
+  errors << "NetMerc detailed sample/calibration audit failed" unless system(
+    "python3", (root / "tools/audit_model1_netmerc_campaign.py").to_s,
+    "--evidence", evidence.to_s, "--output", (evidence / "audit.json").to_s)
+end
+errors << "total fields #{total_fields} != 114" unless total_fields == 114
+errors << "total values #{total_values} != 973" unless total_values == 973
 abort errors.join("\n") unless errors.empty?
 if source_only
-  puts "Model 1 source catalogue: 9 sets, #{total_fields} fields, #{total_values} documentary values; raw captures not checked"
+  puts "Model 1 source catalogue: 10 sets, #{total_fields} fields, #{total_values} documentary values; raw captures not checked"
 else
-  puts "Model 1 campaign: 9 sets, #{total_fields} fields, #{total_values} saved values, 4 calibrated ranges"
+  puts "Model 1 campaign: 10 sets, #{total_fields} fields, #{total_values} saved values, 5 calibrated ranges"
 end

@@ -191,6 +191,11 @@ pub struct GameDef {
 }
 
 impl GameDef {
+    /// The exact executable I/O firmware selected by this game's catalogue.
+    pub fn model1_io_file(&self) -> Option<&str> {
+        self.loads.iter().find(|load| load.region == "ioboard:iocpu")
+            .map(|load| load.file.as_str())
+    }
     /// Every distinct filename this romset expects, for matching a zip to a game.
     pub(crate) fn files(&self) -> impl Iterator<Item = &str> {
         self.loads.iter().map(|l| l.file.as_str())
@@ -311,13 +316,29 @@ pub fn identify(names: &[String]) -> Option<&'static GameDef> {
 /// `identify` for diagnostics on partial sets; a Libretro frontend can use
 /// this stricter query before loading a machine from one ZIP.
 pub fn identify_complete(names: &[String]) -> Option<&'static GameDef> {
+    identify_complete_policy(names, false)
+}
+
+/// Game chips must be complete; the caller must resolve and validate executable
+/// I/O firmware separately before constructing a machine.
+pub fn identify_complete_with_external_io(names: &[String]) -> Option<&'static GameDef> {
+    identify_complete_policy(names, true)
+}
+
+fn identify_complete_policy(names: &[String], external_io: bool) -> Option<&'static GameDef> {
     let present: std::collections::HashSet<&str> = names.iter().map(String::as_str).collect();
     GAMES
         .iter()
         .filter_map(|game| {
             let mut count = 0;
-            for file in game.files() {
-                if !present.contains(file) {
+            for load in &game.loads {
+                let file = load.file.as_str();
+                if external_io && game.board.is_model1() && load.region == "ioboard:iocpu" {
+                    continue;
+                }
+                if !present.contains(file)
+                    && !(game.name == "netmerc" && file == "netmerc_nvram.bin")
+                {
                     return None;
                 }
                 count += 1;
@@ -336,14 +357,55 @@ pub fn build_regions(
     def: &GameDef,
     archive: &mut ZipArchive<File>,
 ) -> Result<HashMap<String, Vec<u8>>, String> {
+    build_selected_regions(def, archive, None)
+}
+
+/// Selected resource loading is strict, unlike the legacy best-effort game
+/// loader. It must not turn a missing donor sample chip into silent padding.
+pub(crate) fn build_selected_regions(
+    def: &GameDef,
+    archive: &mut ZipArchive<File>,
+    selected: Option<&[&str]>,
+) -> Result<HashMap<String, Vec<u8>>, String> {
+    build_regions_policy(def, archive, selected, None)
+}
+
+pub(crate) fn build_regions_with_io(
+    def: &GameDef, archive: &mut ZipArchive<File>, firmware: &[u8],
+) -> Result<HashMap<String, Vec<u8>>, String> {
+    build_regions_policy(def, archive, None, Some(firmware))
+}
+
+fn build_regions_policy(
+    def: &GameDef, archive: &mut ZipArchive<File>, selected: Option<&[&str]>,
+    firmware: Option<&[u8]>,
+) -> Result<HashMap<String, Vec<u8>>, String> {
+    let includes = |name: &str| selected.is_none_or(|names| names.contains(&name));
     let mut regions: HashMap<String, Vec<u8>> = HashMap::new();
     for (name, size, fill) in &def.regions {
-        regions.insert(name.clone(), vec![*fill; *size]);
+        if includes(name) {
+            regions.insert(name.clone(), vec![*fill; *size]);
+        }
     }
     let mut missing = 0;
     for load in &def.loads {
-        let data = match read_chip(archive, &load.file) {
+        if !includes(&load.region) {
+            continue;
+        }
+        let data = match if load.region == "ioboard:iocpu" && firmware.is_some() {
+            Ok(firmware.unwrap().to_vec())
+        } else { read_chip(archive, &load.file) } {
             Ok(d) => d,
+            Err(_) if selected.is_none() && def.name == "netmerc"
+                && load.region == "nvram" && load.file == "netmerc_nvram.bin" => {
+                // Calibration seed, not executable ROM. Let the machine loader
+                // provide empty SRAM; the frontend owns automatic calibration.
+                regions.remove("nvram");
+                continue;
+            }
+            Err(e) if selected.is_some() => {
+                return Err(format!("{}: required donor ROM: {e}", def.name))
+            }
             Err(e) if def.board.is_model1() && load.region.starts_with("dsbz80:") => {
                 return Err(format!("{}: required DSB ROM: {e}", def.name));
             }
@@ -355,6 +417,14 @@ pub fn build_regions(
         let Some(dest) = regions.get_mut(&load.region) else {
             continue;
         };
+        if selected.is_some() && data.len() != load.len {
+            return Err(format!(
+                "donor ROM '{}': expected {} bytes, found {}",
+                load.file,
+                load.len,
+                data.len()
+            ));
+        }
         if def.board.is_model1() && load.region.starts_with("dsbz80:") {
             validate_dsb_size(load, &data)?;
         }
@@ -371,6 +441,10 @@ pub fn build_regions(
         log::info!(target: "loader", "warning: {missing} ROM file(s) missing from the set");
     }
     Ok(regions)
+}
+
+pub(crate) fn named_game(name: &str) -> Option<&'static GameDef> {
+    GAMES.iter().find(|game| game.name == name)
 }
 
 fn validate_dsb_size(load: &Load, data: &[u8]) -> Result<(), String> {
@@ -405,6 +479,20 @@ fn apply_load(dest: &mut [u8], load: &Load, data: &[u8]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "model1")]
+    #[test]
+    fn netmerc_calibration_seed_is_optional_but_io_firmware_is_required() {
+        let game = named_game("netmerc").unwrap();
+        let mut names: Vec<_> = game.files().filter(|f| *f != "netmerc_nvram.bin")
+            .map(str::to_owned).collect();
+        assert_eq!(identify_complete(&names).unwrap().name, "netmerc");
+        names.retain(|f| f != "epr-18021.6");
+        assert!(identify_complete(&names).is_none());
+        assert_eq!(identify_complete_with_external_io(&names).unwrap().name, "netmerc");
+        names.remove(0);
+        assert!(identify_complete_with_external_io(&names).is_none());
+    }
 
     #[test]
     fn complete_identification_rejects_ambiguous_partial_archive() {
@@ -441,6 +529,65 @@ mod tests {
                 assert!(DB.contains(&format!("G {record}")));
             }
         }
+    }
+
+    #[test]
+    fn donor_loads_only_pcm_and_rejects_incomplete_banks() {
+        use std::io::Write;
+        let path =
+            std::env::temp_dir().join(format!("tgpulse-donor-selected-{}.zip", std::process::id()));
+        let def = GameDef {
+            name: "donor-test".into(),
+            title: String::new(),
+            year: String::new(),
+            manufacturer: String::new(),
+            board: Board::Model1,
+            scheme: Scheme::Joystick,
+            analog_roles: [AnalogRole::None; 8],
+            regions: vec![("pcm".into(), 8, 0), ("dsbz80:mpegcpu".into(), 4, 0)],
+            loads: vec![
+                Load {
+                    region: "pcm".into(),
+                    file: "samples.bin".into(),
+                    off: 0,
+                    len: 4,
+                    kind: *b"w\0",
+                },
+                Load {
+                    region: "dsbz80:mpegcpu".into(),
+                    file: "not-needed.bin".into(),
+                    off: 0,
+                    len: 4,
+                    kind: *b"p\0",
+                },
+            ],
+            copies: vec![Copy {
+                region: "pcm".into(),
+                src: 0,
+                dst: 4,
+                len: 4,
+            }],
+        };
+        for size in [None, Some(3), Some(4), Some(5)] {
+            let mut zip = zip::ZipWriter::new(File::create(&path).unwrap());
+            if let Some(size) = size {
+                zip.start_file("samples.bin", zip::write::FileOptions::default())
+                    .unwrap();
+                zip.write_all(&[1, 2, 3, 4, 5][..size]).unwrap();
+            }
+            let file = zip.finish().unwrap();
+            drop(file);
+            let mut archive = ZipArchive::new(File::open(&path).unwrap()).unwrap();
+            let result = build_selected_regions(&def, &mut archive, Some(&["pcm"]));
+            if size == Some(4) {
+                let regions = result.unwrap();
+                assert_eq!(regions.len(), 1);
+                assert_eq!(regions["pcm"], [2, 1, 4, 3, 2, 1, 4, 3]);
+            } else {
+                assert!(result.is_err());
+            }
+        }
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
@@ -520,7 +667,13 @@ mod tests {
                     .iter()
                     .any(|(name, size, _)| name == "ioboard:iocpu" && *size == 0x10000));
             } else if game.name == "netmerc" {
-                assert!(firmware.is_empty());
+                assert_eq!(firmware.len(), 1);
+                assert_eq!(firmware[0].file, "epr-18021.6");
+                assert_eq!(firmware[0].len, 0x10000);
+                assert!(game
+                    .regions
+                    .iter()
+                    .any(|(name, size, _)| name == "ioboard:iocpu" && *size == 0x10000));
             } else {
                 assert_eq!(firmware.len(), 1);
                 assert!(firmware[0].file.starts_with("epr-14869"));

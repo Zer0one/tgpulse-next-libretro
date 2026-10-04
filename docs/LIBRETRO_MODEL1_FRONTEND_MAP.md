@@ -9,6 +9,11 @@ this port.
 This document records design decisions and evidence. The
 [Libretro roadmap](LIBRETRO_ROADMAP.md) is the only active implementation plan.
 
+Current visibility policy (2026-10-04): general Core Options are always visible.
+The dated implementation sections below retain earlier verification history;
+the final General Core Option Visibility section supersedes title/board-based
+display restrictions. Reviewed per-set NVRAM/Linked Cabinets are explicit exceptions.
+
 ## Source boundary
 
 | Concern | SM2-Emu Libretro reference | TGPulse-Next Model 1 source | Port decision |
@@ -34,7 +39,7 @@ every physical control works in RetroArch.
 | Wing War | `wingwar`, `wingwarj`, `wingwaru` | Flight stick, throttle, three weapons and four views. | One named flight profile for revisions with the same database signature. |
 | Wing War R360 | `wingwar360` | Flight stick with distinct polarity and no view switches. | Separate controller profile and descriptors. |
 | Star Wars Arcade | `swa`, `swaj` | Pilot stick/throttle/view/weapon controls; Gunner stick and Laser/Torpedo only. | Different named P1 Pilot and P2 Gunner controller ports. |
-| NetMerc (experimental) | `netmerc` | Own stick ADC order and MVD Holder, no Start switch. | Separate experimental profile; a complete local archive passes a bounded 120-frame ABI boot, not gameplay acceptance. |
+| NetMerc (experimental) | `netmerc` | Own stick ADC order and MVD Holder, no Start switch. | Special: Sega NetMerc on both ports, P2 Test/Service only. U2 adds native Trigger/Thumb/Holder aliases, correct Y polarity and P1 right-stick MVD; see [controls and verification](LIBRETRO_U2_CONTROLS.md). U5 adds frontend-owned motion sensors, three-second calibration and adjustable drift compensation (50% default); see [sensor integration](LIBRETRO_U5_SENSORS.md). Calibration seed is optional; physical gameplay acceptance remains user-run. |
 
 For shared service controls, retain TGPulse's established preference: **Test on
 L3, Service on R3**. This differs from the current SM2 Libretro mapping.
@@ -196,8 +201,9 @@ separately from adapter changes when commits are authorized.
 The [acquisition procedure](NVRAM_CAPTURE.md) and
 [operator catalogue](MODEL1_DIAGNOSTIC_SETTINGS_CATALOG.md) now cover every
 catalogued discrete operator value for the nine starting parent/clone sets:
-110 fields and 953 isolated saved values. NetMerc remains excluded because the
-game does not start. Diagnostic YAML and the
+110 fields and 953 isolated saved values. NetMerc was excluded from this
+initial campaign because it did not start. U1 now verifies startup; its complete
+operator-setting acquisition is the separate U3 activity. Diagnostic YAML and the
 [review workbook](model1_core_options_review.xlsx) hold the per-set results.
 The proposed `Automatic Initial NVRAM Setup` and `NVRAM Settings` menus await
 the user's revised workbook. Workbook proposals do not authorize an override.
@@ -570,7 +576,7 @@ Current SM2 initial template generation, core option defaults and display
 callbacks, and Supermodel's seeding/manual-option lifecycle were inspected
 before this phase. Model 1 uses those procedures with complete set-specific
 backup RAM/EEPROM images and its own independently acquired encodings.
-The approved workbook and YAML select 39 fields across nine sets. VR's
+The approved workbook and YAML select 40 fields across nine sets. VR's
 additional automatic override is CABINET = SPECIAL; it does not change the
 native CABINET selector default. Parent and clone keys and templates remain
 independent. Detailed evidence and reusable commands are in
@@ -729,7 +735,7 @@ Keys: `tgpulse_next_multipcm1_gain`, `tgpulse_next_multipcm2_gain`,
 50/50/30/100%. Mute and 0–100% in 10% steps retain their established behavior.
 Modern and legacy registrations expose four source Gain options, without
 ROM-set suffixes. Load and live updates read the same global keys. DSB remains
-visible only with a fitted board, subject to frontend display-hint support.
+visible for every title and applies when a board is fitted.
 Old set-qualified Gain keys are ignored. This supersedes per-game Gain storage
 above and is a local change after the published 0.1.0.0 preview.
 
@@ -777,3 +783,34 @@ full/M1/M2/adapter checks, nine-set pre-split runtime/state equality and actual
 RetroArch Vulkan delivery. It also records package and installed hashes and
 the distinction between local verification and the previous published build.
 Implementation status and future priority remain solely in the roadmap.
+
+## Timing transparency and menu grouping correction (2026-10-03)
+
+The timing panel uses the reference 0.55 background opacity. Hardware output
+now preserves its alpha through final 3D/2D composition; previously it became
+opaque over 3D. Software composition is unchanged. Modern and legacy options
+now share the System/Video/Audio/Input grouping and related-control ordering
+from current SM2/Supermodel definitions. Details and verification are recorded
+in `REFERENCE_WORKFLOW.md`. Release 0.1.0.2 remains the previous published
+artifact until a separately authorized publication includes this correction.
+
+The following local Widescreen refinement renames the control to Widescreen
+Hack, makes Expand 3D View Only the default and preserves native-capable games
+from every hack mode. The menu description states its non-native scope without
+naming individual games. See `REFERENCE_WORKFLOW.md` for reference adaptation
+and the 49-test/native-and-expanded Vulkan verification.
+
+The subsequent Timing position correction maps the native game foreground
+before drawing the panel in final render coordinates. The 8-pixel upper-left
+anchor no longer inherits native 2D centering or stretching in wide 3D modes.
+Vulkan checks of all three choices, including 2x supersampling, and 50 adapter
+tests pass. Evidence and the minimal adapter change are in `REFERENCE_WORKFLOW.md`.
+
+## General Core Option Visibility
+
+General options remain visible regardless of the loaded title, including before
+load and after unload. Descriptions state applicability; runtime logic guards
+unsupported titles or rendering paths. Reviewed per-set NVRAM fields and
+Linked Cabinets selectors retain their explicitly agreed filtering. Native input
+descriptors remain profile-specific. Sega NetMerc City Workaround is always visible
+in Video, defaults to Enabled and applies live only to NetMerc.

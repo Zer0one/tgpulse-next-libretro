@@ -1,5 +1,37 @@
 # Cabinet input audit — 2026-09-26
 
+## Libretro Device Variants Restored (2026-10-04)
+
+The adapter previously exposed only one device type per port and always read
+L3/R3. Current SM2 `input.cpp::configure_controllers`, `service_enabled` and
+`joypad_enabled`, and Supermodel `libretro.cpp::set_controller_info` plus
+`CLibretroInputSystem.cpp` establish two variants: full base RetroPad by default,
+and a reduced device subclass. The adapter now follows that behavior on both
+ports for every Model 1 profile.
+
+| Variant | Device ID | Cabinet Slots |
+| --- | --- | --- |
+| `<Profile> + Test/Service Slots` | Base RetroPad (`1`) | Test L3, Service R3 |
+| `<Profile>` | RetroPad Subclass 0 (`257`) | Hidden And Inactive |
+
+Suffix capitalization follows the user's Title Case convention. Selection is
+independent per port; SWA retains Pilot/Gunner names. Reduced profiles retain
+all gameplay aliases, analog axes, NetMerc MVD commands and rumble eligibility.
+None disables the whole port. The callbacks continue polling base Libretro
+device classes rather than passing the subclass ID as an input device.
+
+Verification: 63 adapter tests, including per-port cabinet gating and gameplay,
+analog/MVD preservation; the existing NetMerc ABI runner now also checks all ten
+sets with `--rom-dir`, including profile names/IDs, descriptors and transitions
+between full/reduced/None. Existing NetMerc live controls, input thresholds,
+notification, state and command-edge checks pass. Offline locked release build
+and Model 1 artifact gate pass. Evidence is in
+`/private/tmp/tgpulse-test-service-slots/`; the installed Development core matches
+the tested build SHA-256
+`1157cf75d5f15baaa37ed800279e1221542a764105cd6601afde2fc11f433178`.
+No personal remap/save/config changes or new physical-controller trial are
+included. No commit, push or release was performed.
+
 ## Authority and scope
 
 The user-designated, tested **SM2-Emu Libretro** reference takes precedence
@@ -373,3 +405,16 @@ P2-disabled capability, legacy import and touch/native agreement.
 Verification: **469 workspace tests passed**, development release built.
 Manual GUI/gamepad acceptance remains with the user. No commit, merge,
 toolkit deployment or ROM/NVRAM modification is part of this checkpoint.
+
+## U2 NetMerc Reference Alignment — 2026-10-04
+
+The current standalone signal catalogue supersedes NetMerc's initial
+Button 1/L1, Button 2/R1 and West/Holder layout. The approved profile is
+Special: Sega NetMerc. Trigger Button uses South/L2/R2; Thumb Button uses East/L1/R1;
+MVD Holder uses Start/D-pad Down, with identical labels per native alias.
+North and West are the separate virtual MVD Calibrate/Recenter commands,
+without native cabinet bits. Native ADC Y now maps up to 00 and down to FF,
+matching standalone. P1 right-stick MVD uses the upstream orientation signs;
+P2 retains Test/Service only. Full Button spelling matches current SM2 and
+Supermodel. Detailed mappings, axis signs, limits and delivery evidence are in
+[NetMerc Controls](LIBRETRO_U2_CONTROLS.md); other profiles retain their mappings.

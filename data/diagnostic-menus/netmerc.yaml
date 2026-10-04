@@ -1,0 +1,223 @@
+---
+schema_version: 1
+game:
+  set: netmerc
+  parent: netmerc
+verification:
+  status: all_catalogued_values_saved_and_reloaded_direct_abi
+  date: '2026-10-04'
+  method: direct_libretro_abi
+  note: All four discrete operator cycles (20 values) have screenshots, isolated native-exit
+    samples, backup RAM byte mappings and fresh-instance readback. Full-range controller
+    endpoints are saved and reloaded. No networking setting is present in the observed
+    operator pages. Real frontend/gameplay acceptance is separate.
+  menu_evidence: docs/LIBRETRO_U3_NETMERC_CAMPAIGN.md
+nvram_layout:
+  storage: backup_ram
+  size: 65536
+  integrity:
+    status: native_firmware_readback_verified
+    note: All fields retain their photographed values after fresh import. EEPROM stays
+      erased; do not apply other sets' EEPROM CRC. Across all 20 samples only mapped
+      setting/dependent bytes and the running counter at 0x04/0x05 change. No separate
+      native backup checksum is claimed.
+controls:
+  enter_test: L3
+  next_item: R3
+  change_value: L3
+menus:
+  game_assignments:
+    initial_selected_item: EXIT
+    options:
+    - key: difficulty
+      label: GAME DIFFICULTY
+      position: 1
+      native_default: EASY
+      observed_values:
+      - EASY
+      - NORMAL
+      - HARD
+      - HARDEST
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      screenshots:
+      - docs/diagnostic-evidence/netmerc/difficulty-0.png
+      - docs/diagnostic-evidence/netmerc/difficulty-1.png
+      - docs/diagnostic-evidence/netmerc/difficulty-2.png
+      - docs/diagnostic-evidence/netmerc/difficulty-3.png
+      - docs/diagnostic-evidence/netmerc/difficulty-4.png
+      nvram:
+        backup_offsets:
+        - '0x28'
+        - '0x2a'
+        values:
+        - - 2
+          - 0
+        - - 4
+          - 1
+        - - 6
+          - 2
+        - - 8
+          - 3
+      core_option_review:
+        proposed_nvram_settings: true
+        proposed_startup_value:
+        status: approved
+    - key: country
+      label: COUNTRY
+      position: 2
+      native_default: JAPAN
+      observed_values:
+      - JAPAN
+      - USA
+      - EXPORT
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      screenshots:
+      - docs/diagnostic-evidence/netmerc/country-0.png
+      - docs/diagnostic-evidence/netmerc/country-1.png
+      - docs/diagnostic-evidence/netmerc/country-2.png
+      - docs/diagnostic-evidence/netmerc/country-3.png
+      nvram:
+        backup_offsets:
+        - '0x5c'
+        values:
+        - - 0
+        - - 1
+        - - 2
+      core_option_review:
+        proposed_nvram_settings: true
+        proposed_startup_value: EXPORT
+        status: approved
+    - key: advertise
+      label: ADVERTISE SOUND
+      position: 3
+      native_default: 'OFF'
+      observed_values:
+      - 'OFF'
+      - 'ON'
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      screenshots:
+      - docs/diagnostic-evidence/netmerc/advertise-0.png
+      - docs/diagnostic-evidence/netmerc/advertise-1.png
+      - docs/diagnostic-evidence/netmerc/advertise-2.png
+      nvram:
+        backup_offsets:
+        - '0x2c'
+        values:
+        - - 1
+        - - 0
+      core_option_review:
+        proposed_nvram_settings: true
+        proposed_startup_value:
+        status: approved
+  coin_assignments:
+    initial_selected_item: EXIT
+    options:
+    - key: coin_start
+      label: 'COIN CHUTE #1'
+      position: 1
+      native_default: '1'
+      observed_values:
+      - '1'
+      - '2'
+      - '3'
+      - '4'
+      - '5'
+      - '6'
+      - '7'
+      - '8'
+      - '9'
+      - NO USE
+      - FREE PLAY
+      values_status: cycle_closed
+      sample_status: all_values_saved_and_reloaded_direct_abi
+      screenshots:
+      - docs/diagnostic-evidence/netmerc/coin-start-0.png
+      - docs/diagnostic-evidence/netmerc/coin-start-1.png
+      - docs/diagnostic-evidence/netmerc/coin-start-2.png
+      - docs/diagnostic-evidence/netmerc/coin-start-3.png
+      - docs/diagnostic-evidence/netmerc/coin-start-4.png
+      - docs/diagnostic-evidence/netmerc/coin-start-5.png
+      - docs/diagnostic-evidence/netmerc/coin-start-6.png
+      - docs/diagnostic-evidence/netmerc/coin-start-7.png
+      - docs/diagnostic-evidence/netmerc/coin-start-8.png
+      - docs/diagnostic-evidence/netmerc/coin-start-9.png
+      - docs/diagnostic-evidence/netmerc/coin-start-10.png
+      - docs/diagnostic-evidence/netmerc/coin-start-11.png
+      nvram:
+        backup_offsets:
+        - '0x30'
+        - '0x34'
+        - '0x6c'
+        values:
+        - - 0
+          - 1
+          - 0
+        - - 0
+          - 2
+          - 1
+        - - 0
+          - 3
+          - 2
+        - - 0
+          - 4
+          - 3
+        - - 0
+          - 5
+          - 4
+        - - 0
+          - 6
+          - 5
+        - - 0
+          - 7
+          - 6
+        - - 0
+          - 8
+          - 7
+        - - 0
+          - 9
+          - 8
+        - - 2
+          - 1
+          - 9
+        - - 1
+          - 1
+          - 10
+      core_option_review:
+        proposed_nvram_settings: false
+        proposed_startup_value:
+        status: not_selected
+calibration:
+  controller_unit:
+    status: full_range_saved_and_reloaded_direct_abi
+    controls: Service selects; Thumb Button captures current ADC; Test exits. Motor
+      row is diagnostic only.
+    axes:
+    - left_x
+    - left_y
+    observed_endpoints:
+      left_min: '00'
+      right_max: FF
+      up_max: '00'
+      down_min: FF
+    backup_offsets:
+    - '0x3c'
+    - '0x38'
+    - '0x40'
+    - '0x44'
+    sample: validation/nvram-campaigns/2026-10-04/netmerc/calibration/sample/saved.srm
+    reload: validation/nvram-campaigns/2026-10-04/netmerc/calibration/reload/reloaded.srm
+    note: Observed values reflect the current Libretro profile and are not a universal
+      preset. Preserve the separately approved Automatic initial-calibration policy;
+      changing it requires review.
+core_options_review:
+  nvram_settings:
+  - difficulty
+  - country
+  - advertise
+  automatic_startup_values:
+    COUNTRY: EXPORT
+  review_date: '2026-10-04'
+  status: approved_by_user

@@ -23,6 +23,11 @@ def main():
     p.add_argument('--frames',type=int,default=180)
     p.add_argument('--timeout',type=int,default=60)
     p.add_argument('--overlay',action='store_true')
+    p.add_argument('--notifications',action='store_true',help='Enable frontend OSD for notification verification')
+    p.add_argument('--diagnostic-display',choices=('off','overlay','overlay_half'),default='off')
+    p.add_argument('--diagnostic-position',choices=('top_left','top_right','bottom_right','bottom_left'),default='top_right')
+    p.add_argument('--diagnostic-opacity',type=int,choices=range(0,101,10),default=80)
+    p.add_argument('--bios-dir',type=Path,help='Copy only Model 1 device BIOS ZIPs into isolated system/tgpulse-next/')
     p.add_argument('--aspect',choices=('auto','4_3','16_9'),default='auto')
     p.add_argument('--widescreen',choices=('stretch','expand_3d','expand_3d_2d'),default='stretch')
     p.add_argument('--supersampling',type=int,choices=range(1,5),default=1)
@@ -37,22 +42,38 @@ def main():
     p.add_argument('--initial-nvram',choices=('enabled','disabled'),default='enabled')
     p.add_argument('--nvram-settings',choices=('enabled','disabled'),default='disabled')
     p.add_argument('--nvram-setting',action='append',default=[],metavar='KEY=VALUE')
+    p.add_argument('--replay',type=Path,help='Existing RetroArch replay-v1 input fixture')
+    p.add_argument('--mvd-input',choices=('auto','off','right_stick','sensors'),default='auto')
+    p.add_argument('--audio-donor',choices=('vf','vr','swa','wingwar','off'),default='vf')
+    p.add_argument('--mvd-horizontal-range',type=int,choices=range(0,91,10),default=30)
+    p.add_argument('--mvd-vertical-range',type=int,choices=range(0,91,10),default=20)
     a=p.parse_args()
     if not 1<=a.frames<=36000 or not 1<=a.timeout<=600:p.error('Invalid bound')
     for file in (a.retroarch,a.core,a.rom):file.resolve(strict=True)
+    if a.replay:a.replay.resolve(strict=True)
     out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
     for name in ('saves','states','screenshots','config','playlists','system','runtime'):(out/name).mkdir()
+    if a.bios_dir:
+        import shutil
+        destination=out/'system'/'tgpulse-next';destination.mkdir()
+        for name in ('hd44780.zip','model1io.zip','model1io2.zip'):
+            source=a.bios_dir/name
+            if source.is_file():shutil.copyfile(source,destination/name)
     env=os.environ.copy()
     if a.moltenvk:
         (out/'runtime'/'MoltenVK').symlink_to(a.moltenvk.resolve(strict=True))
         env['DYLD_LIBRARY_PATH']=str(out/'runtime')
     opts=out/'core-options.cfg';opts.write_text(f'tgpulse_next_renderer = "{a.renderer}"\ntgpulse_next_timing_overlay = "'+('auto' if a.overlay else 'disabled')+'"\n')
     with opts.open('a') as stream:
+        stream.write(f'tgpulse_next_netmerc_diagnostic_display = "{a.diagnostic_display}"\ntgpulse_next_netmerc_diagnostic_position = "{a.diagnostic_position}"\ntgpulse_next_netmerc_diagnostic_opacity = "{a.diagnostic_opacity}"\n')
+        stream.write(f'tgpulse_next_netmerc_audio_donor = "{a.audio_donor}"\n')
         stream.write(f'tgpulse_next_aspect_ratio = "{a.aspect}"\ntgpulse_next_widescreen_mode = "{a.widescreen}"\ntgpulse_next_supersampling = "{a.supersampling}"\n')
     ranges={axis:getattr(a,axis+'_range') for axis in ('steering','accelerator','brake')}
     with opts.open('a') as stream:
         for axis,value in ranges.items():stream.write(f'tgpulse_next_{axis}_output_range = "{value}"\n')
     with opts.open('a') as stream:stream.write(f'tgpulse_next_steering_response = "{a.steering_response}"\n')
+    with opts.open('a') as stream:
+        stream.write(f'tgpulse_next_netmerc_mvd_input = "{a.mvd_input}"\ntgpulse_next_netmerc_mvd_horizontal_range = "{a.mvd_horizontal_range}"\ntgpulse_next_netmerc_mvd_vertical_range = "{a.mvd_vertical_range}"\n')
     if a.linked_cabinets>1:
         if a.rom.stem not in ('vr','vformula','wingwar','wingwaru','wingwarj','wingwar360'):p.error('Set has no native M1COMM board')
         if a.rom.stem.startswith('wingwar') and a.linked_cabinets!=2:p.error('Wing War supports two cabinets')
@@ -73,7 +94,10 @@ def main():
     values.update(sort_savefiles_enable='false',sort_savefiles_by_content_enable='false',sort_savestates_enable='false')
     for name in ('content_history_path','content_favorites_path','content_image_history_path','content_music_history_path','content_video_history_path'):values[name]=out/(name+'.lpl')
     # RGUI needs no external Ozone textures in this isolated launch.
-    values.update(menu_driver='rgui',menu_show_start_screen='false',menu_enable_widgets='false')
+    values.update(menu_driver='rgui',menu_show_start_screen='false',menu_enable_widgets='false',
+                  bundle_assets_extract_enable='false',audio_driver='null')
+    if a.notifications:
+        values.update(video_font_enable='true',video_font_size='22')
     if any(any(c in str(v) for c in ('"','\n','\r')) for v in values.values()):raise ValueError('Unsupported configuration value')
     config=out/'retroarch.cfg';config.write_text(''.join(f'{k} = "{v}"\n' for k,v in values.items()))
     if a.nvram_sample:
@@ -83,6 +107,7 @@ def main():
         (out/'saves'/(a.rom.stem+'.srm')).write_bytes(sample)
     shot=out/'frame.png'
     cmd=[str(a.retroarch.resolve()),'-v','-c',str(config),'-L',str(a.core.resolve()),str(a.rom.resolve()),'--max-frames',str(a.frames),'--max-frames-ss','--max-frames-ss-path',str(shot)]
+    if a.replay:cmd.extend(['-P',str(a.replay.resolve())])
     if a.netplay_role:
         cmd[1:1]=['-H'] if a.netplay_role=='host' else ['-C',a.netplay_host]
     (out/'command.json').write_text(json.dumps(cmd,indent=2)+'\n');start=time.monotonic()
@@ -96,7 +121,16 @@ def main():
             raise RuntimeError('Frontend timed out; inspect run.log')
     logs=(out/'run.log').read_text(errors='replace')
     report={'existing_save_fixture':bool(a.nvram_sample),'initial_nvram':a.initial_nvram,'nvram_settings':a.nvram_settings,'selected_nvram':selected_nvram,'linked_cabinets':a.linked_cabinets,'netplay_role':a.netplay_role,'netboard_messages':[line for line in logs.splitlines() if '[NetBoard]' in line],'steering_response':a.steering_response,'driving_ranges':ranges,'aspect':a.aspect,'widescreen':a.widescreen,'supersampling':a.supersampling,'overlay':a.overlay,'renderer':a.renderer,'driver':a.driver,'frames_requested':a.frames,'exit_code':code,'elapsed_seconds':round(time.monotonic()-start,3),'core_sha256':hashlib.sha256(a.core.read_bytes()).hexdigest(),'png':shot.exists() and shot.read_bytes().startswith(b'\x89PNG\r\n\x1a\n'),'renderer_messages':[line for line in logs.splitlines() if 'Renderer:' in line],'geometry_updates':logs.count('SET_GEOMETRY')}
+    report.update(mvd_input=a.mvd_input,mvd_ranges=[a.mvd_horizontal_range,a.mvd_vertical_range],
+                  diagnostic_display=a.diagnostic_display,diagnostic_position=a.diagnostic_position,
+                  diagnostic_opacity=a.diagnostic_opacity,
+                  audio_donor=a.audio_donor,
+                  audio_messages=[line for line in logs.splitlines() if '[TGPulse-Next Libretro] NetMerc Audio' in line],
+                  notifications=a.notifications,
+                  replay_sha256=hashlib.sha256(a.replay.read_bytes()).hexdigest() if a.replay else None,
+                  replay_error='[Replay] Invalid' in logs or 'ran out of' in logs,
+                  mvd_command_messages=[line for line in logs.splitlines() if '[TGPulse-Next Libretro] MVD' in line])
     (out/'result.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))
-    if code or not report['png']:raise RuntimeError('Frontend image handoff failed; inspect run.log')
+    if code or not report['png'] or report['replay_error']:raise RuntimeError('Frontend image handoff failed; inspect run.log')
 
 if __name__=='__main__':main()

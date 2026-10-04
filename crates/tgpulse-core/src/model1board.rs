@@ -4,12 +4,13 @@ use std::{cell::Ref, ops::Deref};
 
 use crate::{config::Inputs, eeprom93c46::Eeprom93c46, model1io, model1io2};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Kind {
     #[default]
     Original,
     WingWar,
     WingWarR360,
+    NetMerc,
 }
 
 impl Kind {
@@ -17,14 +18,14 @@ impl Kind {
         match name {
             "wingwar" | "wingwaru" | "wingwarj" => Self::WingWar,
             "wingwar360" => Self::WingWarR360,
-            // NetMerc remains a separate, unvalidated path.
+            "netmerc" => Self::NetMerc,
             _ => Self::Original,
         }
     }
     pub fn clock_hz(self) -> u32 {
         match self {
             Self::Original => model1io::Z80_HZ,
-            Self::WingWar | Self::WingWarR360 => model1io2::CPU_HZ,
+            Self::WingWar | Self::WingWarR360 | Self::NetMerc => model1io2::CPU_HZ,
         }
     }
 }
@@ -52,6 +53,7 @@ impl<T: ?Sized> Deref for BoardRead<'_, T> {
 
 pub struct IoBoard {
     device: Device,
+    kind: Kind,
     /// Fractional board clocks, expressed in V60-clock denominator units.
     /// Keep this separate from each CPU's instruction-overshoot debt.
     clock_remainder: u64,
@@ -63,6 +65,7 @@ pub struct IoBoard {
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct BoardState {
     board: DeviceState,
+    kind: Kind,
     clock_remainder: u64,
 }
 
@@ -87,26 +90,79 @@ impl IoBoard {
                 Device::Original(board)
             }
             Kind::WingWar => Device::Advanced(Box::new(model1io2::IoBoard::new(firmware, eeprom)?)),
+            Kind::NetMerc => {
+                Device::Advanced(Box::new(model1io2::IoBoard::new_netmerc(firmware, eeprom)?))
+            }
             Kind::WingWarR360 => {
                 Device::Advanced(Box::new(model1io2::IoBoard::new_r360(firmware, eeprom)?))
             }
         };
         Ok(Self {
             device,
+            kind,
             clock_remainder: 0,
         })
     }
 
     pub fn kind(&self) -> Kind {
-        match &self.device {
-            Device::Original(_) => Kind::Original,
-            Device::Advanced(board) => {
-                if board.is_r360() {
-                    Kind::WingWarR360
-                } else {
-                    Kind::WingWar
-                }
+        self.kind
+    }
+    /// NetMerc's binary trigger/thumb motor output (port D bit 2).
+    /// Host motor selection/gain belongs to the frontend, not the board.
+    pub fn netmerc_motor(&self) -> Option<bool> {
+        match (&self.kind, &self.device) {
+            (Kind::NetMerc, Device::Advanced(board)) => {
+                Some(board.bus().outputs().lamps & 0x04 != 0)
             }
+            _ => None,
+        }
+    }
+    /// Consume observed NetMerc motor activity, including same-frame pulses.
+    /// Native latch/timing are unchanged; observations are not serialized.
+    pub fn take_netmerc_motor_activity(&mut self) -> Option<bool> {
+        match (&self.kind, &mut self.device) {
+            (Kind::NetMerc, Device::Advanced(board)) => Some(board.take_netmerc_motor_activity()),
+            _ => None,
+        }
+    }
+    pub fn set_hmd_pose(&mut self, pose: model1io2::HmdPose) -> bool {
+        match &mut self.device {
+            Device::Advanced(board) => board.set_hmd_pose(pose),
+            Device::Original(_) => false,
+        }
+    }
+    pub fn tracking_status(&self) -> Option<model1io2::TrackingStatus> {
+        match &self.device {
+            Device::Advanced(board) => board.bus().tracking_status(),
+            Device::Original(_) => None,
+        }
+    }
+    /// Diagnostic LCD character codes, absent on the original I/O board.
+    pub fn diagnostic_lines(&self) -> Option<[[u8; 20]; 2]> {
+        match &self.device {
+            Device::Original(_) => None,
+            Device::Advanced(board) => Some(board.bus().diagnostic_lines()),
+        }
+    }
+    /// Optional frontend-owned font, no host clock or font resource in snapshots.
+    pub fn diagnostic_pixels(&self, cgrom: &[u8; 4096]) -> Option<model1io2::DiagnosticPixels> {
+        match &self.device {
+            Device::Original(_) => None,
+            Device::Advanced(board) => {
+                // MAME: 102400 LCD oscillator cycles per blink phase at 270 kHz.
+                // Derive from already serialized board time (typical, unmeasured clock).
+                let phases = u128::from(board.elapsed_clocks()) * 270_000
+                    / u128::from(model1io2::CPU_HZ)
+                    / 102_400;
+                Some(board.bus().diagnostic_pixels(cgrom, phases % 2 == 0))
+            }
+        }
+    }
+    /// Advanced-board CPU diagnostics; the original board has no such view.
+    pub fn advanced_cpu_state(&self) -> Option<(z80::CpuState, u64)> {
+        match &self.device {
+            Device::Original(_) => None,
+            Device::Advanced(board) => Some((board.cpu_state(), board.elapsed_clocks())),
         }
     }
     pub fn fault(&self) -> Option<model1io2::BusError> {
@@ -138,9 +194,8 @@ impl IoBoard {
                     dips: inputs.dsw,
                     ..model1io2::Inputs::default()
                 });
-                // CN7/CN8 have no peer on this base cabinet. The standalone
-                // board API retains its timestamped serial outputs for future
-                // device integration; do not synthesize a loopback here.
+                // CN7 has a protocol peer on NetMerc only. Other cabinets and
+                // CN8 retain their disconnected serial pins; no fake loopback.
                 board.run(clocks as u32, |_| {})?;
             }
         }
@@ -182,11 +237,12 @@ impl IoBoard {
                 Device::Original(board) => DeviceState::Original(board.snapshot()),
                 Device::Advanced(board) => DeviceState::Advanced(board.snapshot()),
             },
+            kind: self.kind,
             clock_remainder: self.clock_remainder,
         }
     }
     pub(crate) fn validate_state(&self, state: &BoardState) -> Result<(), model1io2::BusError> {
-        if state.clock_remainder >= u64::from(crate::model1::V60_HZ) {
+        if state.kind != self.kind || state.clock_remainder >= u64::from(crate::model1::V60_HZ) {
             return Err(model1io2::BusError::InvalidSnapshot);
         }
         match (&self.device, &state.board) {
@@ -227,11 +283,58 @@ mod tests {
             assert_eq!(Kind::for_set(set), Kind::WingWar);
         }
         assert_eq!(Kind::for_set("wingwar360"), Kind::WingWarR360);
-        for set in ["vr", "vf", "swa", "netmerc", "unknown"] {
+        assert_eq!(Kind::for_set("netmerc"), Kind::NetMerc);
+        for set in ["vr", "vf", "swa", "unknown"] {
             assert_eq!(Kind::for_set(set), Kind::Original);
         }
         assert_eq!(Kind::Original.clock_hz(), 4_000_000);
         assert_eq!(Kind::WingWar.clock_hz(), 9_830_400);
+    }
+    #[test]
+    fn netmerc_motor_reads_port_d_and_restores_its_latch() {
+        for output in [0x00, 0x04, 0x38] {
+            let mut firmware = vec![0; 0x10000];
+            // LCD port E is all high; only D bit 2 controls the motor.
+            let program = [0x3e, 0xff, 0x32, 4, 0x80, 0x3e, output, 0x32, 3, 0x80, 0x76];
+            firmware[..program.len()].copy_from_slice(&program);
+            let make = || IoBoard::new(Kind::NetMerc, &firmware, Eeprom93c46::new()).unwrap();
+            let mut board = make();
+            board.run_main_cycles(200, Inputs::default()).unwrap();
+            assert_eq!(board.netmerc_motor(), Some(output & 4 != 0));
+            let saved = board.snapshot();
+            let mut restored = make();
+            restored.restore(&saved).unwrap();
+            assert_eq!(restored.netmerc_motor(), board.netmerc_motor());
+            board.run_main_cycles(200, Inputs::default()).unwrap();
+            restored.run_main_cycles(200, Inputs::default()).unwrap();
+            assert_eq!(
+                bincode::serialize(&board.snapshot()).unwrap(),
+                bincode::serialize(&restored.snapshot()).unwrap()
+            );
+        }
+        assert_eq!(advanced(&[0x76]).netmerc_motor(), None);
+    }
+    #[test]
+    fn netmerc_motor_pulses_are_consumed_once_without_entering_snapshots() {
+        let mut firmware = vec![0; 0x10000];
+        let program = [0x3e, 4, 0x32, 3, 0x80, 0xaf, 0x32, 3, 0x80, 0x76];
+        firmware[..program.len()].copy_from_slice(&program);
+        let make = || IoBoard::new(Kind::NetMerc, &firmware, Eeprom93c46::new()).unwrap();
+        let mut board = make();
+        board.run_main_cycles(200, Inputs::default()).unwrap();
+        assert_eq!(board.netmerc_motor(), Some(false));
+        let snapshot = board.snapshot();
+        let encoded = bincode::serialize(&snapshot).unwrap();
+        assert_eq!(board.take_netmerc_motor_activity(), Some(true));
+        assert_eq!(board.take_netmerc_motor_activity(), Some(false));
+        assert_eq!(bincode::serialize(&board.snapshot()).unwrap(), encoded);
+        // Restoring the native Off latch does not replay a consumed pulse.
+        board.restore(&snapshot).unwrap();
+        assert_eq!(board.take_netmerc_motor_activity(), Some(false));
+        let mut restored = make();
+        restored.restore(&snapshot).unwrap();
+        assert_eq!(restored.take_netmerc_motor_activity(), Some(false));
+        assert_eq!(advanced(&[0x76]).take_netmerc_motor_activity(), None);
     }
     #[test]
     fn advanced_status_is_not_seeded_and_firmware_size_is_checked() {
@@ -249,7 +352,12 @@ mod tests {
     }
     #[test]
     fn fractional_clocks_and_restore_preserve_equal_continuation() {
-        for kind in [Kind::Original, Kind::WingWar, Kind::WingWarR360] {
+        for kind in [
+            Kind::Original,
+            Kind::WingWar,
+            Kind::WingWarR360,
+            Kind::NetMerc,
+        ] {
             let ram_hi = if kind == Kind::Original { 0x40 } else { 0xe0 };
             let program = [0x21, 0, ram_hi, 0x34, 0xc3, 3, 0]; // INC (RAM), JP
             let mut firmware = vec![0; 0x10000];
@@ -288,11 +396,21 @@ mod tests {
     #[test]
     fn restore_rejects_other_board_revisions_without_mutation() {
         let firmware = vec![0x76; 0x10000];
-        for kind in [Kind::Original, Kind::WingWar, Kind::WingWarR360] {
+        for kind in [
+            Kind::Original,
+            Kind::WingWar,
+            Kind::WingWarR360,
+            Kind::NetMerc,
+        ] {
             let mut board = IoBoard::new(kind, &firmware, Eeprom93c46::new()).unwrap();
             board.run_main_cycles(1337, Inputs::default()).unwrap();
             let before = bincode::serialize(&board.snapshot()).unwrap();
-            for other in [Kind::Original, Kind::WingWar, Kind::WingWarR360] {
+            for other in [
+                Kind::Original,
+                Kind::WingWar,
+                Kind::WingWarR360,
+                Kind::NetMerc,
+            ] {
                 if kind == other {
                     continue;
                 }

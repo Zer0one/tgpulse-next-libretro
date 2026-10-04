@@ -39,8 +39,10 @@ retain their established `m1` suffix.
 `src/roms_db.dat` into Cargo's output directory. Chosen records remain byte
 identical, including resource layout and parent/clone metadata. No second
 maintained database or runtime-only catalogue filter is introduced. The M1
-catalogue retains NetMerc; its existing boot problem still excludes it from
-runtime comparison and NVRAM management.
+catalogue retains NetMerc. U1 now reaches its title screen in RetroArch; the
+complete operator-setting campaign and reviewed menu remain pending. The
+optional calibration seed does not relax executable-ROM completeness. See
+[U1 integration](LIBRETRO_U1_INTEGRATION.md).
 
 ## Build and verification procedure
 

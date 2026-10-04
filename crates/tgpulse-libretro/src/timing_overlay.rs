@@ -82,6 +82,7 @@ pub struct Panel {
     texture: Vec<u8>,
     texture_width: usize,
     texture_height: usize,
+    transparent_target: bool,
 }
 
 // The context contains no platform/backend callbacks or shared atlas. It is
@@ -89,6 +90,16 @@ pub struct Panel {
 unsafe impl Send for Panel {}
 
 impl Panel {
+    /// Keep straight alpha when drawing before the GPU's final 3D resolve.
+    pub fn draw_foreground(
+        &mut self, frame: &mut [u32], width: usize, height: usize,
+        font_size: u32, fps: f64, data: Option<Measurements>,
+    ) {
+        self.transparent_target = true;
+        self.draw(frame, width, height, font_size, fps, data);
+        self.transparent_target = false;
+    }
+
     pub fn draw(
         &mut self,
         frame: &mut [u32],
@@ -259,15 +270,19 @@ impl Panel {
                 };
                 let alpha = color(3) / 255.0;
                 let pixel = &mut frame[y * width + x];
-                // Pixels are already composited here. The shared GPU resolve
-                // uses foreground alpha to distinguish them from empty tiles.
-                let mut output = 0xff00_0000;
+                // Software draws over the complete image. GPU draws over a
+                // sparse foreground: preserve alpha until the 3D resolve.
+                let destination_alpha = if self.transparent_target {
+                    if *pixel >> 24 >= 254 { 1.0 } else { (*pixel >> 24) as f32 / 255.0 }
+                } else { 1.0 };
+                let output_alpha = alpha + destination_alpha * (1.0 - alpha);
+                if output_alpha == 0.0 { continue; }
+                let mut output = ((output_alpha * 255.0).round() as u32) << 24;
                 for (channel, shift) in [(0, 16), (1, 8), (2, 0)] {
-                    let value = (((*pixel >> shift) & 255) as f32 * (1.0 - alpha)
-                        + color(channel) * alpha)
-                        .round()
-                        .clamp(0.0, 255.0) as u32;
-                    output |= value << shift;
+                    let value = (((*pixel >> shift) & 255) as f32
+                        * destination_alpha * (1.0 - alpha) + color(channel) * alpha)
+                        / output_alpha;
+                    output |= (value.round().clamp(0.0, 255.0) as u32) << shift;
                 }
                 *pixel = output;
             }
@@ -279,6 +294,7 @@ impl Panel {
 mod tests {
     use super::*;
     use std::time::Duration;
+    static PANEL_TEST: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn averages_and_cadence_include_the_complete_window() {
@@ -303,7 +319,37 @@ mod tests {
     }
 
     #[test]
+    fn sparse_foreground_retains_panel_alpha_and_matches_software_composition() {
+        let _guard = PANEL_TEST.lock().unwrap();
+        let mut panel = Panel::default();
+        let mut foreground = vec![0; 496 * 384];
+        // Native FE foreground tiles are opaque, including underneath the panel.
+        foreground[30 * 496 + 30] = 0xfe12_3456;
+        panel.draw_foreground(&mut foreground, 496, 384, 13, 60.0,
+            Some(Measurements::default()));
+        foreground.fill(0);
+        foreground[30 * 496 + 30] = 0xfe12_3456;
+        panel.draw_foreground(&mut foreground, 496, 384, 13, 60.0,
+            Some(Measurements::default()));
+        assert_eq!(foreground[383 * 496 + 495], 0);
+        assert_eq!(foreground[30 * 496 + 30] >> 24, 255);
+        assert!(foreground.iter().any(|p| (130..150).contains(&(p >> 24))));
+        let mut software = vec![0xff80_a0c0; 496 * 384];
+        software[30 * 496 + 30] = 0xfe12_3456;
+        panel.draw(&mut software, 496, 384, 13, 60.0, Some(Measurements::default()));
+        for (&fg, &expected) in foreground.iter().zip(&software) {
+            if fg == 0 || fg >> 24 >= 254 { continue; }
+            let alpha = fg >> 24;
+            for (shift, base) in [(16, 128), (8, 160), (0, 192)] {
+                let resolved = (((fg >> shift) & 255) * alpha + base * (255 - alpha) + 127) / 255;
+                assert!(resolved.abs_diff((expected >> shift) & 255) <= 2);
+            }
+        }
+    }
+
+    #[test]
     fn panel_draws_readable_content_inside_frame_bounds() {
+        let _guard = PANEL_TEST.lock().unwrap();
         let mut panel = Panel::default();
         for size in 11..=14 {
             let mut frame = vec![0x304050; 496 * 384];
