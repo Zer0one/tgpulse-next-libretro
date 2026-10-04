@@ -9,12 +9,12 @@ base branch `master`. The TGPulse proposal is prepared against libretro-super co
 The exact two-file diff is saved as
 [`pr/libretro-super-tgpulse-next-m1.patch`](pr/libretro-super-tgpulse-next-m1.patch).
 The upstream submission is prepared locally for review; no Libretro pull
-request has been opened. Source publication for the 0.1.0.4 release is
+request has been opened. Source publication for the 0.1.0.5 release is
 authorized independently of this upstream submission.
 
 | Proposed upstream file | Adaptation |
 | --- | --- |
-| `dist/info/tgpulse_next_m1_libretro.info` | Use the public Core Name `TGPulse-Next: Model 1`, Core Label `Sega - Model 1 (TGPulse-Next)` and version `0.1.0.4`. |
+| `dist/info/tgpulse_next_m1_libretro.info` | Use the public Core Name `TGPulse-Next: Model 1`, Core Label `Sega - Model 1 (TGPulse-Next)` and version `0.1.0.5`. |
 | `recipes/linux/cores-linux-x64-generic` | Add one `tgpulse_next_m1` entry pointing to `Zer0one/tgpulse-next-libretro` `main`; use `GENERIC Makefile.libretro .`. |
 
 The new source-side [`Makefile.libretro`](../Makefile.libretro) is required by
@@ -111,7 +111,7 @@ maintainer's separate local RetroArch installation.
 ### Changes And Build Requirements
 
 - Add `dist/info/tgpulse_next_m1_libretro.info` with public metadata, version
-  `0.1.0.4`, ZIP content support and experimental status.
+  `0.1.0.5`, ZIP content support and experimental status.
 - Add a Linux x86_64 recipe that fetches the public source repository's `main`
   branch and invokes its root `Makefile.libretro`.
 - The Makefile performs a locked release build of the Model 1 adapter and
@@ -165,7 +165,7 @@ reviewed design decisions and performed real-game and controller trials.
 
 1. Confirm the two-file upstream diff, public metadata, local Development
    installer, source-side Makefile and `.gitlab-ci.yml`. The FM Auto Gain
-   change belongs to source release 0.1.0.4 and is outside the two-file
+   change belongs to source release 0.1.0.5 and is outside the two-file
    libretro-super registration patch.
 2. Local Linux x86_64 and macOS arm64 Makefile builds, ABI and Model 1 scope
    checks passed. Rerun against the exact future source commit. Distinguish
@@ -177,5 +177,5 @@ reviewed design decisions and performed real-game and controller trials.
    Update the PR body with the exact source revision and validation result.
 
 **Current state:** The upstream patch and reviewer text are prepared locally.
-The separate 0.1.0.4 source release is authorized; upstream PR publication
+The separate 0.1.0.5 source release is authorized; upstream PR publication
 still awaits user review.

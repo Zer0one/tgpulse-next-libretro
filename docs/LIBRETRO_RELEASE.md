@@ -2,7 +2,7 @@
 
 This experimental core targets Sega Model 1. Current source selects only
 Model 1 machine components and required shared devices (a single system build).
-Version 0.1.0.2 introduced this component split; 0.1.0.4 retains it and adds
+Version 0.1.0.2 introduced this component split; 0.1.0.5 retains it and adds
 the reviewed Model 1 integration described below. Consult the package's
 BUILD_INFO for its compiled scope. Model 2 and combined Libretro
 adapters remain future work. The repository is independent of its TGPulse-Next
@@ -94,7 +94,7 @@ Future implementation is tracked only in
 ## Source Gain update in 0.1.0.1
 
 MultiPCM 1/2, FM (YM3438) and DSB (MPEG) Gain selectors are global across
-Model 1 sets, defaulting to Auto. In 0.1.0.4, Auto uses 50/50/90/100%; FM Auto is 90%, while the standalone FM reference remains 30%.
+Model 1 sets, defaulting to Auto. In 0.1.0.5, Auto uses 50/50/90/100%; FM Auto is 90%, while the standalone FM reference remains 30%.
 Mute and 0–100% in 10% steps apply immediately. The 0.1.0.1 release showed
 all Gain selectors for every title. Current development builds show only the
 sources fitted to the loaded game: MultiPCM 1/2 and YM3438 for all Model 1

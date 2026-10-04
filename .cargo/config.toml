@@ -42,6 +42,10 @@ rustflags = [
     "-C", "link-arg=-Wl,--start-group",
     "-C", "link-arg=-l:libstdc++.a",
     "-C", "link-arg=-l:libwinpthread.a",
+    # Native TLS in newer GNU C++/winpthread archives needs mingw32's
+    # tlssup object. Rust's earlier -lmingw32 is scanned before these
+    # archives; include it in this group so their TLS references resolve.
+    "-C", "link-arg=-lmingw32",
     "-C", "link-arg=-lmingwex",
     "-C", "link-arg=-lmsvcrt",
     "-C", "link-arg=-lgcc",

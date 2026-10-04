@@ -1,6 +1,6 @@
 diff --git a/dist/info/tgpulse_next_m1_libretro.info b/dist/info/tgpulse_next_m1_libretro.info
 new file mode 100644
-index 0000000..3b7f28a
+index 0000000..8dc02ac
 --- /dev/null
 +++ b/dist/info/tgpulse_next_m1_libretro.info
 @@ -0,0 +1,23 @@
@@ -10,7 +10,7 @@ index 0000000..3b7f28a
 +supported_extensions = "zip"
 +license = "MIT"
 +categories = "Emulator"
-+display_version = "0.1.0.4"
++display_version = "0.1.0.5"
 +manufacturer = "Sega"
 +systemname = "Model 1"
 +systemid = "model1"
