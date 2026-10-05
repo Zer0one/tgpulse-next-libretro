@@ -186,3 +186,12 @@ and version `0.1.0.7`. Core Label and binary filename are unchanged.
 and all five native jobs passed; downloaded packages and the local GitHub
 macOS installation were verified. Earlier publication sections above retain
 their historical evidence. No Libretro PR has been opened.
+
+## 0.1.0.8 Identity And Publication Update
+
+Current proposed metadata and reviewer text use `TGPulse-Next-M1`, version
+`0.1.0.8`. Core Label and binary filename are unchanged.
+[Release 0.1.0.8](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.8)
+passed all five native jobs; downloaded packages and the local GitHub macOS
+installation are verified. Prior sections retain historical evidence.
+No Libretro PR has been opened.

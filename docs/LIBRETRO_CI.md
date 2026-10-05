@@ -433,3 +433,37 @@ in `LIBRETRO_MODEL1_LINKED_CABINETS.md`.
 Verification files: `/private/tmp/tgpulse-release-0107/verification.json`,
 `macos-abi.log`, `github-install.json`; initial copy receipt:
 `/private/tmp/tgpulse-0107-local-install.json`.
+
+## Verified 0.1.0.8 Publication (2026-10-06)
+
+- Release: [0.1.0.8 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.8), marked prerelease.
+- Tagged source: `1038565c8eace30a9a3c0d438e285f7362cd0194`.
+- All five native build/test/artifact/package jobs and publication passed:
+  [CI 37387611855](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37387611855).
+- Runtime/metadata identity is `TGPulse-Next-M1`, version `0.1.0.8`. Core Label,
+  binary filename, option keys, Save RAM layout and state format remain unchanged.
+- Downloaded all five archives and verified asset digests, external/internal
+  checksums, exact inventories, metadata, Model 1 scope, licenses and tagged
+  source revision. Linux/macOS contain 194 files; Windows 202.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| `tgpulse-next-m1-libretro-linux-arm64-0.1.0.8.zip` | `ce7438321f0ef5af41a26cca0d016a7543ffb58293db812f8caed5b66313f864` |
+| `tgpulse-next-m1-libretro-linux-x86_64-0.1.0.8.zip` | `bd2047e7aeee995fd736adfb6b9fc94f58bec0522dd044f0d6c181923c245795` |
+| `tgpulse-next-m1-libretro-macos-arm64-0.1.0.8.zip` | `dd65a867384a42c1e89211bc0aa058f117b2459a15d3a0a10ad1af634d5302d1` |
+| `tgpulse-next-m1-libretro-macos-x86_64-0.1.0.8.zip` | `a8fca9a8e384c14e4c693c4fa7a8fef8cb75c4e31e073ffb5228d5885d3632f0` |
+| `tgpulse-next-m1-libretro-windows-x86_64-0.1.0.8.zip` | `363571b92f4142858a17495a6f3631131490d8eb1d930208c90ab689822f4583` |
+
+The GitHub macOS arm64 core passed the native ABI/dependency/lifecycle gate
+and was installed locally with public metadata. Installed core SHA-256:
+`f6c97910d227738d12d9a59177dc8f5503641187714749b5309011cc1fd13e6a`.
+Installed metadata SHA-256: `dfa594789a8a4d7a0421bb932b2ab71b1019024856d1bd5f1688e16f708e1335`.
+Both match the published package. The preceding local build also passed its
+gate and was installed before replacement by the published GitHub artifact.
+The installer copied 11 files from previous identities without conflicts,
+preserving original directories. A focused temporary-directory check verified
+latest-identity precedence, core-level filename renaming and repeat-install
+idempotence. No gameplay/controller campaign was repeated for this rename.
+Receipts: `/private/tmp/tgpulse-release-0108/verification.json`,
+`macos-abi.log`, `github-install.json`, and
+`/private/tmp/tgpulse-0108-local-install.json`.

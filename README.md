@@ -82,7 +82,7 @@ Core Name is **TGPulse-Next-M1** and Core Label is
 **Sega - Model 1 (TGPulse-Next)**. Compare the installed core's SHA-256 with the
 verified build input passed to `tools/install_dev_core.py`. The installer
 preserves previous core files and copies settings/saves from the previous
-colon-containing identity without overwriting existing destination files.
+core identities without overwriting existing destination files.
 The current source builds a **Model 1 single system build**: only Model 1
 machine components and required shared devices are selected, starting with
 version 0.1.0.2. See
