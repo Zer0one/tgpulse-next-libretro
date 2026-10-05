@@ -47,6 +47,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     info = (args.info or root / 'tgpulse_next_m1_libretro.info').read_text()
     version = re.search(r'^display_version = "([^"]+)"$', info, re.M).group(1)
+    core_name = re.search(r'^corename = "([^"]+)"$', info, re.M).group(1)
     kind = platform.system()
     if kind == 'Darwin':
         architecture = 'arm64' if args.target.startswith('aarch64') else 'x86_64'
@@ -107,7 +108,8 @@ def main():
         lib.retro_init()
         actual = Info()
         lib.retro_get_system_info(c.byref(actual))
-        assert actual.name == b'TGPulse-Next' and actual.version.decode() == version
+        assert actual.name.decode() == core_name and actual.version.decode() == version, \
+            'Runtime identity must match distributed metadata for Netplay lookup'
         assert actual.extensions == b'zip' and actual.fullpath and actual.block_extract
         assert not lib.retro_load_game(None)
         assert lib.retro_serialize_size() > 0

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Install a verified macOS build under the agreed RetroArch Development name.
+"""Install a verified macOS build under the user's public RetroArch name.
 
-Adapts the reference projects' core/info placement. Writes only the two named
-Development artifacts and verifies both copies. Run after a verified build.
+The historical script filename is retained for existing documented commands.
+Back up replaced public files and retire the former Development copy, verify
+both installed files, and refresh metadata discovery on the next launch.
 """
 import argparse
 import hashlib
@@ -10,6 +11,8 @@ import json
 from pathlib import Path
 import tempfile
 import os
+import time
+import shutil
 
 
 def install(data, destination):
@@ -26,29 +29,26 @@ def install(data, destination):
     return sha(data)
 
 
-def development_info(public_info):
-    text = public_info.decode('utf-8')
-    replacements = {
-        'display_name = "Sega - Model 1 (TGPulse-Next)"':
-            'display_name = "Sega - Model 1 (TGPulse-Next Development)"',
-        'corename = "TGPulse-Next: Model 1"':
-            'corename = "TGPulse-Next: Model 1 Development"',
-    }
-    for public, local in replacements.items():
-        assert text.count(public) == 1, f'Missing or duplicate public metadata: {public}'
-        text = text.replace(public, local, 1)
-    return text.encode('utf-8')
-
-
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     root=Path(__file__).resolve().parents[1]
     p.add_argument('--core',type=Path,default=root/'tgpulse_next_m1_libretro.dylib')
     p.add_argument('--retroarch-root',type=Path,default=Path.home()/'Library/Application Support/RetroArch')
     a=p.parse_args();core=a.core.resolve(strict=True)
-    info=development_info((root/'tgpulse_next_m1_libretro.info').read_bytes())
-    target=a.retroarch_root/'cores/tgpulse_next_dev_m1_libretro.dylib';metadata=a.retroarch_root/'info/tgpulse_next_dev_m1_libretro.info'
-    data=core.read_bytes();result={'core':str(target),'core_sha256':install(data,target),'info':str(metadata),'info_sha256':install(info,metadata),'development_names':True}
+    info=(root/'tgpulse_next_m1_libretro.info').read_bytes()
+    target=a.retroarch_root/'cores/tgpulse_next_m1_libretro.dylib';metadata=a.retroarch_root/'info/tgpulse_next_m1_libretro.info'
+    backup=a.retroarch_root/'backups'/('tgpulse-public-install-'+str(time.time_ns()))
+    backup.mkdir(parents=True)
+    for old in (target,metadata):
+        if old.exists():shutil.copy2(old,backup/old.name)
+    data=core.read_bytes();result={'core':str(target),'core_sha256':install(data,target),'info':str(metadata),'info_sha256':install(info,metadata),'public_names':True,'backup':str(backup)}
+    for old in (a.retroarch_root/'cores/tgpulse_next_dev_m1_libretro.dylib',a.retroarch_root/'info/tgpulse_next_dev_m1_libretro.info'):
+        if old.exists():old.rename(backup/old.name)
+    cache=a.retroarch_root/'info/core_info.cache'
+    if cache.exists():
+        backup=cache.with_name('core_info.cache.before-tgpulse-public-'+str(time.time_ns()))
+        cache.rename(backup)
+        result['metadata_cache_backup']=str(backup)
     print(json.dumps(result,indent=2))
 
 if __name__=='__main__':main()

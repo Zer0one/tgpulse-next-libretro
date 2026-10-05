@@ -124,6 +124,11 @@ impl CommBoard {
         self.state.rx.push_back(frame.to_vec());
         Ok(())
     }
+    /// Host transport may retain a burst until the next VINT consumes RX frames.
+    /// Inspecting available slots does not tick the board or change its state.
+    pub fn receive_capacity(&self) -> usize {
+        QUEUE_LIMIT.saturating_sub(self.state.rx.len())
+    }
     pub fn take_transmit(&mut self) -> Option<Vec<u8>> {
         self.state.tx.pop_front()
     }

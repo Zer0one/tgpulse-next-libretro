@@ -28,7 +28,8 @@ exclusion in the sole [Libretro roadmap](LIBRETRO_ROADMAP.md).
    unresolved product decision. Proceed with routine work already authorized.
 5. Deliver implementation, reusable procedures and expected supporting artifacts
    together. On macOS, a verified release build is followed by the authorized
-   `tgpulse_next_dev_m1_libretro` RetroArch installation and SHA-256 comparison.
+   `tgpulse_next_m1_libretro` public RetroArch installation and SHA-256 comparison
+   (user naming update: 2026-10-05).
    Record the reference, adaptation, verification and remaining gaps. A phase
    with a failed or omitted required delivery step is incomplete.
 6. Report required model/reasoning level before substantial work and account

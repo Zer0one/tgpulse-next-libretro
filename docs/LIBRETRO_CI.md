@@ -92,7 +92,10 @@ account usage 48%; reset 2026-10-10 09:49:17 CEST.
 
 ## Local preflight and packaging
 
-Use the existing cached toolchain/dependencies:
+Use the existing cached toolchain/dependencies. Local installation now uses
+the public filename/name/label, following the 2026-10-05 user instruction.
+The installer backs up existing files, retires the former Development pair
+and refreshes metadata discovery:
 
 ```sh
 CARGO_NET_OFFLINE=true make -f Makefile.libretro

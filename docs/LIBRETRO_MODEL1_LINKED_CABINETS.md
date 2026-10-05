@@ -70,8 +70,9 @@ frame. HELLO packets establish a complete sorted roster containing frontend
 host ID 0. Native frames use reliable delivery plus flush hint to the successor;
 only predecessor frames are admitted. Counts/sets must match. Unknown/extra
 participants, malformed lengths, incompatible packets and bounded-queue
-failures cannot fabricate an online board. Incoming queues are limited to 64
-frames, matching the native host boundary. Callbacks use a transport mutex
+failures cannot fabricate an online board. The transport FIFO retains up to 1,024 native frames (less than 512 KiB of
+payload), separate from the board's unchanged 64 RX slots. Each pump transfers
+only available native slots, retaining the remaining frames in FIFO order. Callbacks use a transport mutex
 separate from the adapter, released before frontend poll/send calls.
 
 Save RAM remains frontend-owned. **Save States are unavailable whenever COMM
@@ -134,3 +135,112 @@ These checks establish actual frontend transport and game-created links. They
 are not acceptance of a synchronized race/dogfight, physical controllers,
 eight-player operation, mixed ROM revisions or a remote Batocera/LAN session.
 Implementation status lives only in the [single roadmap](LIBRETRO_ROADMAP.md).
+
+## GitHub 0.1.0.6 Distributed Queue Failure — 2026-10-05
+
+A real user VR session between the Batocera host and macOS client connected,
+then the adapter invalidated the linked session. Read-only inspection confirmed
+matching 0.1.0.6 cores, the same ZIP CRC, two cabinets, 60 Hz timing, MASTER/RED
+and SLAVE/ORANGE. Batocera used Ethernet (`eth0`); `wlan0` was down.
+
+The failure was reproduced with the existing GitHub cores in isolated frontend
+runs, Vulkan, VSync enabled and no inactive-window pause. Roster and native
+MASTER/SLAVE IDs became valid, then the Mac client reported session failure.
+A diagnostic-only Mac build with unchanged protocol/runtime identity and extra
+failure logging confirmed **64 pending native frames in the adapter receive
+queue**, followed by its overflow branch and COMM status `255`.
+The diagnostic dylib remained in `/private/tmp`; installed cores were unchanged.
+The host's sustained-online marker alone did not establish both cabinets online.
+Successful screenshot/process exits also did not constitute a linked-session pass.
+
+This identifies the failure branch, not why deliveries accumulate. Wi-Fi jitter,
+frontend stalls and burst polling still need separation before selecting a fix.
+SM2's `src/libretro/netpacket.cpp` stages incoming packets and drains them at the
+core boundary; its queue handling was inspected for the next adaptation.
+Retaining native frame order and preventing overflow at the machine queue are
+required; increasing only the adapter limit would not establish correctness.
+
+Evidence:
+
+- Existing cores: `/private/tmp/tgpulse-netplay-macos-0106/run.log` and
+  `/private/tmp/tgpulse-netplay-batocera-results-b/host/run.log`.
+- Diagnostic client: `/private/tmp/tgpulse-netplay-macos-0106-diag/run.log`.
+- Corresponding host: `/private/tmp/tgpulse-netplay-batocera-results-c/host/run.log`.
+- First remote launch lacked the established graphical environment and failed
+  before connection. Subsequent launches used `DISPLAY=:0.0` and
+  `XDG_RUNTIME_DIR=/run/user/0`; that infrastructure failure is separate.
+
+The existing frontend runner now accepts `--vsync` for bounded distributed
+runs. Persistent settings, content and saves remain outside these fixtures.
+No commit/push or replacement of installed cores was performed.
+
+## Burst Queue Correction And Verification — 2026-10-05
+
+SM2 `src/libretro/netpacket.cpp` retains reliable incoming packets separately
+and lets the board consume them through `recv()`. Supermodel
+`Src/OSD/libretro/LibretroNetBoard.cpp` likewise stages frontend delivery before
+board consumption. Model 1 retains its existing wire protocol and VINT timing,
+with a bounded 1,024-frame transport FIFO and capacity-aware transfer into the
+unchanged 64-slot native RX queue. `CommBoard::receive_capacity()` is a pure
+host-boundary query; it does not tick, consume or rewrite emulated state.
+Frames are neither discarded nor reordered. A genuinely exhausted bounded
+transport queue still fails explicitly rather than silently corrupting traffic.
+
+Verification completed:
+
+- Three adapter tests: 300-frame burst delivered in exact order, unchanged ring
+  behavior including LIVE, admission/protocol/overflow boundaries.
+- Eight native COMM tests passed; serialized state layout is unchanged.
+- Existing macOS native ABI/dependency/lifecycle gate passed. Its name check now
+  compares the runtime name with actual package `corename` instead of enforcing
+  the former incorrect hardcoded name.
+- Offline VR, 600 frames: video/PCM/full state/Save RAM identical to GitHub .6.
+- Real macOS/Batocera VR: Vulkan, VSync, 60 Hz, two cabinets with MASTER/RED and
+  SLAVE/ORANGE; both reached 600 consecutive online frames. Mac ran 5,700 frames
+  (92.364 s), Batocera 6,600 (110.583 s). Neither reported queue failure or lost
+  the native link before the bounded host shutdown. The final client disconnect
+  and subsequent `255` status follow that intentional shutdown.
+
+These are linked-transport/COMM checks, not synchronized racing or controller
+acceptance across every title. No Wi-Fi causality claim follows from them.
+The Linux artifact was compiled in the existing amd64 builder with the same
+Makefile recipe; dependencies are libc, libm and libgcc_s, without missing libs.
+
+Artifacts/evidence:
+
+- Mac core SHA-256: `2b87edabdd849c70445a764577d8f9985bf7751a86d93e89e453356a490c25eb`.
+- Linux core SHA-256: `9b822d9ad33b2d261ac0011bd4da1a81101864958edda36e3361f37a93529bcb`.
+- `/private/tmp/tgpulse-netplay-fixed-comparison.json`
+- `/private/tmp/tgpulse-netplay-fixed-macos-results/`
+- `/private/tmp/tgpulse-netplay-fixed-batocera-results/`
+- `/private/tmp/tgpulse-netplay-fixed-development-install.json`
+
+The macOS Development core and matching info are installed and hash-verified.
+Its display label retains Development; technical `corename` matches runtime
+`TGPulse-Next: Model 1` so Netplay can discover it. The installer backs up the
+metadata cache for regeneration on the next full launch. Batocera's corrected
+build remains staged at
+`/userdata/system/codex-core-tests/tgpulse-netplay-fixed-0106/payload/tgpulse_next_m1_libretro.so`;
+the installed addon/core, user configuration and user saves were not replaced.
+At verification these were unpublished local fixes with version 0.1.0.6;
+source commit/push was subsequently authorized. No new release was requested.
+Both participants need consistent runtime identities when using
+the corrected name; the previous .6 runtime advertises `TGPulse-Next`.
+
+## Public Local Naming Update — 2026-10-05
+
+At the user's request, the corrected macOS build is now installed under
+`tgpulse_next_m1_libretro.dylib`, with matching public `.info`.
+Core Name: `TGPulse-Next: Model 1`.
+Core Label: `Sega - Model 1 (TGPulse-Next)`.
+Description is copied unchanged from public source metadata, with no Development
+suffix. The previous public files and former Development pair were preserved
+under the local RetroArch `backups/tgpulse-public-install-*` directory; only
+one public copy remains in the active core/info directories.
+The installer and AGENTS.md now preserve this policy for subsequent local builds.
+Runtime/info identity and build/installed SHA-256 were verified.
+Receipt: `/private/tmp/tgpulse-netplay-fixed-public-install.json`.
+This naming update does not publish a release or update the Batocera addon.
+The concrete distributed frontend verification uses RetroArch 1.22.2 with
+matching corrected core identities; compatibility with another unspecified
+RetroArch version cannot be asserted until that version is identified.

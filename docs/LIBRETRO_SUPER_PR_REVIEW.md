@@ -32,12 +32,12 @@ five-platform release baseline. Both CI definitions now invoke the same
 Makefile, with Windows GNU/MinGW in the common target policy; the updated
 GitHub workflow passed all five native jobs for v0.1.0.6.
 
-The source `.info` now has the public name and label. The local
-`tools/install_dev_core.py` derives a separate `.info` with `Development` in
-both fields when installing `tgpulse_next_dev_m1_libretro` into local
-RetroArch. Published v0.1.0.6 packages use the corrected public `.info`;
+The source `.info` now has the public name and label. Following the user's 2026-10-05 naming update, local
+`tools/install_dev_core.py` installs `tgpulse_next_m1_libretro` with the same
+public metadata; its historical script filename is retained. Prior Development
+files are retired into a backup directory. Published v0.1.0.6 packages use the corrected public `.info`;
 v0.1.0.3 archives retain their historical metadata.
-An isolated local-installer check retained the agreed Development name and
+The earlier isolated local-installer check retained the then-agreed Development name and
 label. A separate offline package preflight passed with the public name and
 label, including version, licenses, source revision and checksums. The new
 macOS arm64 Makefile build also passed artifact checks and was installed under

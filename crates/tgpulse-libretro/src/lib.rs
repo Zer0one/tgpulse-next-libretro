@@ -2232,7 +2232,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     }
     unsafe {
         *info = ffi::SystemInfo {
-            library_name: c"TGPulse-Next".as_ptr(),
+            library_name: c"TGPulse-Next: Model 1".as_ptr(),
             library_version: c"0.1.0.6".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
@@ -3267,6 +3267,12 @@ mod tests {
             block_extract: false,
         };
         retro_get_system_info(&mut info);
+        let metadata_name = include_str!("../../../tgpulse_next_m1_libretro.info")
+            .lines()
+            .find_map(|line| line.strip_prefix("corename = \"").and_then(|v| v.strip_suffix('"')))
+            .expect("Public metadata must declare a core name");
+        assert_eq!(unsafe { CStr::from_ptr(info.library_name) }.to_str().unwrap(), metadata_name,
+            "RetroArch Netplay must match the runtime name to public metadata");
         assert_eq!(unsafe { CStr::from_ptr(info.valid_extensions) }, c"zip");
         assert!(info.need_fullpath && info.block_extract);
         assert!(!retro_load_game(ptr::null()));

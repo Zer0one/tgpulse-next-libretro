@@ -42,9 +42,12 @@ not a port roadmap milestone. Preserve the separate Git histories and keep
 desktop-only host code outside the Libretro adapter.
 
 After each verified macOS release build of the Libretro core, install that build
-in local RetroArch as `tgpulse_next_dev_m1_libretro.dylib`, install its matching
-`tgpulse_next_dev_m1_libretro.info` with a Development display name, and verify
+in local RetroArch as `tgpulse_next_m1_libretro.dylib`, install its matching
+`tgpulse_next_m1_libretro.info` with the public name and label, and verify
 the installed core's SHA-256 against the build. This core deployment is
 authorized by the user for subsequent phases; it does not authorize installing
 dependencies or replacing updater-managed cores. Report any deployment failure
 as an incomplete phase, rather than reporting the build alone as delivered.
+This follows the user's 2026-10-05 instruction to keep local names non-Development.
+Keep runtime library_name and metadata corename identical for Netplay discovery;
+back up replaced local files and retire the former Development copy.

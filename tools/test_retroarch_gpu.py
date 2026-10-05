@@ -21,6 +21,7 @@ def main():
     p.add_argument('--renderer',choices=('auto','vulkan','opengl','software'),default='vulkan')
     p.add_argument('--driver',choices=('vulkan','glcore','gl','metal'),default='vulkan')
     p.add_argument('--frames',type=int,default=180)
+    p.add_argument('--vsync',action='store_true',help='Pace distributed cabinet runs to the display refresh rate')
     p.add_argument('--timeout',type=int,default=60)
     p.add_argument('--av-timing',choices=('native','60hz'),default='native')
     p.add_argument('--overlay',action='store_true')
@@ -93,6 +94,8 @@ def main():
     values={'video_driver':a.driver,'video_threaded':'false','video_fullscreen':'false','video_windowed_fullscreen':'false','video_scale':'1','video_gpu_screenshot':'true','video_font_enable':'false','video_vsync':'false','audio_enable':'false','pause_nonactive':'false','savestate_auto_save':'false','savestate_auto_load':'false','config_save_on_exit':'false','content_history_enable':'false','auto_overrides_enable':'false','auto_remaps_enable':'false','video_shader_enable':'false','core_options_path':opts,'system_directory':out/'system','savefile_directory':out/'saves','savestate_directory':out/'states','screenshot_directory':out/'screenshots','playlist_directory':out/'playlists','rgui_config_directory':out/'config'}
     if a.netplay_role:
         values.update(netplay_ip_port=str(a.netplay_port),netplay_max_connections=str(a.linked_cabinets),netplay_public_announce='false',netplay_use_mitm_server='false',netplay_nat_traversal='false',netplay_check_frames='0',netplay_nickname=out.name)
+    if a.vsync:
+        values['video_vsync']='true'
     values.update(sort_savefiles_enable='false',sort_savefiles_by_content_enable='false',sort_savestates_enable='false')
     for name in ('content_history_path','content_favorites_path','content_image_history_path','content_music_history_path','content_video_history_path'):values[name]=out/(name+'.lpl')
     # RGUI needs no external Ozone textures in this isolated launch.

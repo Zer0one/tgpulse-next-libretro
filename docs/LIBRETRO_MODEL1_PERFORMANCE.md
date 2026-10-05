@@ -808,3 +808,13 @@ measured C3b builds, not a new benchmark of every published GitHub binary.
 Windows CI validates build, tests and native ABI/lifecycle behavior; Windows
 gameplay, physical controllers and a canonical Batocera addon publication
 remain separate from this release.
+
+
+The subsequent [GitHub-binary regression campaign](LIBRETRO_0.1.0.6_REGRESSION.md)
+confirms identical video, PCM, Save RAM, full states and continuation on macOS
+and native Batocera, with matching VR replay and GPU captures. Native Windows
+RetroArch checks also match final video captures and NVRAM for all sets, with
+VR exercised on OpenGL and Vulkan. Windows Smart App Control blocks the direct
+Python ABI comparison before emulation, so Windows complete PCM/state and
+driven ABI replay checks remain unverified. The GitHub Windows DLL is installed
+as a separate Development core for supplementary user testing.
