@@ -16,7 +16,7 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
-is published as 0.1.0.7.
+is published as 0.1.0.8.
 
 **Port status:** an experimental Libretro adapter lives in
 `crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
@@ -38,7 +38,7 @@ Potential changes to return to TGPulse-Next are tracked in the maintained
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
-Version [0.1.0.7](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.7)
+Version [0.1.0.8](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.8)
 is available as an experimental prerelease with five native platform packages.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
@@ -78,7 +78,7 @@ After each verified macOS release build, install the public copy as
 `~/Library/Application Support/RetroArch/cores/tgpulse_next_m1_libretro.dylib`
 and its matching metadata as
 `~/Library/Application Support/RetroArch/info/tgpulse_next_m1_libretro.info`.
-Core Name is **TGPulse-Next - Model 1** and Core Label is
+Core Name is **TGPulse-Next-M1** and Core Label is
 **Sega - Model 1 (TGPulse-Next)**. Compare the installed core's SHA-256 with the
 verified build input passed to `tools/install_dev_core.py`. The installer
 preserves previous core files and copies settings/saves from the previous

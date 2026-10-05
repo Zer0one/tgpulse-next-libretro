@@ -14,13 +14,14 @@ import os
 import time
 import shutil
 
-OLD_CORE_NAME = 'TGPulse-Next: Model 1'
-CORE_NAME = 'TGPulse-Next - Model 1'
+OLD_CORE_NAME = 'TGPulse-Next - Model 1'
+OLD_CORE_NAMES = (OLD_CORE_NAME, 'TGPulse-Next: Model 1')
+CORE_NAME = 'TGPulse-Next-M1'
 
 
-def copy_identity_directory(base):
+def copy_identity_directory(base, old_core_name=OLD_CORE_NAME):
     """Preserve originals and existing destination files during a name change."""
-    source = base / OLD_CORE_NAME
+    source = base / old_core_name
     destination = base / CORE_NAME
     copied, conflicts = [], []
     if not source.is_dir():
@@ -29,8 +30,8 @@ def copy_identity_directory(base):
         if old.is_symlink() or not old.is_file():
             continue
         relative = old.relative_to(source)
-        if relative.name.startswith(OLD_CORE_NAME + '.'):
-            relative = relative.with_name(CORE_NAME + relative.name[len(OLD_CORE_NAME):])
+        if relative.name.startswith(old_core_name + '.'):
+            relative = relative.with_name(CORE_NAME + relative.name[len(old_core_name):])
         new = destination / relative
         if new.exists():
             if new.read_bytes() != old.read_bytes():
@@ -78,8 +79,10 @@ def main():
     bases = (a.retroarch_root/'config', a.retroarch_root/'config/remaps',
              a.retroarch_root/'saves', a.retroarch_root/'states',
              a.data_root/'saves', a.data_root/'states')
+    # Prefer the most recent identity; older files only fill missing paths.
     result['identity_directory_copies'] = [receipt for base in bases
-        if (receipt := copy_identity_directory(base)) is not None]
+        for old_name in OLD_CORE_NAMES
+        if (receipt := copy_identity_directory(base, old_name)) is not None]
     cache=a.retroarch_root/'info/core_info.cache'
     if cache.exists():
         backup=cache.with_name('core_info.cache.before-tgpulse-public-'+str(time.time_ns()))

@@ -610,10 +610,10 @@ See the U5 recording procedure before requesting a real-controller sample.
 ## Core Identity And Filesystem Paths
 
 The public Model 1 `library_name` and `.info` `corename` are both
-`TGPulse-Next - Model 1` (user naming update: 2026-10-06). Keep the runtime,
+`TGPulse-Next-M1` (latest user naming update: 2026-10-06). Keep the runtime,
 metadata, package gate and submission metadata aligned. Avoid filesystem-reserved
 characters in runtime identities. Future Model 2 builds use the distinct
-`TGPulse-Next - Model 2` identity to avoid shared configuration paths and
+`TGPulse-Next-M2` identity to avoid shared configuration paths and
 ambiguous Netplay discovery. Preserve the public binary basename and Core Label.
 When changing identities, preserve existing core-named settings/save directories
 and copy their files to the new name without overwriting destination files.

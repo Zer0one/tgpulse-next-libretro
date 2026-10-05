@@ -14,7 +14,7 @@ submission.
 
 | Proposed upstream file | Adaptation |
 | --- | --- |
-| `dist/info/tgpulse_next_m1_libretro.info` | Use the public Core Name `TGPulse-Next - Model 1`, Core Label `Sega - Model 1 (TGPulse-Next)` and version `0.1.0.7`. |
+| `dist/info/tgpulse_next_m1_libretro.info` | Use the public Core Name `TGPulse-Next-M1`, Core Label `Sega - Model 1 (TGPulse-Next)` and version `0.1.0.8`. |
 | `recipes/linux/cores-linux-x64-generic` | Add one `tgpulse_next_m1` entry pointing to `Zer0one/tgpulse-next-libretro` `main`; use `GENERIC Makefile.libretro .`. |
 
 The new source-side [`Makefile.libretro`](../Makefile.libretro) is required by
@@ -105,7 +105,7 @@ Add experimental TGPulse-Next Model 1 core (info file + Linux x64 recipe)
 
 ### Summary
 
-This PR registers **TGPulse-Next - Model 1**, an experimental, single-system
+This PR registers **TGPulse-Next-M1**, an experimental, single-system
 Sega Model 1 Libretro core. Its independent source repository is
 [`Zer0one/tgpulse-next-libretro`](https://github.com/Zer0one/tgpulse-next-libretro).
 The resulting buildbot core is `tgpulse_next_m1_libretro`, displayed as
@@ -115,7 +115,7 @@ identity.
 ### Changes And Build Requirements
 
 - Add `dist/info/tgpulse_next_m1_libretro.info` with public metadata, version
-  `0.1.0.7`, ZIP content support and experimental status.
+  `0.1.0.8`, ZIP content support and experimental status.
 - Add a Linux x86_64 recipe that fetches the public source repository's `main`
   branch and invokes its root `Makefile.libretro`.
 - The Makefile performs a locked release build of the Model 1 adapter and
