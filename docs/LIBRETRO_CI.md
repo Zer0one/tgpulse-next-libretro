@@ -344,3 +344,50 @@ Libretro-owned GitLab execution and ecosystem registration remain pending.
 No additional game, physical controller or rumble/drift acceptance is claimed.
 Required reasoning: Medium; account usage 49% after publication (48% before,
 rounded shared-account reading); next reset 2026-10-10 09:49:17 CEST.
+
+
+## Verified 0.1.0.6 Publication (2026-10-05)
+
+- Release: [0.1.0.6 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.6), marked prerelease.
+- Fixed source commit `ea3cf08dfdfb8ac5e0eb8da7d0cff435520e65f4`, annotated tag `v0.1.0.6`.
+- All five native build/test/artifact/package jobs and publication passed:
+  [CI 37351380108](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37351380108).
+  The shared Makefile builds Linux x86_64/ARM64, macOS Intel/Apple Silicon
+  and Windows GNU; no recipe or release-gate change was needed.
+- Reference: current SM2 `PORTING_PLAN.md` phase 4 and `CI.md` native matrix,
+  ABI, core/info, licenses, source revisions and checksum gates; Supermodel's
+  established shared-Makefile/MSYS2 procedure. Model 1 adaptation retains the
+  tagged machine-feature scope and embedded catalogue/NVRAM assets.
+- This source publishes the retained P1–P5/C1–C3b changes documented in
+  `LIBRETRO_MODEL1_PERFORMANCE.md`, including C3b's combined decoded-tile and
+  mask-block path. Rejected C4 is absent. Existing nine-set and NetMerc
+  equality/frontend evidence is reused; no broad gameplay/device trial was
+  repeated for publication. Save State format remains 5; Save RAM is unchanged.
+- All five published archives and `SHA256SUMS` were downloaded. Verified
+  GitHub asset digests, external/internal checksums, exact inventories, public
+  metadata, version 0.1.0.6, Model 1 scope, licenses and the fixed source in
+  `SOURCE_COMMIT.txt`/`BUILD_INFO.json`. Linux/macOS have 194 files; Windows 202.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| Linux ARM64 | `1ad65d6ba237121f16110732c8f8fff8f6a2fb12d8b3b304e0f7503cc98d5c08` |
+| Linux x86_64 | `0abfc9027c77e8842b9be3a48bc53c3d4ace91cb751bbfc205667c8873386b53` |
+| macOS Apple Silicon | `460cb7f85e60a92214a9cba5a3c5804dfef97cfab79b343e16174a442a2b7420` |
+| macOS Intel | `81609461f17b7e42a0644a8040da580ac778e837a26419b849c33698e147c3ce` |
+| Windows x86_64 | `d65df6365db5287771791d655c555cb34274a011e5db1c081d4632cd6624e3c1` |
+
+The downloaded GitHub macOS arm64 core passed local native format,
+25-export ABI, dependency and three empty lifecycle checks. It was installed
+as `tgpulse_next_dev_m1_libretro.dylib` with matching Development `.info`;
+installed SHA-256 values match their inputs:
+
+- Core: `438511892ea2ee4fba0b04a17bd1e83eb341fa0e73cbe8a674da6826d31e5191`.
+- Info: `c0e7a75bb33766d55c2245d706569738b8731d906bd3f336d152aed21eba68a0`.
+
+The measured 59.91% replay-time reduction belongs to the matched native
+Batocera C3b campaign, not a newly measured gain for every release binary.
+Windows build/native lifecycle checks pass; Windows gameplay and physical
+controller acceptance are not established by CI. Libretro-owned GitLab jobs,
+ecosystem registration and canonical Batocera addon publication remain separate.
+Required reasoning: Medium; effort: Medium. Shared-account usage was 64%
+before and after publication (rounded); reset 2026-10-10 09:49:17 CEST.

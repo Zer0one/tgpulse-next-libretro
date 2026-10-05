@@ -792,3 +792,19 @@ under `/userdata/system/codex-core-tests/`. The local scope reports are
 `/private/tmp/tgpulse-final-c3b-netmerc/comparison.json`. All remote comparisons
 kept the installed addon core and global RetroArch config unchanged until the
 separate, user-authorized addon binary update.
+
+
+## Publication Boundary — 0.1.0.6
+
+The retained C3b source is committed as
+`ea3cf08dfdfb8ac5e0eb8da7d0cff435520e65f4`, tagged `v0.1.0.6` and published
+through the five native GitHub jobs. All published archives were downloaded
+and checked for version, Model 1 scope, exact inventory, licenses, source
+revision and external/internal hashes. The GitHub macOS arm64 artifact passed
+local loading/ABI checks and replaced the local Development core with a
+verified matching hash. Exact archive and installed hashes are recorded in
+`LIBRETRO_CI.md`. The preceding performance figures describe the locally
+measured C3b builds, not a new benchmark of every published GitHub binary.
+Windows CI validates build, tests and native ABI/lifecycle behavior; Windows
+gameplay, physical controllers and a canonical Batocera addon publication
+remain separate from this release.

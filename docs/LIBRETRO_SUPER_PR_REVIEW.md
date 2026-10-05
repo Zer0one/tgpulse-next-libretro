@@ -9,8 +9,8 @@ base branch `master`. The TGPulse proposal is prepared against libretro-super co
 The exact two-file diff is saved as
 [`pr/libretro-super-tgpulse-next-m1.patch`](pr/libretro-super-tgpulse-next-m1.patch).
 The upstream submission is prepared locally for review; no Libretro pull
-request has been opened. Source publication for the 0.1.0.5 release is
-authorized independently of this upstream submission.
+request has been opened. The 0.1.0.6 source release is published independently of this upstream
+submission.
 
 | Proposed upstream file | Adaptation |
 | --- | --- |
@@ -30,18 +30,18 @@ x86_64 GNU and macOS Intel/Apple Silicon. Those jobs have not run on
 Libretro-owned runners; the existing GitHub workflow remains the published
 five-platform release baseline. Both CI definitions now invoke the same
 Makefile, with Windows GNU/MinGW in the common target policy; the updated
-GitHub workflow passed all five native jobs for v0.1.0.5.
+GitHub workflow passed all five native jobs for v0.1.0.6.
 
 The source `.info` now has the public name and label. The local
 `tools/install_dev_core.py` derives a separate `.info` with `Development` in
 both fields when installing `tgpulse_next_dev_m1_libretro` into local
-RetroArch. Published v0.1.0.5 packages use the corrected public `.info`;
+RetroArch. Published v0.1.0.6 packages use the corrected public `.info`;
 v0.1.0.3 archives retain their historical metadata.
 An isolated local-installer check retained the agreed Development name and
 label. A separate offline package preflight passed with the public name and
 label, including version, licenses, source revision and checksums. The new
 macOS arm64 Makefile build also passed artifact checks and was installed under
-the Development name with matching SHA-256. Version 0.1.0.5 is now published;
+the Development name with matching SHA-256. Version 0.1.0.6 is now published;
 its exact-source package evidence is recorded in `LIBRETRO_CI.md`.
 
 The updated wrapper was built in an isolated Debian 12 Linux x86_64 container
@@ -63,7 +63,7 @@ preflight passed. GitHub's production build now calls this same recipe and
 validates/packages the root artifact; the prior direct Cargo build and
 workflow-local linkage/normalization commands have been removed. The Windows
 native job follows Supermodel's MSYS2 setup and uses the same GNU target as
-Libretro's Rust template. The revised remote matrix passed for v0.1.0.5,
+Libretro's Rust template. The revised remote matrix passed for v0.1.0.6,
 including native GNU Windows loading and lifecycle checks. All five published packages were downloaded and
 verified against their manifests, GitHub digests and tagged source revision.
 The GitHub macOS arm64 build is installed locally under the Development name.
@@ -139,8 +139,8 @@ BIOS. Neither is distributed by this recipe.
 
 ### Validation
 
-The published [v0.1.0.5 release](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.5)
-has a passing [five-platform CI run](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37241965366)
+The published [v0.1.0.6 release](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.6)
+has a passing [five-platform CI run](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37351380108)
 using the shared Makefile. Published packages were checked for ABI, metadata,
 licenses, source revisions and checksums. The Libretro GitLab jobs use the
 current official Rust templates but have not yet run on Libretro-owned
@@ -167,7 +167,7 @@ reviewed design decisions and performed real-game and controller trials.
    installer, source-side Makefile and `.gitlab-ci.yml`. The FM Auto Gain
    change belongs to source release 0.1.0.5 and is outside the two-file
    libretro-super registration patch.
-2. The exact v0.1.0.5 source commit passed the revised five-platform native
+2. The exact v0.1.0.6 source commit passed the revised five-platform native
    GitHub matrix and downloaded-package verification. Libretro-owned GitLab
    execution remains a separate onboarding gate.
 3. After user review and explicit authorization, create the upstream PR from
@@ -175,5 +175,5 @@ reviewed design decisions and performed real-game and controller trials.
    The source wrapper and public metadata are already published on `main`.
 
 **Current state:** The upstream patch and reviewer text are prepared locally.
-Version 0.1.0.5 and its revised five-platform packages are published and
+Version 0.1.0.6 and its revised five-platform packages are published and
 verified; upstream PR publication still awaits user review.
