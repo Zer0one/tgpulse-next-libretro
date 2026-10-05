@@ -57,9 +57,23 @@ Settings then apply the selected operator roles. With NVRAM Settings disabled,
 a valid saved service-menu role is preserved. No role is assigned by transport.
 
 Restart/reload all cabinets after changing topology or roles during a session.
+For standalone VR operation, set **Linked Cabinets = Disabled** and
+**NVRAM Settings → Link ID = No Link** (with NVRAM Settings enabled), then
+restart/reload. Disabling the transport does not change the saved native role.
+A saved Slave role without a fitted COMM board produces the game's horizontal
+white-line screen with **CANCELLED**. This was reproduced on macOS/Vulkan on
+2026-10-06 using an isolated copy of the affected save: two 900-frame runs
+differed only in Link ID (Slave versus No Link). No Link restored the normal
+attract scene. Personal configuration and saves were preserved; evidence is
+`/private/tmp/tgpulse-vr-stripes-current/` and
+`/private/tmp/tgpulse-vr-stripes-no-link/`. The tested core SHA-256 is
+`2b87edabdd849c70445a764577d8f9985bf7751a86d93e89e453356a490c25eb`.
+
 Individual resets preserve backup RAM/EEPROM and recreate the native machine;
 they do not rewind peers or establish a coordinated session reset. After a lost
-participant, reload the linked session rather than replacing it silently.
+participant, close/reload the game and restart Netplay on every cabinet. Start
+the host first, then join from the client; reconnecting only one client does
+not recover a host transport already marked failed.
 
 ## Transport and persistence contract
 
@@ -244,3 +258,49 @@ This naming update does not publish a release or update the Batocera addon.
 The concrete distributed frontend verification uses RetroArch 1.22.2 with
 matching corrected core identities; compatibility with another unspecified
 RetroArch version cannot be asserted until that version is identified.
+
+## Live Session Recovery — 2026-10-06
+
+Read-only inspection confirmed the installed runtime name and version match:
+`TGPulse-Next: Model 1`, `0.1.0.6`. Both selected two cabinets, with Batocera
+Master/Red and macOS Slave/Orange. TCP was connected, but that alone did not
+establish the game's COMM connection. The installed Batocera binary now comes
+from GitHub source `52b74e9`; it contains the queue/discovery fixes above.
+
+After closing the original Mac client, a bounded fresh client connected to the
+still-running host but never formed a complete roster: native status remained
+`[5, 2, 0, 0]`. The host's original adapter messages were not retained and the
+Mac adapter stderr went to `/dev/null`; the exact first failure branch cannot
+be recovered from those logs. Source inspection confirms a participant loss
+latches the transport failure until a new session. Reloading only the native
+machine does not clear that host transport latch.
+
+With authorization, both original games were closed and the existing installed
+cores were exercised through the established isolated runner. Each case used
+fresh frontend sessions and copies of the actual same-set NVRAM:
+
+| Case | macOS Timing | Batocera Timing | Result On Both Cabinets |
+| --- | --- | --- | --- |
+| Mixed | Native | 60 Hz | Complete roster; Master `[1, 1, 1, 2]`, Slave `[1, 2, 2, 2]`; at least 600 consecutive online frames |
+| Matched | 60 Hz | 60 Hz | Same complete roster and sustained online status |
+
+No queue overflow occurred. Both cases ran 1,200 client frames and 2,400 host
+frames and exited cleanly. Loss/status `255` after an intentionally bounded
+peer exit is expected; it is distinct from failure to establish the link.
+The mixed case excludes a timing mismatch as a necessary cause of this startup
+failure; these bounded runs do not establish long-term mixed-cadence gameplay.
+Captured images show normal attract rendering. This is COMM/transport evidence,
+not acceptance of a synchronized race or physical controller inputs.
+
+The old session's failed reconnection and both successful fresh pairs support
+coordinated session reopening as the recovery for this incident. Installed
+cores and personal settings were not replaced; test outputs remained isolated.
+No emulator source change or release was required for this diagnosis.
+
+- Mac core SHA-256: `2b87edabdd849c70445a764577d8f9985bf7751a86d93e89e453356a490c25eb`.
+- Batocera core SHA-256: `0d177c686abe8a0e22423ef4fdfd4517131ab95fcf186588ebab748909121534`.
+- Failed existing-host reconnection: `/private/tmp/tgpulse-netplay-reconnect-native-20261006/`.
+- Both fresh pairs: `/private/tmp/tgpulse-netplay-recovery-20261006/comparison.json`
+  and its `mixed/` and `matched/` evidence directories.
+
+Required reasoning: High. Shared account usage: 70%; reset 2026-10-10 09:49 CEST.

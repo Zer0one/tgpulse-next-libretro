@@ -2,7 +2,7 @@
 
 This experimental core targets Sega Model 1. Current source selects only
 Model 1 machine components and required shared devices (a single system build).
-Version 0.1.0.2 introduced this component split; 0.1.0.6 retains it alongside
+Version 0.1.0.2 introduced this component split; 0.1.0.7 retains it alongside
 the reviewed Model 1 integration and the retained performance improvements
 documented in `LIBRETRO_MODEL1_PERFORMANCE.md`. Consult the package's
 BUILD_INFO for its compiled scope. Model 2 and combined Libretro
@@ -23,10 +23,21 @@ and dependency licenses, and SHA256SUMS.
 
 No separate `system` database is required: the catalogue and approved NVRAM
 tables are embedded. No ROMs or user saves are supplied. Core Name is
-**TGPulse-Next: Model 1**; Core Label is
+**TGPulse-Next - Model 1**; Core Label is
 **Sega - Model 1 (TGPulse-Next)**.
-The regular release filename is separate from the locally installed
-`tgpulse_next_dev_m1_libretro` development copy.
+The local macOS installation uses this same public filename and identity.
+
+### Upgrade From The Previous Core Name
+
+Version 0.1.0.7 changes the runtime and metadata name from
+`TGPulse-Next: Model 1` to `TGPulse-Next - Model 1`; the binary filename and
+Core Label are unchanged. Close RetroArch before installing. Copy the old
+core-named configuration, remap, save and state directories to the new name
+where present, preserving originals and any existing destination files.
+`tools/install_dev_core.py` performs this non-destructive copy for the default
+local macOS paths. Custom directory layouts require the equivalent manual copy.
+Refresh the Core Info cache/restart RetroArch. Netplay participants should
+all upgrade because the advertised core name has changed.
 
 ## Platforms and rendering
 

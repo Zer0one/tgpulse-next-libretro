@@ -79,7 +79,7 @@ def check(output, expected_version):
     assert f'display_version = "{expected_version}"' in info
     assert 'systemname = "Model 1"' in info and 'license = "MIT"' in info
     assert 'savestate = "true"' in info and 'libretro_saves = "true"' in info
-    assert 'corename = "TGPulse-Next: Model 1"' in info
+    assert 'corename = "TGPulse-Next - Model 1"' in info
     assert 'display_name = "Sega - Model 1 (TGPulse-Next)"' in info
     commit = (output / 'SOURCE_COMMIT.txt').read_text().strip()
     assert re.fullmatch(r'[0-9a-f]{40}', commit), commit

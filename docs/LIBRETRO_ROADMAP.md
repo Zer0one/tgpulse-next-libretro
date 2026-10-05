@@ -304,3 +304,11 @@ direction as a combined change after P3 alone failed the threshold.
 
 Source evidence, profile shares and limits for these proposals remain in the
 [post-P4 optimization audit](LIBRETRO_MODEL1_PERFORMANCE.md#post-p4-optimization-audit--2026-10-05).
+
+## 0.1.0.7 Publication Update
+
+The authorized maintenance release uses the filesystem-safe runtime/metadata
+identity `TGPulse-Next - Model 1`, retaining the public filename and Core Label.
+It packages the existing Netplay discovery/burst-delivery fixes through the
+unchanged five-platform release workflow. No implementation phase is added or
+reprioritized; publication evidence is recorded in `LIBRETRO_CI.md`.

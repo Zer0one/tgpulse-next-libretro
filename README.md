@@ -16,7 +16,7 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
-is published as 0.1.0.6.
+is published as 0.1.0.7.
 
 **Port status:** an experimental Libretro adapter lives in
 `crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
@@ -38,7 +38,7 @@ Potential changes to return to TGPulse-Next are tracked in the maintained
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
-Version [0.1.0.6](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.6)
+Version [0.1.0.7](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.7)
 is available as an experimental prerelease with five native platform packages.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
@@ -74,15 +74,15 @@ templates; see [build targets and verification](docs/LIBRETRO_CI.md).
 Release CI verifies native Linux
 x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64 builds. The published
 libraries use the Makefile's public filenames matching the `.info` basename.
-After each verified macOS release build, install the development copy as
-`~/Library/Application Support/RetroArch/cores/tgpulse_next_dev_m1_libretro.dylib`
+After each verified macOS release build, install the public copy as
+`~/Library/Application Support/RetroArch/cores/tgpulse_next_m1_libretro.dylib`
 and its matching metadata as
-`~/Library/Application Support/RetroArch/info/tgpulse_next_dev_m1_libretro.info`.
-The public metadata uses Core Name **TGPulse-Next: Model 1** and Core Label
-**Sega - Model 1 (TGPulse-Next)**. The local installer gives only its
-Development copy Core Name **TGPulse-Next: Model 1 Development** and Core Label
-**Sega - Model 1 (TGPulse-Next Development)**. Compare the installed core's
-SHA-256 with the verified build input passed to `tools/install_dev_core.py`.
+`~/Library/Application Support/RetroArch/info/tgpulse_next_m1_libretro.info`.
+Core Name is **TGPulse-Next - Model 1** and Core Label is
+**Sega - Model 1 (TGPulse-Next)**. Compare the installed core's SHA-256 with the
+verified build input passed to `tools/install_dev_core.py`. The installer
+preserves previous core files and copies settings/saves from the previous
+colon-containing identity without overwriting existing destination files.
 The current source builds a **Model 1 single system build**: only Model 1
 machine components and required shared devices are selected, starting with
 version 0.1.0.2. See
