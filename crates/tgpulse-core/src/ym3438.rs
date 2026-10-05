@@ -16,7 +16,7 @@
 use serde::{Deserialize, Serialize};
 mod synthesis;
 mod tables;
-use synthesis::Synthesis;
+use synthesis::{ParamsGrid, Synthesis};
 
 const SAMPLE_CLOCKS: u16 = 144;
 const BUSY_CLOCKS: u16 = 192;
@@ -44,6 +44,8 @@ pub struct State {
 /// Native-rate device, independent of the sound board and desktop frontend.
 pub struct Ym3438 {
     state: State,
+    /// Derived operator values. Rebuilt after register writes and state restore.
+    params: Option<ParamsGrid>,
 }
 
 impl Default for Ym3438 {
@@ -71,6 +73,7 @@ impl Ym3438 {
                 csm_pending: false,
                 synthesis: Synthesis::default(),
             },
+            params: None,
         };
         chip.reset();
         chip
@@ -79,6 +82,7 @@ impl Ym3438 {
     /// YMFM reset semantics: clear FM registers/status/key requests and cancel
     /// timers. Address, DAC, host Busy deadline and free-running clock survive.
     pub fn reset(&mut self) {
+        self.params = None;
         self.state.registers.fill(0);
         for channel in [0xb4, 0xb5, 0xb6, 0x1b4, 0x1b5, 0x1b6] {
             self.state.registers[channel] = 0xc0;
@@ -136,6 +140,7 @@ impl Ym3438 {
     }
 
     fn write_register(&mut self, index: usize, data: u8) {
+        self.params = None;
         self.state.synthesis.modified = true;
         // YMFM shares frequency high-byte latches across channels AND banks.
         // The unused low-bank B8/B9 slots hold ordinary/special frequency data.
@@ -223,8 +228,12 @@ impl Ym3438 {
             if self.state.sample_remaining == 0 {
                 self.state.sample_remaining = SAMPLE_CLOCKS;
                 self.state.total_samples = self.state.total_samples.wrapping_add(1);
+                let params = self
+                    .params
+                    .get_or_insert_with(|| synthesis::parameters(&self.state.registers));
                 let sample = self.state.synthesis.sample(
                     &self.state.registers,
+                    params,
                     &self.state.key_on,
                     self.state.csm_pending,
                     self.state.dac_data,
@@ -271,6 +280,7 @@ impl Ym3438 {
             }
         }
         self.state = state.clone();
+        self.params = None;
         Ok(())
     }
 }

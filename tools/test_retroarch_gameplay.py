@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run an isolated Model 1 gameplay replay through macOS RetroArch.
+"""Run an isolated Model 1 gameplay replay through RetroArch.
 
 Adapts SM2-Emu's scripts/smoke-retroarch.py replay-v1 fixture. Synthetic
 RetroPad input verifies the frontend path, not a physical controller.
@@ -90,6 +90,11 @@ def main() -> None:
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--frames", type=int, default=3800)
     parser.add_argument("--timeout", type=int, default=300)
+    parser.add_argument("--driver", choices=("gl", "glcore", "vulkan"), default="gl")
+    parser.add_argument("--renderer", choices=("auto", "software", "opengl", "vulkan"), default="auto")
+    parser.add_argument("--audio-driver", default="coreaudio")
+    parser.add_argument("--input-driver", default="cocoa")
+    parser.add_argument("--av-timing", choices=("native", "60hz"), default="native")
     args = parser.parse_args()
     if args.frames < 3200:
         parser.error("--frames must be at least 3200 for this VR replay")
@@ -105,13 +110,15 @@ def main() -> None:
     replay(input_movie, args.frames)
     options = output / "core-options.cfg"
     options.write_text('tgpulse_next_smooth_shadows = "enabled"\n'
-                       'tgpulse_next_volume = "100"\n')
+                       'tgpulse_next_volume = "100"\n'
+                       f'tgpulse_next_renderer = "{args.renderer}"\n'
+                       f'tgpulse_next_av_timing = "{args.av_timing}"\n')
     values = {
         "system_directory": system, "savefile_directory": output / "saves",
         "savestate_directory": output / "states", "screenshot_directory": output / "screenshots",
         "playlist_directory": output / "playlists", "rgui_config_directory": output / "config",
-        "core_options_path": options, "video_driver": "gl", "audio_driver": "coreaudio",
-        "input_driver": "cocoa", "video_fullscreen": "false",
+        "core_options_path": options, "video_driver": args.driver, "audio_driver": args.audio_driver,
+        "input_driver": args.input_driver, "video_fullscreen": "false",
         "video_windowed_fullscreen": "false", "video_scale": "2",
         "video_vsync": "false", "audio_sync": "true", "audio_enable": "true",
         "config_save_on_exit": "false", "content_history_enable": "false",
@@ -142,6 +149,9 @@ def main() -> None:
     log_text = (output / "run.log").read_text(errors="replace")
     result = {
         "set_name": "vr", "frames_requested": args.frames,
+        "renderer": args.renderer, "driver": args.driver,
+        "audio_driver": args.audio_driver, "input_driver": args.input_driver,
+        "av_timing": args.av_timing,
         "elapsed_seconds": round(time.monotonic() - started, 3),
         "exit_code": completed.returncode,
         "core_sha256": digest(core), "rom_sha256": digest(rom),

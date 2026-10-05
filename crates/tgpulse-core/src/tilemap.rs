@@ -22,6 +22,8 @@ pub trait TileSource {
     fn colorxlat_u16(&self, idx: usize) -> u16;
     fn colorxlat_written(&self) -> bool;
     fn monitor_gamma(&self, v: u32) -> u32;
+    /// Cached name-table pen row; colours remain resolved per frame.
+    fn tile_row(&self, _index: usize, _y: usize) -> Option<&[u16]> { None }
     /// Model 1 uses palette bit 15 as full/half intensity. Model 2 does not.
     fn palette_dimmed(&self, _colour: u16) -> bool {
         false
@@ -52,6 +54,123 @@ impl TileSource for Model2System {
 
 pub const SCREEN_W: usize = 496;
 pub const SCREEN_H: usize = 384;
+
+/// Model 1's decoded tile pens. Owned by the renderer, not serialized hardware.
+/// Compare the RAM itself so CPU writes, debugger edits and state restore all
+/// invalidate derived pixels without depending on a particular writer.
+#[cfg(feature = "model1")]
+#[derive(Default)]
+pub struct Model1TileCache {
+    names: Vec<u16>,
+    tile_ram: Vec<u8>,
+    char_ram: Vec<u8>,
+    pens: Vec<u16>,
+    dirty_chars: Vec<bool>,
+}
+
+#[cfg(feature = "model1")]
+impl Model1TileCache {
+    fn refresh(&mut self, sys: &crate::model1::Model1System) {
+        let first = self.names.is_empty();
+        if first {
+            self.names.resize(0x4000, 0);
+            self.tile_ram.resize(0x8000, 0);
+            self.char_ram.resize(0x80000, 0);
+            self.pens.resize(0x4000 * 64, 0);
+            self.dirty_chars.resize(0x4000, false);
+        }
+        let tiles = &sys.tile_ram[..0x8000];
+        let tiles_changed = first || tiles != self.tile_ram;
+        let chars_changed = first || sys.char_ram != self.char_ram;
+        if !tiles_changed && !chars_changed {
+            return;
+        }
+        self.dirty_chars.fill(false);
+        if chars_changed {
+            for (code, (current, previous)) in sys
+                .char_ram
+                .chunks_exact(32)
+                .zip(self.char_ram.chunks_exact_mut(32))
+                .enumerate()
+            {
+                let dirty = first || current != previous;
+                self.dirty_chars[code] = dirty;
+                if dirty {
+                    previous.copy_from_slice(current);
+                }
+            }
+        }
+        const SHIFTS: [u32; 8] = [12, 8, 4, 0, 28, 24, 20, 16];
+        for (index, bytes) in tiles.chunks_exact(2).enumerate() {
+            let value = u16::from_le_bytes([bytes[0], bytes[1]]);
+            let code = (value & TILE_MASK) as usize;
+            if !first && self.names[index] == value && !self.dirty_chars[code] {
+                continue;
+            }
+            self.names[index] = value;
+            let pen_base = ((value >> 7) & 0xff) * 16;
+            let decoded = &mut self.pens[index * 64..(index + 1) * 64];
+            for y in 0..8 {
+                let offset = code * 32 + y * 4;
+                let word =
+                    u32::from_le_bytes(self.char_ram[offset..offset + 4].try_into().unwrap());
+                for x in 0..8 {
+                    decoded[y * 8 + x] = pen_base + ((word >> SHIFTS[x]) & 0xf) as u16;
+                }
+            }
+        }
+        self.tile_ram.copy_from_slice(tiles);
+    }
+
+    pub fn render_background(&mut self, sys: &crate::model1::Model1System, out: &mut [u32]) {
+        self.refresh(sys);
+        render_background(&CachedModel1 { sys, cache: self }, out);
+    }
+
+    pub fn render_foreground(&mut self, sys: &crate::model1::Model1System, out: &mut [u32]) {
+        self.refresh(sys);
+        render_foreground(&CachedModel1 { sys, cache: self }, out);
+    }
+}
+
+#[cfg(feature = "model1")]
+struct CachedModel1<'a> {
+    sys: &'a crate::model1::Model1System,
+    cache: &'a Model1TileCache,
+}
+
+#[cfg(feature = "model1")]
+impl TileSource for CachedModel1<'_> {
+    fn tile_u16(&self, idx: usize) -> u16 {
+        self.cache
+            .names
+            .get(idx)
+            .copied()
+            .unwrap_or_else(|| self.sys.tile_u16(idx))
+    }
+    fn tile_row(&self, index: usize, y: usize) -> Option<&[u16]> {
+        let offset = index * 64 + y * 8;
+        Some(&self.cache.pens[offset..offset + 8])
+    }
+    fn char_word(&self, idx: usize) -> u32 {
+        self.sys.char_word(idx)
+    }
+    fn palette_u16(&self, idx: usize) -> u16 {
+        self.sys.palette_u16(idx)
+    }
+    fn colorxlat_u16(&self, idx: usize) -> u16 {
+        self.sys.colorxlat_u16(idx)
+    }
+    fn colorxlat_written(&self) -> bool {
+        self.sys.colorxlat_written()
+    }
+    fn monitor_gamma(&self, value: u32) -> u32 {
+        self.sys.monitor_gamma(value)
+    }
+    fn palette_dimmed(&self, colour: u16) -> bool {
+        self.sys.palette_dimmed(colour)
+    }
+}
 
 #[cfg(all(test, feature = "model2"))]
 mod palette_tests {
@@ -215,32 +334,71 @@ fn draw_layer<S: TileSource>(
         // The mask is 4 words per scanline, each word covering 128 pixels as 16
         // groups of 8, MSB first.
         let mask_row = mask_base + (sy as usize) * 4;
+        // A uniform mask hides this plane for the whole scanline. Avoid
+        // probing every pixel when the other plane owns the entire row.
+        if (0..4).all(|word| {
+            let bits = sys.tile_u16(mask_row + word);
+            if win {
+                bits == 0
+            } else {
+                bits == u16::MAX
+            }
+        }) {
+            continue;
+        }
 
-        for sx in 0..SCREEN_W as u32 {
-            let mword = sys.tile_u16(mask_row + (sx >> 7) as usize);
-            let mbit = (mword >> (15 - ((sx >> 3) & 15))) & 1 != 0;
-            if mbit != win {
+        let row = &mut out[sy as usize * SCREEN_W..(sy as usize + 1) * SCREEN_W];
+        // One mask bit covers eight screen pixels. A visible group crosses at
+        // most two tiles after horizontal scrolling, so fetch each tile and
+        // character row once for its contiguous span.
+        for word in 0..4 {
+            let mask = sys.tile_u16(mask_row + word);
+            // A mask word owns sixteen eight-pixel groups. Skip the whole
+            // 128-pixel block when this plane has none of them, as in the
+            // System 24 reference's full/hidden pixmap branches.
+            if (win && mask == 0) || (!win && mask == u16::MAX) {
                 continue;
             }
-
-            let mx = (sx + hscr) & MAP_MASK;
-            let tx = mx >> 3;
-            let px = mx & 7;
-
-            let val = sys.tile_u16(base + (ty * 64 + tx) as usize);
-            if (val >> 15) != category {
-                continue;
+            let all_visible = (win && mask == u16::MAX) || (!win && mask == 0);
+            for bit in 0..16 {
+                let group = word * 16 + bit;
+                let start = group * 8;
+                if start >= SCREEN_W {
+                    break;
+                }
+                if all_visible || ((mask >> (15 - bit)) & 1 != 0) == win {
+                    let end = (start + 8).min(SCREEN_W);
+                    let mut sx = start;
+                    while sx < end {
+                        let mx = (sx as u32 + hscr) & MAP_MASK;
+                        let px = (mx & 7) as usize;
+                        let span = (8 - px).min(end - sx);
+                        let tile_index = base + ((ty * 64 + (mx >> 3)) as usize);
+                        let val = sys.tile_u16(tile_index);
+                        if (val >> 15) == category {
+                            if let Some(pens) = sys.tile_row(tile_index, py as usize) {
+                                for offset in 0..span {
+                                    let pen = pens[px + offset];
+                                    if pen & 0xf != 0 || opaque {
+                                        row[sx + offset] = palette[pen as usize];
+                                    }
+                                }
+                            } else {
+                                let data = sys.char_word(((val & TILE_MASK) as usize) * 8 + py as usize);
+                                let pen_base = ((val >> 7) & 0xff) * 16;
+                                const SHIFTS: [u32; 8] = [12, 8, 4, 0, 28, 24, 20, 16];
+                                for offset in 0..span {
+                                    let nib = ((data >> SHIFTS[px + offset]) & 0xf) as u16;
+                                    if nib != 0 || opaque {
+                                        row[sx + offset] = palette[(pen_base + nib) as usize];
+                                    }
+                                }
+                            }
+                        }
+                        sx += span;
+                    }
+                }
             }
-
-            let code = val & TILE_MASK;
-            let nib = char_pixel(sys, code, px, py);
-            if nib == 0 && !opaque {
-                continue;
-            }
-
-            let color = (val >> 7) & 0xff;
-            let pen = color * 16 + nib as u16;
-            out[(sy as usize) * SCREEN_W + sx as usize] = palette[pen as usize];
         }
     }
 }
@@ -384,5 +542,250 @@ pub fn render_foreground<S: TileSource>(sys: &S, out: &mut [u32]) {
     let palette: [u32; 4096] = std::array::from_fn(|i| pen_color(sys, i as u16));
     for layer in (0..=3).rev() {
         draw_layer(sys, out, &palette, layer, 1, false);
+    }
+}
+
+#[cfg(test)]
+mod mask_tests {
+    use super::*;
+
+    struct Source {
+        tiles: Vec<u16>,
+        patterned_chars: bool,
+    }
+
+    impl TileSource for Source {
+        fn tile_u16(&self, idx: usize) -> u16 {
+            self.tiles[idx]
+        }
+        fn char_word(&self, idx: usize) -> u32 {
+            if self.patterned_chars {
+                (idx as u32).wrapping_mul(0x9e37_79b9).rotate_left(11)
+            } else {
+                0x1111_1111
+            }
+        }
+        fn palette_u16(&self, _idx: usize) -> u16 {
+            0
+        }
+        fn colorxlat_u16(&self, _idx: usize) -> u16 {
+            0
+        }
+        fn colorxlat_written(&self) -> bool {
+            false
+        }
+        fn monitor_gamma(&self, value: u32) -> u32 {
+            value
+        }
+    }
+
+    #[test]
+    fn uniform_and_partial_masks_select_the_correct_plane() {
+        let mut source = Source {
+            tiles: vec![0; 0x7000],
+            patterned_chars: false,
+        };
+        source.tiles[0..0x2000].fill(1);
+        let mut palette = [0; 4096];
+        palette[1] = 0xff12_3456;
+        let mut pixels = vec![0xdead_beef; SCREEN_W * SCREEN_H];
+
+        // An all-zero mask hides the window plane, including the last row.
+        draw_layer(&source, &mut pixels, &palette, 1, 0, false);
+        assert!(pixels.iter().all(|&pixel| pixel == 0xdead_beef));
+
+        // An all-one mask hides the standard plane.
+        for row in 0..SCREEN_H {
+            source.tiles[0x6000 + row * 4..0x6000 + row * 4 + 4].fill(u16::MAX);
+        }
+        draw_layer(&source, &mut pixels, &palette, 0, 0, false);
+        assert!(pixels.iter().all(|&pixel| pixel == 0xdead_beef));
+
+        // A partial mask must still draw the selected eight-pixel group.
+        for row in 0..SCREEN_H {
+            source.tiles[0x6000 + row * 4..0x6000 + row * 4 + 4].fill(0);
+        }
+        source.tiles[0x6000] = 0x8000;
+        draw_layer(&source, &mut pixels, &palette, 1, 0, false);
+        assert!(pixels[..8].iter().all(|&pixel| pixel == palette[1]));
+        assert!(pixels[8..].iter().all(|&pixel| pixel == 0xdead_beef));
+    }
+
+    fn draw_layer_reference(
+        sys: &Source,
+        out: &mut [u32],
+        palette: &[u32; 4096],
+        layer: usize,
+        category: u16,
+        opaque: bool,
+    ) {
+        let base = layer * 0x1000;
+        let win = layer & 1 != 0;
+        let mask_base = if layer & 2 != 0 { 0x6800 } else { 0x6000 };
+        let hscr = (sys.tile_u16(0x5000 + layer).wrapping_neg() & 0x1ff) as u32;
+        let vscr = (sys.tile_u16(0x5004 + layer) & 0x1ff) as u32;
+        for sy in 0..SCREEN_H as u32 {
+            let my = (sy + vscr) & MAP_MASK;
+            let mask_row = mask_base + sy as usize * 4;
+            for sx in 0..SCREEN_W as u32 {
+                let bits = sys.tile_u16(mask_row + (sx >> 7) as usize);
+                if ((bits >> (15 - ((sx >> 3) & 15))) & 1 != 0) != win {
+                    continue;
+                }
+                let mx = (sx + hscr) & MAP_MASK;
+                let val = sys.tile_u16(base + ((my >> 3) * 64 + (mx >> 3)) as usize);
+                if (val >> 15) != category {
+                    continue;
+                }
+                let nib = char_pixel(sys, val & TILE_MASK, mx & 7, my & 7);
+                if nib != 0 || opaque {
+                    let pen = ((val >> 7) & 0xff) * 16 + nib as u16;
+                    out[sy as usize * SCREEN_W + sx as usize] = palette[pen as usize];
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn grouped_tile_walk_matches_pixel_reference() {
+        let mut source = Source {
+            tiles: vec![0; 0x7000],
+            patterned_chars: true,
+        };
+        for (idx, tile) in source.tiles[..0x4000].iter_mut().enumerate() {
+            *tile = (idx as u16).wrapping_mul(2371);
+        }
+        for base in [0x6000, 0x6800] {
+            for row in 0..SCREEN_H {
+                let mask = match row % 4 {
+                    0 => 0,
+                    1 => u16::MAX,
+                    2 => 0x55aa,
+                    _ => 0xa531,
+                };
+                source.tiles[base + row * 4..base + row * 4 + 4].fill(mask);
+            }
+        }
+        let palette = std::array::from_fn(|i| 0xff00_0000 | (i as u32 * 0x10203));
+        for scroll in [0, 3, 7, 511] {
+            for layer in 0..4 {
+                source.tiles[0x5000 + layer] = scroll;
+                source.tiles[0x5004 + layer] = scroll & 0x1ff;
+                for category in 0..=1 {
+                    for opaque in [false, true] {
+                        let mut expected = vec![0xdead_beef; SCREEN_W * SCREEN_H];
+                        let mut actual = expected.clone();
+                        draw_layer_reference(
+                            &source,
+                            &mut expected,
+                            &palette,
+                            layer,
+                            category,
+                            opaque,
+                        );
+                        draw_layer(&source, &mut actual, &palette, layer, category, opaque);
+                        assert_eq!(
+                            actual, expected,
+                            "scroll={scroll} layer={layer} category={category} opaque={opaque}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[cfg(all(test, feature = "model1"))]
+mod cache_tests {
+    use super::*;
+    use crate::{loader::Model1Roms, model1::Model1System, model1board::Kind};
+
+    fn machine() -> Model1System {
+        Model1System::new(&Model1Roms {
+            maincpu: vec![],
+            tgp: vec![],
+            copro_tables: vec![],
+            polygons: vec![],
+            copro_data: vec![],
+            iocpu: vec![],
+            sndcpu: vec![],
+            mpcm1: vec![],
+            mpcm2: vec![],
+            ioboard_config: vec![],
+            nvram_default: vec![],
+            comm_board: false,
+            ioboard_kind: Kind::Original,
+            dsb: None,
+            netmerc_procedural_audio: false,
+        })
+        .unwrap()
+    }
+
+    fn compare(cache: &mut Model1TileCache, sys: &Model1System) {
+        let mut expected = vec![0; SCREEN_W * SCREEN_H];
+        let mut actual = expected.clone();
+        render_background(sys, &mut expected);
+        cache.render_background(sys, &mut actual);
+        assert_eq!(actual, expected, "background");
+        render_foreground(sys, &mut expected);
+        cache.render_foreground(sys, &mut actual);
+        assert_eq!(actual, expected, "foreground");
+    }
+
+    #[test]
+    fn cached_pixels_follow_ram_palette_masks_scroll_and_restore() {
+        let mut sys = machine();
+        let mut cache = Model1TileCache::default();
+        for (index, byte) in sys.char_ram.iter_mut().enumerate() {
+            *byte = (index as u32).wrapping_mul(0x9e37_79b9).rotate_left(11) as u8;
+        }
+        for index in 0..0x4000 {
+            let value = (index as u16).wrapping_mul(0x417);
+            sys.tile_ram[index * 2..index * 2 + 2].copy_from_slice(&value.to_le_bytes());
+        }
+        for (index, byte) in sys.palette_ram.iter_mut().enumerate() {
+            *byte = index as u8;
+        }
+        let saved = sys.save_state().unwrap();
+        for mask in [0u16, u16::MAX, 0xaaaa, 0x8001] {
+            for base in [0x6000, 0x6800] {
+                for word in base..base + SCREEN_H * 4 {
+                    sys.tile_ram[word * 2..word * 2 + 2].copy_from_slice(&mask.to_le_bytes());
+                }
+            }
+            for scroll in [0u16, 3, 7, 511] {
+                for index in 0x5000..0x5008 {
+                    sys.tile_ram[index * 2..index * 2 + 2].copy_from_slice(&scroll.to_le_bytes());
+                }
+                compare(&mut cache, &sys);
+            }
+        }
+        // Direct edits bypass bus handlers, just like debugger/resource tooling.
+        for index in 0x5000..0x5008 {
+            sys.tile_ram[index * 2..index * 2 + 2].fill(0);
+        }
+        for base in [0x6000, 0x6800] {
+            sys.tile_ram[base * 2..(base + SCREEN_H * 4) * 2].fill(0);
+        }
+        sys.tile_ram[..2].copy_from_slice(&0x8081u16.to_le_bytes());
+        sys.char_ram[0x81 * 32..0x82 * 32].fill(0x32);
+        sys.char_ram[0x3fff * 32..].fill(0xf0);
+        sys.palette_ram[..2].copy_from_slice(&0xffffu16.to_le_bytes());
+        compare(&mut cache, &sys);
+        let mut foreground = vec![0; SCREEN_W * SCREEN_H];
+        cache.render_foreground(&sys, &mut foreground);
+        let previous = foreground[0];
+        // A visible character-only write must invalidate every referring tile.
+        sys.char_ram[0x81 * 32 + 1] ^= 0xf0;
+        compare(&mut cache, &sys);
+        cache.render_foreground(&sys, &mut foreground);
+        assert_ne!(foreground[0], previous);
+        // Split mode and layer disable retain the existing compositor rules.
+        sys.tile_ram[0x5006 * 2..0x5006 * 2 + 2].copy_from_slice(&0x2064u16.to_le_bytes());
+        compare(&mut cache, &sys);
+        sys.tile_ram[0x5005 * 2..0x5005 * 2 + 2].copy_from_slice(&0x8000u16.to_le_bytes());
+        compare(&mut cache, &sys);
+        sys.load_state(&saved).unwrap();
+        compare(&mut cache, &sys);
     }
 }

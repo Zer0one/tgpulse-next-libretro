@@ -30,6 +30,18 @@ impl SerialState {
             self.driver.tick();
         }
     }
+    /// Advance up to the next UART edge. The caller renders audio before this
+    /// interval, so the endpoints must only tick at its final clock.
+    pub(crate) fn advance_sound_clocks(&mut self, clocks: usize) {
+        debug_assert!(clocks <= self.to_edge());
+        let phase = usize::from(self.phase) + clocks;
+        if phase == 20 {
+            self.phase = 19;
+            self.tick_sound();
+        } else {
+            self.phase = phase as u8;
+        }
+    }
     pub(crate) fn valid(&self) -> bool {
         self.phase < 20 && self.main.valid() && self.driver.valid()
     }
@@ -96,5 +108,24 @@ mod tests {
         assert_eq!(s.driver.read(), 0x34);
         s.driver.control(0x37).unwrap();
         assert_eq!(s.driver.status() & 0x12, 0);
+    }
+    #[test]
+    fn batched_clocks_match_single_clock_uart_edges() {
+        let mut reference = link();
+        reference.main.write(0x96).unwrap();
+        reference.driver.write(0x35).unwrap();
+        let mut batched = reference.clone();
+        for clocks in [1, 7, 12, 20, 3, 37, 224, 3240] {
+            let mut remaining = clocks;
+            while remaining > 0 {
+                let step = remaining.min(batched.to_edge());
+                batched.advance_sound_clocks(step);
+                remaining -= step;
+            }
+            for _ in 0..clocks {
+                reference.tick_sound();
+            }
+            assert_eq!(batched, reference);
+        }
     }
 }

@@ -360,6 +360,28 @@ impl Model1System {
         if let Some(error) = self.sound.dsb_fault() {
             return Err(error.into());
         }
+        if cycles <= 0 {
+            return Ok(());
+        }
+        // The CPU bus borrows the whole machine. Move the executing CPUs out
+        // once per call instead of copying their diagnostic tables and making
+        // reset placeholders in every 64-clock quantum. Bus callbacks only
+        // inspect the placeholder CPUs for trace messages.
+        let mut main_cpu = std::mem::replace(&mut self.main_cpu, V60::new());
+        let mut tgp_cpu = std::mem::replace(&mut self.tgp_cpu, Mb86233::new());
+        let result = self.run_cpu_slices(&mut main_cpu, &mut tgp_cpu, cycles);
+        // Restore the real CPUs even when a board reports a sticky fault.
+        self.main_cpu = main_cpu;
+        self.tgp_cpu = tgp_cpu;
+        result
+    }
+
+    fn run_cpu_slices(
+        &mut self,
+        main_cpu: &mut V60,
+        tgp_cpu: &mut Mb86233,
+        cycles: i32,
+    ) -> Result<(), Error> {
         const QUANTUM: i32 = 64;
 
         let mut remaining = cycles;
@@ -372,14 +394,12 @@ impl Model1System {
                 self.v60_fifo_waiting = false;
             }
             if self.copro_fifo_in.len() <= COPRO_FIFO_DEPTH && !self.v60_fifo_waiting {
-                self.sync_irq();
-                let mut cpu = std::mem::replace(&mut self.main_cpu, V60::new());
+                self.sync_irq(main_cpu);
                 self.v60_access_active = true;
-                cpu.run(self, step);
+                main_cpu.run(self, step);
                 self.v60_access_active = false;
                 self.v60_wait_cycles = 0;
-                self.main_cpu = cpu;
-                self.sync_irq();
+                self.sync_irq(main_cpu);
             }
 
             // Each revision retains the fractional ratio of its own board
@@ -398,12 +418,10 @@ impl Model1System {
             // Like MAME's scheduler/local CPU time, retain instruction overshoot,
             // not unused time from an empty FIFO or HALT. Clock phase and debt
             // advance even while output overflow prevents CPU execution.
-            let tgp_step = tgp_clocks / 2 + self.tgp_cpu.icount.min(0);
-            self.tgp_cpu.icount = tgp_step.min(0);
+            let tgp_step = tgp_clocks / 2 + tgp_cpu.icount.min(0);
+            tgp_cpu.icount = tgp_step.min(0);
             if tgp_step > 0 && self.copro_fifo_out.len() <= COPRO_FIFO_DEPTH {
-                let mut tgp = std::mem::replace(&mut self.tgp_cpu, Mb86233::new());
-                tgp.execute(self, tgp_step);
-                self.tgp_cpu = tgp;
+                tgp_cpu.execute(self, tgp_step);
             }
 
             self.advance_timers(step as u32);
@@ -463,11 +481,11 @@ impl Model1System {
         self.irq_status |= 1 << level;
     }
 
-    fn sync_irq(&mut self) {
+    fn sync_irq(&self, cpu: &mut V60) {
         if let Some(level) = (0..8).find(|level| self.irq_status & (1 << level) != 0) {
-            self.main_cpu.assert_irq(level);
+            cpu.assert_irq(level);
         } else {
-            self.main_cpu.clear_irq();
+            cpu.clear_irq();
         }
     }
 
@@ -1192,6 +1210,33 @@ mod persistence_tests {
             sys.run_slice(0),
             Err(Error::Serial(crate::sound::SerialError::TransmitFull))
         );
+    }
+
+    #[test]
+    fn cpu_state_survives_a_board_fault_during_a_slice() {
+        let mut roms = empty_roms();
+        roms.maincpu = vec![0]; // HALT
+        roms.ioboard_kind = crate::model1board::Kind::WingWar;
+        roms.iocpu = vec![0; 0x10000];
+        roms.iocpu[..3].copy_from_slice(&[0x3a, 0x00, 0x81]); // LD A, (unsupported device)
+        let mut sys = Model1System::new(&roms).unwrap();
+        sys.main_cpu.reg[v60::cpu::PC] = 0;
+        sys.main_cpu.reg[5] = 0x1234_5678;
+        sys.tgp_cpu.pc = 0x123;
+        sys.tgp_cpu.a = 0x8765_4321;
+        let tgp_before = bincode::serialize(&sys.tgp_cpu).unwrap();
+        let error = Err(Error::IoBoard(
+            crate::model1io2::BusError::UnimplementedMemory(0x8100),
+        ));
+        assert_eq!(sys.run_slice(64), error);
+        assert!(sys.main_cpu.halted, "completed V60 work must be restored");
+        assert_eq!(sys.main_cpu.reg[5], 0x1234_5678);
+        assert_eq!(sys.main_cpu.op_count[0], 1);
+        assert_eq!(bincode::serialize(&sys.tgp_cpu).unwrap(), tgp_before);
+        let main_before = bincode::serialize(&sys.main_cpu).unwrap();
+        assert_eq!(sys.run_slice(64), error);
+        assert_eq!(bincode::serialize(&sys.main_cpu).unwrap(), main_before);
+        assert_eq!(bincode::serialize(&sys.tgp_cpu).unwrap(), tgp_before);
     }
 
     #[test]

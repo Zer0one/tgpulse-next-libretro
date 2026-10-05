@@ -133,6 +133,7 @@ struct Game {
     nvram_pending: bool,
     nvram_wait_frames: u32,
     pixels: Vec<u32>,
+    tiles: tilemap::Model1TileCache,
     foreground: Vec<u32>,
     panel_foreground: Vec<u32>,
     audio: Vec<i16>,
@@ -1921,6 +1922,7 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
         nvram_pending: core.settings.nvram_settings,
         nvram_wait_frames: 0,
         pixels: vec![0; WIDTH * HEIGHT],
+        tiles: tilemap::Model1TileCache::default(),
         foreground: vec![0; WIDTH * HEIGHT],
         panel_foreground: Vec::new(),
         audio: Vec::with_capacity(4096),
@@ -1945,9 +1947,9 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
 }
 
 fn render(game: &mut Game) {
-    tilemap::render_background(&*game.machine, &mut game.pixels);
+    game.tiles.render_background(&game.machine, &mut game.pixels);
     model1_video::render_below_hud(&mut game.machine, &mut game.pixels);
-    tilemap::render_foreground(&*game.machine, &mut game.foreground);
+    game.tiles.render_foreground(&game.machine, &mut game.foreground);
     for (pixel, &overlay) in game.pixels.iter_mut().zip(&game.foreground) {
         if overlay != 0 {
             *pixel = overlay;
@@ -2231,7 +2233,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     unsafe {
         *info = ffi::SystemInfo {
             library_name: c"TGPulse-Next".as_ptr(),
-            library_version: c"0.1.0.5".as_ptr(),
+            library_version: c"0.1.0.6".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
             block_extract: true,
@@ -2533,8 +2535,8 @@ pub extern "C" fn retro_run() {
         let machine_end = run_start.map(|_| Instant::now());
         if game.hardware {
             let width = render_width(game, core.settings.aspect_ratio);
-            tilemap::render_background(&*game.machine, &mut game.pixels);
-            tilemap::render_foreground(&*game.machine, &mut game.foreground);
+            game.tiles.render_background(&game.machine, &mut game.pixels);
+            game.tiles.render_foreground(&game.machine, &mut game.foreground);
             let quads = model1_video::gpu_quads_ws(&mut game.machine, width as f32);
             let mut frame = gpu::FrameData::new(
                 width,

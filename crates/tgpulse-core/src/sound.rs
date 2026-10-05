@@ -1039,9 +1039,7 @@ impl SoundSystem {
                 }
                 self.render_devices(step);
                 let s = self.board.serial.as_mut().unwrap();
-                for _ in 0..step {
-                    s.tick_sound();
-                }
+                s.advance_sound_clocks(step);
                 remaining -= step;
             }
         } else {

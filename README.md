@@ -16,7 +16,7 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
-is published as 0.1.0.5.
+is published as 0.1.0.5; the optimized 0.1.0.6 preview is prepared for release.
 
 **Port status:** an experimental Libretro adapter lives in
 `crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
@@ -43,6 +43,9 @@ is available as an experimental prerelease with five native platform packages.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
 for verified binary packages.
+The prepared 0.1.0.6 preview includes the retained Model 1 tilemap, CPU scheduling,
+UART, polygon and YM3438 optimizations; see the
+[measured performance and verification](docs/LIBRETRO_MODEL1_PERFORMANCE.md).
 The [shared Libretro build recipe](Makefile.libretro) is the only release
 build entry point. Both GitHub release jobs and [GitLab Rust-template jobs](.gitlab-ci.yml)
 invoke it for the five desktop targets.

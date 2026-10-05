@@ -22,6 +22,7 @@ def main():
     p.add_argument('--driver',choices=('vulkan','glcore','gl','metal'),default='vulkan')
     p.add_argument('--frames',type=int,default=180)
     p.add_argument('--timeout',type=int,default=60)
+    p.add_argument('--av-timing',choices=('native','60hz'),default='native')
     p.add_argument('--overlay',action='store_true')
     p.add_argument('--notifications',action='store_true',help='Enable frontend OSD for notification verification')
     p.add_argument('--diagnostic-display',choices=('off','overlay','overlay_half'),default='off')
@@ -65,6 +66,7 @@ def main():
         env['DYLD_LIBRARY_PATH']=str(out/'runtime')
     opts=out/'core-options.cfg';opts.write_text(f'tgpulse_next_renderer = "{a.renderer}"\ntgpulse_next_timing_overlay = "'+('auto' if a.overlay else 'disabled')+'"\n')
     with opts.open('a') as stream:
+        stream.write(f'tgpulse_next_av_timing = "{a.av_timing}"\n')
         stream.write(f'tgpulse_next_netmerc_diagnostic_display = "{a.diagnostic_display}"\ntgpulse_next_netmerc_diagnostic_position = "{a.diagnostic_position}"\ntgpulse_next_netmerc_diagnostic_opacity = "{a.diagnostic_opacity}"\n')
         stream.write(f'tgpulse_next_netmerc_audio_donor = "{a.audio_donor}"\n')
         stream.write(f'tgpulse_next_aspect_ratio = "{a.aspect}"\ntgpulse_next_widescreen_mode = "{a.widescreen}"\ntgpulse_next_supersampling = "{a.supersampling}"\n')
@@ -122,6 +124,7 @@ def main():
     logs=(out/'run.log').read_text(errors='replace')
     report={'existing_save_fixture':bool(a.nvram_sample),'initial_nvram':a.initial_nvram,'nvram_settings':a.nvram_settings,'selected_nvram':selected_nvram,'linked_cabinets':a.linked_cabinets,'netplay_role':a.netplay_role,'netboard_messages':[line for line in logs.splitlines() if '[NetBoard]' in line],'steering_response':a.steering_response,'driving_ranges':ranges,'aspect':a.aspect,'widescreen':a.widescreen,'supersampling':a.supersampling,'overlay':a.overlay,'renderer':a.renderer,'driver':a.driver,'frames_requested':a.frames,'exit_code':code,'elapsed_seconds':round(time.monotonic()-start,3),'core_sha256':hashlib.sha256(a.core.read_bytes()).hexdigest(),'png':shot.exists() and shot.read_bytes().startswith(b'\x89PNG\r\n\x1a\n'),'renderer_messages':[line for line in logs.splitlines() if 'Renderer:' in line],'geometry_updates':logs.count('SET_GEOMETRY')}
     report.update(mvd_input=a.mvd_input,mvd_ranges=[a.mvd_horizontal_range,a.mvd_vertical_range],
+                  av_timing=a.av_timing,
                   diagnostic_display=a.diagnostic_display,diagnostic_position=a.diagnostic_position,
                   diagnostic_opacity=a.diagnostic_opacity,
                   audio_donor=a.audio_donor,

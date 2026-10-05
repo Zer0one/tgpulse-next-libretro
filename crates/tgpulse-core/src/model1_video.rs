@@ -525,7 +525,13 @@ fn expand5(value: u32) -> u32 {
     (value << 3) | (value >> 2)
 }
 
-fn object_color(system: &Model1System, view: &View, texture_address: u32, normal: [f32; 3]) -> u32 {
+fn object_color(
+    system: &Model1System,
+    view: &View,
+    texture_address: u32,
+    normal: [f32; 3],
+    parameter: LightParam,
+) -> u32 {
     let texture_index = match texture_address.checked_sub(TGP_RAM_BASE) {
         Some(index) => index as usize,
         None => return 0xff00_0000,
@@ -553,8 +559,6 @@ fn object_color(system: &Model1System, view: &View, texture_address: u32, normal
     }
 
     let diffuse = normal[0] * view.light[0] + normal[1] * view.light[1] + normal[2] * view.light[2];
-    let light_mode = 0usize;
-    let parameter = view.lightparams[light_mode];
     let specular = compute_specular(view.spec_enable, parameter, normal, view.light, diffuse);
     let level = parameter.ambient + parameter.diffuse * diffuse.max(0.0) + specular;
     let mut luminosity = (255.0 * level.min(1.0)) as i32;
@@ -814,15 +818,16 @@ fn push_object(
 
             let light_mode =
                 (((flags >> 17) & 15) | if flags & 0x0040_0000 != 0 { 0x80 } else { 0 }) as usize;
-            let mut color_view = view.clone();
-            if light_mode < color_view.lightparams.len() {
-                color_view.lightparams[0] = color_view.lightparams[light_mode];
-            }
+            let parameter = view
+                .lightparams
+                .get(light_mode)
+                .copied()
+                .unwrap_or(view.lightparams[0]);
 
             let quad = Quad {
                 points: [old_p1, old_p0, p0, p1],
                 z,
-                color: object_color(system, &color_view, texture, normal),
+                color: object_color(system, view, texture, normal, parameter),
                 moire: flags & 0x2000 != 0,
             };
             stats.source_quads += 1;
@@ -1038,16 +1043,18 @@ fn slope(x1: i32, x2: i32, y1: i32, y2: i32) -> Option<i32> {
 }
 
 fn fill_quad(framebuffer: &mut [u32], view: &View, quad: Quad, stats: &mut Model1RenderStats) {
-    let mut distinct = Vec::<(i32, i32)>::new();
+    let mut distinct = [(0i32, 0i32); 4];
+    let mut distinct_len = 0;
     for point in quad.points {
         let position = (point.sx, point.sy);
-        if !distinct.contains(&position) {
-            distinct.push(position);
+        if !distinct[..distinct_len].contains(&position) {
+            distinct[distinct_len] = position;
+            distinct_len += 1;
         }
     }
 
     // The reference treats A,A,B,B as a wireframe primitive.
-    if distinct.len() == 2 {
+    if distinct_len == 2 {
         draw_line(
             framebuffer,
             view,
@@ -1060,7 +1067,7 @@ fn fill_quad(framebuffer: &mut [u32], view: &View, quad: Quad, stats: &mut Model
         );
         return;
     }
-    if distinct.len() < 3 {
+    if distinct_len < 3 {
         return;
     }
 
@@ -1253,14 +1260,19 @@ fn draw_queued(
     queue: &mut Vec<Quad>,
     stats: &mut Model1RenderStats,
 ) {
-    queue.sort_by(|left, right| right.z.total_cmp(&left.z));
+    // Sorting indices avoids moving full quads through the stable painter sort.
+    // Equal-depth polygons keep their display-list order.
+    let mut order: Vec<usize> = (0..queue.len()).collect();
+    order.sort_by(|&left, &right| queue[right].z.total_cmp(&queue[left].z));
     stats.clipped_quads += queue.len();
-    for quad in queue.drain(..) {
+    for index in order {
+        let quad = queue[index];
         match sink {
             RasterSink::Framebuffer(framebuffer) => fill_quad(framebuffer, view, quad, stats),
             RasterSink::Quads(out) => out.push(GpuQuad::new(view, &quad)),
         }
     }
+    queue.clear();
 }
 
 /// Renders command 0x01 objects between the background and category-1 HUD

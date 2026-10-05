@@ -67,6 +67,7 @@ struct Session {
     nvram_countdown: u32,
     /// Buffers reused every frame rather than reallocated.
     background: Vec<u32>,
+    tiles: tilemap::Model1TileCache,
     foreground: Vec<u32>,
 }
 
@@ -133,6 +134,7 @@ impl Session {
             scheme,
             nvram_countdown: NVRAM_FLUSH_INTERVAL,
             background: vec![0; SCREEN_W * SCREEN_H],
+            tiles: tilemap::Model1TileCache::default(),
             foreground: vec![0; SCREEN_W * SCREEN_H],
         };
         session.load_nvram()?;
@@ -1259,13 +1261,13 @@ impl App {
                 }
             }
             Machine::Model1(sys) => {
-                tilemap::render_background(&**sys, &mut session.background);
+                session.tiles.render_background(sys, &mut session.background);
                 let quads = if model1_compute {
-                    tilemap::render_foreground(&**sys, &mut session.foreground);
+                    session.tiles.render_foreground(sys, &mut session.foreground);
                     model1_video::gpu_quads_ws(sys, native_width)
                 } else {
                     model1_video::render_below_hud(sys, &mut session.background);
-                    tilemap::render_foreground(&**sys, &mut session.foreground);
+                    session.tiles.render_foreground(sys, &mut session.foreground);
                     for (dst, &src) in session.background.iter_mut().zip(session.foreground.iter())
                     {
                         if src != 0 {

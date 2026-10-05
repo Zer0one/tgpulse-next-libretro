@@ -36,7 +36,7 @@ impl Default for Operator {
 
 /// Derived per-operator parameters, rebuilt from registers, never serialized.
 #[derive(Clone, Copy)]
-struct Params {
+pub(super) struct Params {
     frequency: u32,
     detune: i32,
     multiple: u32,
@@ -101,6 +101,12 @@ impl Params {
         let step = (fnum << ((self.frequency >> 11) & 7)) >> 2;
         ((step.wrapping_add(self.detune as u32) & 0x1ffff) * self.multiple) >> 1
     }
+}
+
+pub(super) type ParamsGrid = [[Params; 4]; 6];
+
+pub(super) fn parameters(regs: &[u8; 512]) -> ParamsGrid {
+    std::array::from_fn(|ch| std::array::from_fn(|op| Params::new(regs, ch, op)))
 }
 
 impl Operator {
@@ -298,15 +304,12 @@ impl Synthesis {
     pub(super) fn sample(
         &mut self,
         regs: &[u8; 512],
+        params: &ParamsGrid,
         keys: &[u8; 6],
         csm: bool,
         dac: u16,
         dac_enabled: bool,
     ) -> [i32; 2] {
-        // Recompute derived parameters instead of storing pointer-bearing caches.
-        // This leaves the state portable; optimize only after profiling integration.
-        let params: [[Params; 4]; 6] =
-            std::array::from_fn(|ch| std::array::from_fn(|op| Params::new(regs, ch, op)));
         let prepare = self.modified || self.prepare_count >= 4096;
         if prepare {
             self.active_channels = 0;
