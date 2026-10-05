@@ -109,13 +109,13 @@ This PR registers **TGPulse-Next - Model 1**, an experimental, single-system
 Sega Model 1 Libretro core. Its independent source repository is
 [`Zer0one/tgpulse-next-libretro`](https://github.com/Zer0one/tgpulse-next-libretro).
 The resulting buildbot core is `tgpulse_next_m1_libretro`, displayed as
-**Sega - Model 1 (TGPulse-Next)**. `Development` is reserved for the
-maintainer's separate local RetroArch installation.
+**Sega - Model 1 (TGPulse-Next)**. The local installation uses the same public
+identity.
 
 ### Changes And Build Requirements
 
 - Add `dist/info/tgpulse_next_m1_libretro.info` with public metadata, version
-  `0.1.0.6`, ZIP content support and experimental status.
+  `0.1.0.7`, ZIP content support and experimental status.
 - Add a Linux x86_64 recipe that fetches the public source repository's `main`
   branch and invokes its root `Makefile.libretro`.
 - The Makefile performs a locked release build of the Model 1 adapter and
@@ -177,3 +177,12 @@ reviewed design decisions and performed real-game and controller trials.
 **Current state:** The upstream patch and reviewer text are prepared locally.
 Version 0.1.0.6 and its revised five-platform packages are published and
 verified; upstream PR publication still awaits user review.
+
+## 0.1.0.7 Identity And Publication Update
+
+The proposed metadata and reviewer message now use `TGPulse-Next - Model 1`
+and version `0.1.0.7`. Core Label and binary filename are unchanged.
+[Release 0.1.0.7](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.7)
+and all five native jobs passed; downloaded packages and the local GitHub
+macOS installation were verified. Earlier publication sections above retain
+their historical evidence. No Libretro PR has been opened.

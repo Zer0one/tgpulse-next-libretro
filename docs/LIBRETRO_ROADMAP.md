@@ -68,7 +68,7 @@ Reviewed target: TGPulse-Next `0.1.0.1`, commit
 `3c75f9b2b155e8bb50a225c69520948ef72ecd48` baseline. The source inspection and
 adaptation boundaries are recorded in [the upstream review](LIBRETRO_UPSTREAM_REVIEW.md).
 This is a finite list of changes from the reviewed delta, not a recurring
-upstream-check milestone. U1–U9 and the retained performance changes are integrated; 0.1.0.6 is published. Existing completed phases
+upstream-check milestone. U1–U9 and the retained performance changes are integrated; 0.1.0.7 is published. Existing completed phases
 and local follow-up changes remain intact; Model 2/combined-core work follows
 this current Model 1 alignment.
 
@@ -312,3 +312,6 @@ identity `TGPulse-Next - Model 1`, retaining the public filename and Core Label.
 It packages the existing Netplay discovery/burst-delivery fixes through the
 unchanged five-platform release workflow. No implementation phase is added or
 reprioritized; publication evidence is recorded in `LIBRETRO_CI.md`.
+
+All five native CI jobs and 0.1.0.7 publication passed; downloaded packages
+were verified and the GitHub macOS arm64 core installed with matching SHA-256.

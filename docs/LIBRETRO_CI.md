@@ -394,3 +394,42 @@ controller acceptance are not established by CI. Libretro-owned GitLab jobs,
 ecosystem registration and canonical Batocera addon publication remain separate.
 Required reasoning: Medium; effort: Medium. Shared-account usage was 64%
 before and after publication (rounded); reset 2026-10-10 09:49:17 CEST.
+
+## Verified 0.1.0.7 Publication (2026-10-06)
+
+- Release: [0.1.0.7 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.7), marked prerelease.
+- Fixed source commit `107c20055fdf1f0a1ca4ecede6884c345200b9de`, annotated tag `v0.1.0.7`.
+- All five native build/test/artifact/package jobs and publication passed:
+  [CI 37386509150](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37386509150).
+- Runtime and metadata use `TGPulse-Next - Model 1`, version `0.1.0.7`;
+  binary basename and Core Label are unchanged.
+- Downloaded all five ZIPs and SHA256SUMS; verified GitHub asset digests,
+  archive/internal checksums, inventories, licenses, Model 1 scope and tagged
+  source in BUILD_INFO/SOURCE_COMMIT. Linux/macOS contain 194 files; Windows 202.
+- Local adapter checks passed: 81 tests, none ignored. The directory-copy check
+  confirmed original/conflicting files are preserved, core-level filenames
+  are renamed and a repeated installation copies nothing.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| `tgpulse-next-m1-libretro-linux-arm64-0.1.0.7.zip` | `cde7c87bbc1a385a3d72eda1f8f89955144e7e0a1ab83126a880f69c0e07219f` |
+| `tgpulse-next-m1-libretro-linux-x86_64-0.1.0.7.zip` | `ac79d52e11def63c50af2b5c259fcbd7842b33888767352781ca991001e8b99d` |
+| `tgpulse-next-m1-libretro-macos-arm64-0.1.0.7.zip` | `7418b42ffa54d61c14f62af81ec9785311b5aa53753e231bf24ca0961c2720d3` |
+| `tgpulse-next-m1-libretro-macos-x86_64-0.1.0.7.zip` | `0474f1b37622ad4e60558133d0a4432ced6a92a94274b748f2f7b0e4e7f66e50` |
+| `tgpulse-next-m1-libretro-windows-x86_64-0.1.0.7.zip` | `39f05079eecb8227a55b24f73462fd2a343b17d7a991405305a836c18a917df3` |
+
+The downloaded GitHub macOS arm64 core passed native format, 25 ABI exports,
+dependency and three empty lifecycle checks. It is installed locally as
+`tgpulse_next_m1_libretro.dylib` with matching public metadata. Installed
+core SHA-256: `5a27727957d792703636813f6d9389eed05d7c98bdf24c6420b50f3b4cc8e622`.
+Installed metadata SHA-256: `25f3631c986a52e080aa49816cb94aa47059f45e8576aca606f2107f19bccef1`.
+Both match the published package. The local source build was verified and
+installed first, then replaced by the GitHub artifact. Identity migration
+copied the default local configuration and saves with no destination conflicts;
+original directories remain available. No gameplay/controller campaign was
+repeated for this naming release. Existing COMM evidence is retained separately
+in `LIBRETRO_MODEL1_LINKED_CABINETS.md`.
+
+Verification files: `/private/tmp/tgpulse-release-0107/verification.json`,
+`macos-abi.log`, `github-install.json`; initial copy receipt:
+`/private/tmp/tgpulse-0107-local-install.json`.
