@@ -352,7 +352,7 @@ checks and was installed locally with matching SHA-256. Evidence:
 `/private/tmp/tgpulse-automatic-network-live-red-20261006/result.json`,
 `/private/tmp/tgpulse-automatic-network-artifact.log`,
 `/private/tmp/tgpulse-automatic-network-install.json`.
-Publication requested for release 0.1.0.9; see LIBRETRO_CI.md for CI and package evidence.
+Release 0.1.0.9 is published; see LIBRETRO_CI.md for CI and package evidence.
 
 ```sh
 python3 tools/test_libretro_nvram_settings.py \

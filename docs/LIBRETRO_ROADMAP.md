@@ -68,7 +68,7 @@ Reviewed target: TGPulse-Next `0.1.0.1`, commit
 `3c75f9b2b155e8bb50a225c69520948ef72ecd48` baseline. The source inspection and
 adaptation boundaries are recorded in [the upstream review](LIBRETRO_UPSTREAM_REVIEW.md).
 This is a finite list of changes from the reviewed delta, not a recurring
-upstream-check milestone. U1–U9 and the retained performance changes are integrated; 0.1.0.9 is prepared. Existing completed phases
+upstream-check milestone. U1–U9 and the retained performance changes are integrated; 0.1.0.9 is published. Existing completed phases
 and local follow-up changes remain intact; Model 2/combined-core work follows
 this current Model 1 alignment.
 
@@ -335,5 +335,5 @@ No sockets, role inference from host/client, new NVRAM encodings or upstream
 emulation changes are introduced. This extends the completed cabinet phase;
 no separate roadmap is created. Effort: Medium / S, implemented locally and
 verified with 83 adapter tests, focused VR ABI transitions and a hash-verified
-macOS installation. Live relay is included. Publication requested for 0.1.0.9; CI evidence follows.
+macOS installation. Live relay is included. 0.1.0.9 is published; five-platform CI, packages and local GitHub artifact passed. Evidence: LIBRETRO_CI.md.
 See LIBRETRO_MODEL1_LINKED_CABINETS.md for policy and evidence.

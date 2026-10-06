@@ -467,3 +467,23 @@ idempotence. No gameplay/controller campaign was repeated for this rename.
 Receipts: `/private/tmp/tgpulse-release-0108/verification.json`,
 `macos-abi.log`, `github-install.json`, and
 `/private/tmp/tgpulse-0108-local-install.json`.
+
+## Verified 0.1.0.9 Publication (2026-10-06)
+
+- Source commit: `479a663d5f89d2859e8e8ab9ab7f32dd68c46735`; annotated tag `v0.1.0.9`.
+- Release: [0.1.0.9 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.9), marked prerelease.
+- All five native build/test/artifact/package jobs and publication passed: [CI 37424233740](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37424233740).
+- Local adapter tests: 83 passed, none ignored. The macOS release build and ABI/Model 1 scope gate passed; the focused VR NVRAM ABI transitions had already passed before publication.
+- Downloaded all five archives and checked GitHub asset digests, external/internal checksums, exact package inventories, metadata, Model 1 scope, licenses and tagged source revision. Linux/macOS packages contain 194 files; Windows contains 202.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| `tgpulse-next-m1-libretro-linux-arm64-0.1.0.9.zip` | `299a7e60b1f1a2276de86b2c78efd84061473b96d9b07827af84162c8ae53620` |
+| `tgpulse-next-m1-libretro-linux-x86_64-0.1.0.9.zip` | `3ef707633e14bef830caaf0d53d46197d6a2a341e9bc94fce54abd098b9484e8` |
+| `tgpulse-next-m1-libretro-macos-arm64-0.1.0.9.zip` | `85ec2904c3cf5603da8d19ac14bf159ca70ff7285ca9d95a422c4921fd1b7284` |
+| `tgpulse-next-m1-libretro-macos-x86_64-0.1.0.9.zip` | `5130e66beb832a97d244f8b0a49d118527a7a6711b12fa29b4b2afe811b47cde` |
+| `tgpulse-next-m1-libretro-windows-x86_64-0.1.0.9.zip` | `e775c5feac6d37e1ae4fb0f4f41a7cb9fa80706c187889df1260412deb7899de` |
+
+The published macOS arm64 core passed native ABI/dependency/lifecycle and was installed in local RetroArch with public metadata. Installed core SHA-256: `cc2373d819bc401b2b86fc4d3f5619f758028066e3349ac253bed077351faa99`. Installed metadata SHA-256: `1e1f9d1312a64cddc4e8150dc1d762f5f63e9a539d0b8c2bf4a9134c93eb773d`. Both match the verified release package. The preceding local 0.1.0.9 build was also installed and hash-checked as required by AGENTS.md. These are build and deployment results, separate from gameplay, physical-controller and multi-instance cabinet trials.
+
+Required reasoning: Medium. Shared account usage: 73%; next reset 2026-10-10 09:49:17 CEST.
