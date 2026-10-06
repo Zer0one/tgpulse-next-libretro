@@ -59,6 +59,14 @@ is prepared, add its source commit and review link; when adopted, record the
 upstream commit and close the candidate instead of deleting its history.
 Candidate registration alone does not claim standalone acceptance.
 
+## Linked-Cabinet Resume Review — 2026-10-06
+
+The 0.1.0.10 Resume ordering, automatic network Core Options, lobby admission
+and transient Netpacket count handling belong to the Libretro adapter and its
+frontend transport. They do not add a standalone backport candidate. B19 remains
+the separately identified frontend-neutral COMM receive-capacity helper; no
+upstream adoption or source modification is claimed.
+
 ## B3 Calibration Validation Follow-Up — 2026-10-04
 
 Stationary-pad rejection was reported around the second/third attempt,

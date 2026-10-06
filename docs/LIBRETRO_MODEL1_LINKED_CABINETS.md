@@ -18,11 +18,11 @@ The standalone build and protocol are preserved.
 
 ## Options and native roles
 
-`Linked Cabinets (Restart Required)` is registered with an independent key for
+`Linked Cabinets` is registered with an independent key for
 each supported set, defaults Disabled and is visible only for the current set.
 A selection above Disabled fits the native COMM board and expects the selected
-number of RetroArch Netplay participants. If Netpacket is unavailable, the core
-reports it and keeps COMM disconnected; no local echo supplies a missing peer.
+number of RetroArch Netplay participants. Without a real Netpacket session,
+COMM stays disconnected; no local echo supplies a missing peer.
 
 | Sets | Selector | Operator roles |
 | --- | --- | --- |
@@ -45,17 +45,21 @@ Orange, Skyblue, Pink, Black, Green, Yellow and Blue select Slave and the matchi
 reviewed car identity. **Live** selects the native relay role and resets
 car color/number to its reviewed Red default. Wing War variants default to Master and offer Slave.
 
-- With Linked Cabinets enabled, apply the selected native role and identity.
-- With Linked Cabinets OFF and automation enabled, restore only managed fields
+- With NVRAM Settings enabled and Linked Cabinets enabled, set and maintain the
+  selected native role and identity through the corresponding NVRAM selectors.
+- With Linked Cabinets OFF and automation enabled, set only managed selectors
   to reviewed defaults: No Link + Red/No.1 (Red), or Wing War Stand Alone.
+- NVRAM Settings is the master switch: when Disabled, automation is hidden and
+  does not write operator settings. When Enabled, its displayed selectors are
+  authoritative over saved NVRAM. An active network preset is authoritative
+  for its managed selectors, including after restart; disable the preset for
+  manual role/color control.
 - Disabled performs no automatic writes, including when Linked Cabinets goes
   OFF. Disabling automation preserves values already applied.
-- Automation is independent of the NVRAM Settings master switch and synchronizes
-  its managed option values through Libretro SET_VARIABLE. Disable automation
-  for manual control, including any custom native role/color combination.
-- Changed persisted values use the existing checksum/mirror and machine-reset
-  path. Reload all participants after topology changes. Netplay host/client
-  selection never determines Master/Slave/Live.
+- Changed persisted values use the existing checksum/mirror and automatic
+  machine-reset path. Returning to the game applies a topology change before
+  the next emulated frame. Netplay host/client selection never determines
+  Master/Slave/Live.
 
 The reviewed values and encodings are reused from `nvram_data.rs`; no campaign
 samples or upstream emulation components are changed. Color identities need
@@ -65,24 +69,31 @@ only be unique among playable cabinets; they are not numbered Netplay slots.
 
 1. Use the same exact ROM set and core build on both frontends. Keep each
    frontend's saves and configuration separate.
-2. Select **2 Cabinets** on both, then reload content.
+2. Select **2 Cabinets** on both.
 3. Choose Automatic Network Settings presets: Red (Master) and Orange (Slave)
-   for VR/VFormula, or Master and Slave for Wing War. For manual NVRAM/service
-   configuration, set automation to Disabled and use distinct playable identities. The Netplay host can be either native role; host does not
+   for VR/VFormula, or Master and Slave for Wing War, with NVRAM Settings
+   enabled. For manual NVRAM/service configuration, set automation to Disabled
+   and use distinct playable identities. The Netplay host can be either native role; host does not
    automatically mean MASTER.
-4. Host a RetroArch Netplay session on one frontend and connect the other to it.
+4. Return to each game to apply the options and automatic NVRAM reset. Host a
+   RetroArch Netplay session on one frontend and connect the other to it. A
+   lobby may also be open before selecting the cabinet count.
 5. Let the games perform their native COMM startup. A transport roster alone
    is not proof that the game has established its link.
 
 For MASTER/SLAVE/LIVE, select **3 Cabinets** everywhere and set LINK ID = LIVE
 on the third VR/VFormula instance. Automatic Network Settings can select Master, Slave and Live independently
-on each instance. Disable automation before applying custom NVRAM Settings
+on each instance while NVRAM Settings is enabled. Disable automation before applying custom NVRAM Settings
 or using saved service-menu values. No role is assigned by transport.
 
-Restart/reload all cabinets after changing topology or roles during a session.
+Return to the game on each cabinet after changing topology or roles. The
+frontends may resume at different times; packets carrying the old cabinet
+count are ignored while the native ring forms.
 For standalone VR operation, set **Linked Cabinets = Disabled** and
-**NVRAM Settings → Link ID = No Link** (with NVRAM Settings enabled), then
-restart/reload. Disabling the transport does not change the saved native role.
+return to the game. With NVRAM Settings and Automatic Network Settings enabled,
+the latter selects **Link ID = No Link**. With automation Disabled, set this
+selector manually. Disabling the transport alone does not change the saved
+native role.
 A saved Slave role without a fitted COMM board produces the game's horizontal
 white-line screen with **CANCELLED**. This was reproduced on macOS/Vulkan on
 2026-10-06 using an isolated copy of the affected save: two 900-frame runs
@@ -92,11 +103,12 @@ attract scene. Personal configuration and saves were preserved; evidence is
 `/private/tmp/tgpulse-vr-stripes-no-link/`. The tested core SHA-256 is
 `2b87edabdd849c70445a764577d8f9985bf7751a86d93e89e453356a490c25eb`.
 
-Individual resets preserve backup RAM/EEPROM and recreate the native machine;
-they do not rewind peers or establish a coordinated session reset. After a lost
-participant, close/reload the game and restart Netplay on every cabinet. Start
-the host first, then join from the client; reconnecting only one client does
-not recover a host transport already marked failed.
+Resume or Restart preserves backup RAM/EEPROM, rereads the selected cabinet total and
+recreates the native machine only when the total changes. It resets the
+transport handshake while keeping an open Netplay lobby's callbacks and host
+client slots. After a lost participant, Restart can clear the core's failed
+COMM state; a disconnected frontend still has to reconnect to the lobby.
+Start the host first, then join from the client.
 
 ## Transport and persistence contract
 
@@ -118,7 +130,8 @@ and the native machine's save/load refusal remains intact. Cold reset uses the
 native constructor and retains immutable loaded ROM resources only for linked
 machines, preserving current audio gains and all NVRAM blocks. It does not
 remove COMM to bypass snapshot restrictions. Disabled mode retains the existing
-standalone Save State/reset path.
+standalone Save State/reset path. A topology change reloads the Model 1 ZIP on
+Restart, so standalone play does not retain duplicate ROM resources.
 
 ## Reusable verification
 
@@ -337,7 +350,7 @@ Reuse per-set frontend option registries, native NVRAM patches and reset after
 persisted changes. The smallest adaptation adds user-approved presets in the
 adapter; no equivalent automatic Master/color preset was found in those paths.
 
-83 adapter tests passed, including adjacency/default checks and every preset
+The published 0.1.0.9 baseline passed 83 adapter tests, including adjacency/default checks and every preset
 (including Live) on all six native-eligible sets, native integrity and unrelated
 operator-field preservation. The existing NVRAM ABI runner's new focused mode
 verified VR's eight colors, Live restoring default Red, frontend option synchronization,
@@ -346,7 +359,7 @@ automation is Disabled. Native bookkeeping can advance during frames, so the
 Disabled equality check covers operator EEPROM rather than all live backup RAM.
 This is API/NVRAM evidence, not a new multi-instance gameplay/controller test.
 
-The macOS release build passed native ABI/dependency/lifecycle and Model 1 scope
+The published macOS release build passed native ABI/dependency/lifecycle and Model 1 scope
 checks and was installed locally with matching SHA-256. Evidence:
 `/private/tmp/tgpulse-automatic-network-tests.log`,
 `/private/tmp/tgpulse-automatic-network-live-red-20261006/result.json`,
@@ -359,3 +372,125 @@ python3 tools/test_libretro_nvram_settings.py \
   --core tgpulse_next_m1_libretro.dylib --rom-dir /path/to/model1/roms \
   --automatic-network-only --output /path/to/new-isolated-results
 ```
+
+## macOS Startup and NVRAM Authority Correction (Local 0.1.0.10 Candidate)
+
+Release 0.1.0.9 can stall when an existing VR operator option differs from
+the active Automatic Network Settings preset. RetroArch's `SET_VARIABLE` can
+synchronously call the core's option-display callback. Publishing a managed
+option while `retro_run` holds the core mutex then re-enters that mutex. Queue
+managed option updates during NVRAM application and publish them only after
+`retro_run` releases the lock.
+
+NVRAM Settings is now the master switch for both manual selectors and
+Automatic Network Settings. When Disabled, the automatic option is hidden and
+does not write. When Enabled, an active preset first sets and maintains its
+managed NVRAM Settings selectors; the existing NVRAM Settings path applies
+their displayed values to Save RAM. This happens on startup and option changes,
+including Linked Cabinets changes. With automation Disabled, no automatic
+selector changes occur, including when Linked Cabinets goes OFF; manual NVRAM
+selectors remain authoritative. Automatic Initial NVRAM Setup is a separate
+first-save feature and is unchanged.
+
+On macOS ARM, an isolated 30-frame VR launch with NVRAM Settings enabled and
+`vr_link_id=SLAVE` timed out using the published 0.1.0.9 core. The same launch
+completed in 1.39 seconds with the fix. A 60-frame Vulkan launch using a copy
+of the user's VR Save RAM completed in 1.59 seconds. The copy was isolated and
+the original save was not modified. All 83 adapter tests passed. This is
+startup regression evidence, not a full linked-cabinet gameplay test.
+
+An earlier local 0.1.0.10 candidate passed 84 adapter tests and focused ABI
+checks for master-switch gating, preset authority, Disabled preservation, all
+eight VR colors and Live. A 60-frame Vulkan launch using an isolated copy of
+the user's VR Save RAM completed in 1.54 seconds. The macOS artifact gate
+passed and that candidate was installed in local RetroArch with matching SHA-256
+`0ac84114724a1b7073e8c9707df99a2a574c9aa51b7e196904cdf7d565753001`;
+the metadata SHA-256 is
+`e7ddd4c8355b22f2c6c2810c27443eae9b0b29a2984cc2f67ddd2912ba5cab00`.
+These are startup and option regression checks, not a linked-cabinet gameplay test. Evidence:
+`/private/tmp/tgpulse-0110-authority-tests-final.log`,
+`/private/tmp/tgpulse-0110-authority-abi-2/` and
+`/private/tmp/tgpulse-0110-master-automatic-vulkan/`.
+
+## Linked Cabinets on Restart (Local 0.1.0.10 Candidate)
+
+RetroArch Restart now rereads the current set's Linked Cabinets option. When
+the total changes, the adapter rebuilds the machine with or without M1COMM,
+retains its Save RAM and updates the Netpacket packet count. The transport
+keeps the active frontend callbacks and host client slots, then starts a fresh
+HELLO handshake. A same-total Restart also clears a failed core transport
+state. Automatic Network Settings continues to select the matching role through
+NVRAM Settings.
+
+The VR ABI test opened a mock lobby before changing the option and verified
+Restart transitions 1 → 2 → 3 → 1, live callback delivery after each linked
+transition, COMM insertion/removal, Master/Red while linked and No Link/Red
+after returning offline. 85 adapter tests pass. A separate real two-instance
+RetroArch regression established the VR COMM roster and sustained game-created
+online state for more than 600 frames on each participant. The real two-instance
+run started with the linked option already selected; the option-change Restart
+sequence was exercised through the ABI with a simulated open lobby. Evidence:
+`/private/tmp/tgpulse-linked-restart-20261006-final/` and
+`/private/tmp/tgpulse-linked-restart-baseline-20261006-c/`.
+
+The earlier local macOS build passed the artifact gate and was installed in
+RetroArch with matching core SHA-256
+`cbb98bf2e2031ff745edace605900fef1ec25b784771517e180a955c3c0c99c1`.
+The installed `.info` SHA-256 is
+`e7ddd4c8355b22f2c6c2810c27443eae9b0b29a2984cc2f67ddd2912ba5cab00`.
+
+## First Restart Role and Netpacket Notice Correction
+
+On a topology Restart, an active Automatic Network Settings preset now applies
+its managed NVRAM selector values before the first emulated frame. The adapter
+publishes matching Core Option values after releasing its mutex. This prevents
+VR from booting one frame with the previous role and then resetting again as
+the frontend catches up. NVRAM Settings remains the master switch; Disabled
+automation preserves manual selectors.
+
+The early "frontend has no Netpacket support" notice was removed. The
+registration response is not a reliable indication that a subsequent Netplay
+session cannot start; an actual session and game-created COMM state provide
+the useful evidence. Transport failures still report through the existing
+runtime error path.
+
+The focused ABI regression verified Slave/Pink NVRAM after the first frame of
+Restart from standalone, 1 → 2 → 3 → 1 topology changes, callback preservation
+and offline restoration. A separate real two-instance RetroArch test using
+Automatic Network Settings reached sustained game-created COMM online on both
+cabinets, including a run with the Slave joining ten seconds after the host.
+The exact in-menu option-change Restart sequence remains for a frontend trial.
+Evidence: `/private/tmp/tgpulse-linked-restart-atomic-20261006/`,
+`/private/tmp/tgpulse-linked-automatic-20261006/` and
+`/private/tmp/tgpulse-linked-automatic-delay-20261006/`.
+
+The corrected local build passed the macOS artifact gate and is installed in
+RetroArch with matching core SHA-256
+`4c88ed34e2d351e1bd3703120d10fbd5a9a9809bd5bb454cc370c3140d037b26`.
+Its installed `.info` SHA-256 is
+`e7ddd4c8355b22f2c6c2810c27443eae9b0b29a2984cc2f67ddd2912ba5cab00`.
+
+## Resume Before the First Linked Frame (Local 0.1.0.10 Candidate)
+
+The reported white-line sequence was **2 Cabinets → change Automatic Network
+Settings → Resume → automatic reset** with both frontends already in a lobby.
+Previously, Resume applied the linked NVRAM role and reset the machine while
+COMM was still absent; fitting COMM required a separate Restart. Resume now
+rebuilds the machine with COMM before applying the role and advancing the next
+native frame. It preserves backup RAM and EEPROM across that rebuild.
+
+A lobby can accept the peer before the host selects its cabinet count. During
+staggered setup, packets with the previous count are ignored until both peers
+match; a different game/set hash remains a failure. The focused ABI test
+reproduces the exact Resume sequence, checks COMM and Slave/Pink NVRAM before
+the first frame, and verifies a staggered peer joins the retained lobby.
+Evidence: `/private/tmp/tgpulse-linked-resume-final-20261006/`. All 86 adapter
+tests and the macOS artifact gate pass. A separate real two-instance RetroArch
+regression reached game-created COMM online for more than 600 frames on both
+participants: `/private/tmp/tgpulse-linked-resume-regression-20261006/`.
+That run started with options already selected; the exact in-menu interaction
+was exercised by the focused ABI test, not the two-instance frontend run.
+The verified core was installed locally with matching SHA-256
+`e1c33a2ab27f2001faddab1212c832cfc965ca6d9482a7e490f979253e12b720`.
+The matching `.info` SHA-256 is
+`e7ddd4c8355b22f2c6c2810c27443eae9b0b29a2984cc2f67ddd2912ba5cab00`.

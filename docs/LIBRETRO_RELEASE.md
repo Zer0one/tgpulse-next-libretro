@@ -2,7 +2,7 @@
 
 This experimental core targets Sega Model 1. Current source selects only
 Model 1 machine components and required shared devices (a single system build).
-Version 0.1.0.2 introduced this component split; 0.1.0.9 retains it alongside
+Version 0.1.0.2 introduced this component split; 0.1.0.10 retains it alongside
 the reviewed Model 1 integration and the retained performance improvements
 documented in `LIBRETRO_MODEL1_PERFORMANCE.md`. Consult the package's
 BUILD_INFO for its compiled scope. Model 2 and combined Libretro
@@ -79,8 +79,11 @@ Supersampling offers 1–4x on hardware renderers, including in 4:3.
   Current machine Save State format is 5, without migration from old formats.
 - Experimental linked cabinets through Libretro Netpacket for supported
   Virtua Racing/Formula and Wing War sets. Configure native MASTER/SLAVE/LIVE
-  roles using the service menu or NVRAM options. Save States are unavailable
-  while the COMM board is fitted.
+  roles using the service menu or NVRAM options. With NVRAM Settings enabled,
+  Automatic Network Settings can select the native role and identity. Changing
+  Linked Cabinets takes effect when returning to the game; a changed operator
+  value triggers an automatic machine reset. Save States are unavailable while
+  the COMM board is fitted.
 - Optional, hash-guarded in-memory repair of the known 315-5711 bad dump.
 
 NetMerc remains experimental. Its required Model 1 I/O BIOS can be found in the

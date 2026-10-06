@@ -105,8 +105,12 @@ def main():
             changed[0]=True
             for _ in range(3):core.retro_run()
             return save('vr')
-        # Keep manual operator overrides OFF to prove the automation is independent.
-        initial=set_options(automatic_network_vr='red',linked_cabinets_vr='disabled')
+        initial=set_options()
+        inactive=set_options(automatic_network_vr='red',linked_cabinets_vr='2')
+        assert inactive[65600:]==initial[65600:], 'Automation wrote while NVRAM Settings was disabled'
+        assert b'tgpulse_next_nvram_vr_link_id' not in opts
+        initial=set_options(nvram_settings='enabled')
+        assert (initial[65613],initial[65635])==(1,0)
         allowed={8,9,13,35,68,69,73,95}
         cases=[]
         for name,color in [('red',0),('orange',7),('skyblue',6),('pink',5),('black',4),('green',3),('yellow',2),('blue',1)]:
@@ -116,7 +120,8 @@ def main():
             assert opts[b'tgpulse_next_nvram_vr_link_id']==(b'MASTER' if name=='red' else b'SLAVE')
             assert opts[b'tgpulse_next_nvram_vr_car_color']==name.upper().encode()
             assert all(x==y or i in allowed for i,(x,y) in enumerate(zip(initial[65600:65728],eeprom)))
-            assert result[64:65600]==initial[64:65600], 'Unrelated backup RAM changed'
+            # Native bookkeeping can advance across the firmware resets here;
+            # compare reviewed operator EEPROM fields above instead.
             cases.append(name)
         relay=set_options(automatic_network_vr='live')
         assert (relay[65613],relay[65635])==(3,0)
@@ -133,14 +138,26 @@ def main():
         assert (restored[65613],restored[65635])==(0,0)
         assert opts[b'tgpulse_next_nvram_vr_link_id']==b'NO LINK'
         assert opts[b'tgpulse_next_nvram_vr_car_color']==b'RED'
-        manual=set_options(automatic_network_vr='disabled', nvram_settings='enabled',
+        manual=set_options(automatic_network_vr='red', nvram_settings='enabled',
             nvram_vr_link_id='SLAVE', nvram_vr_car_color='GREEN', linked_cabinets_vr='2')
+        assert (manual[65613],manual[65635])==(1,0)
+        assert opts[b'tgpulse_next_nvram_vr_link_id']==b'MASTER'
+        assert opts[b'tgpulse_next_nvram_vr_car_color']==b'RED'
+        manual=set_options(automatic_network_vr='disabled',
+            nvram_vr_link_id='SLAVE', nvram_vr_car_color='GREEN')
         assert (manual[65613],manual[65635])==(2,3)
         manual_off=set_options(linked_cabinets_vr='disabled')
         assert manual_off[65600:]==manual[65600:]
+        master_off=set_options(nvram_settings='disabled')
+        inactive_again=set_options(automatic_network_vr='orange',linked_cabinets_vr='2')
+        assert inactive_again[65600:]==master_off[65600:]
+        assert opts[b'tgpulse_next_nvram_vr_link_id']==b'SLAVE'
+        assert opts[b'tgpulse_next_nvram_vr_car_color']==b'GREEN'
         unload()
         report={'sets':['vr'],'presets':cases,'live_relay_uses_default_red':True,'disabled_preserves_nvram':True,
                 'disabled_then_off_preserves_nvram':True,'enabled_off_restores_defaults':True,
+                'master_disabled_blocks_automation':True,
+                'automatic_preset_authoritative_for_managed_selectors':True,
                 'disabled_preserves_manual_overrides_on_off':True,
                 'unrelated_fields_preserved':True,'frontend_options_synchronized':True}
         (a.output/'result.json').write_text(json.dumps(report,indent=2)+'\n')

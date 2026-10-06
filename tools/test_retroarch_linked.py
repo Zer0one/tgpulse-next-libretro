@@ -22,12 +22,15 @@ def main():
     p.add_argument('--moltenvk',type=Path)
     p.add_argument('--cabinets',type=int,default=2,choices=range(2,10))
     p.add_argument('--live',action='store_true',help='Last VR/VFormula instance is a LIVE relay')
+    p.add_argument('--automatic-network',action='store_true',help='Select native roles with Automatic Network Settings instead of manual NVRAM selectors')
     p.add_argument('--frames',type=int,default=2400)
+    p.add_argument('--join-delay',type=float,default=0.5,help='Delay between starting host and client, in seconds')
     p.add_argument('--timeout',type=int,default=60)
     a=p.parse_args();name=a.rom.stem
     if name not in ('vr','vformula','wingwar','wingwaru','wingwarj','wingwar360'):p.error('Set has no M1COMM')
     if name.startswith('wingwar') and (a.cabinets!=2 or a.live):p.error('Wing War requires Master/Slave only')
     if a.cabinets==9 and not a.live:p.error('Nine total cabinets require one LIVE relay')
+    if not 0<=a.join_delay<=30:p.error('Join delay must be between 0 and 30 seconds')
     out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
     # Probe an available loopback port; no frontend or core socket is opened here.
     with socket.socket() as probe:probe.bind(('127.0.0.1',0));port=probe.getsockname()[1]
@@ -41,18 +44,23 @@ def main():
             dest=out/f'{index}-{role.lower()}'
             cmd=base+['--output',str(dest),'--netplay-role','host' if index==0 else 'client']
             if name in ('vr','vformula'):
-                cmd+=['--nvram-setting',f'tgpulse_next_nvram_{name}_link_id={role}']
+                if a.automatic_network:
+                    cmd+=['--automatic-network','live' if role=='LIVE' else colors[index].lower()]
+                else:
+                    cmd+=['--nvram-setting',f'tgpulse_next_nvram_{name}_link_id={role}']
                 field='car_color' if name=='vr' else 'car_number'
                 color=colors[index] if role!='LIVE' else colors[0]
                 value=color if name=='vr' else f'NO.{index+1} ({color})' if role!='LIVE' else 'NO.1 (RED)'
-                cmd+=['--nvram-setting',f'tgpulse_next_nvram_{name}_{field}={value}']
+                if not a.automatic_network:
+                    cmd+=['--nvram-setting',f'tgpulse_next_nvram_{name}_{field}={value}']
                 if name=='vr':cmd+=['--nvram-setting','tgpulse_next_nvram_vr_cabinet=SPECIAL']
+            elif a.automatic_network:cmd+=['--automatic-network',role.lower()]
             else:cmd+=['--nvram-setting',f'tgpulse_next_nvram_{name}_network={role}']
             log=(out/f'{index}-launcher.log').open('wb')
             process=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             processes.append((process,log,dest,role))
             (out/'processes.json').write_text(json.dumps([{'pid':proc.pid,'role':r,'output':str(d)} for proc,_,d,r in processes],indent=2))
-            time.sleep(0.5)
+            time.sleep(a.join_delay if index==0 else 0.5)
         deadline=time.monotonic()+a.timeout+10
         while any(proc.poll() is None for proc,_,_,_ in processes):
             if time.monotonic()>deadline:raise TimeoutError('Linked run exceeded bound')

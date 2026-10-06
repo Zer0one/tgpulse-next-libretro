@@ -30,9 +30,27 @@ pub fn read(env: ffi::Environment, set: &str) -> Option<Preset> {
     let value = option_value(env, KEYS[i]);
     let preset = values(set).iter().position(|(key, _)| Some(key.to_bytes()) == value.as_deref().map(str::as_bytes)).unwrap_or(0);
     if values(set)[preset].0 == c"disabled" { return None; }
-    let linked = option_value(env, linked_key).and_then(|v| v.parse::<u16>().ok())
-        .is_some_and(|n| (2..=*max).contains(&n));
-    Some(Preset { linked, index: preset })
+    let total = option_value(env, linked_key).and_then(|v| v.parse::<u16>().ok())
+        .filter(|n| (2..=*max).contains(n)).unwrap_or(1);
+    Some(Preset { linked: total > 1, index: preset })
+}
+
+/// Keep the managed selectors equal to the active preset while NVRAM Settings
+/// is enabled; the NVRAM Settings path applies their displayed values.
+pub fn needs_publish(env: ffi::Environment, set: &str, choices: &[Option<usize>]) -> bool {
+    nvram::FIELDS.iter().filter(|f| f.set == set).zip(choices).any(|(f, selected)| {
+        let Some(value) = selected.and_then(|i| f.values.get(i)) else { return false };
+        option_value(env, f.key).as_deref().map(str::as_bytes) != Some(value.key.to_bytes())
+    })
+}
+
+pub fn publish(env: ffi::Environment, set: &str, choices: &[Option<usize>]) {
+    for (f, selected) in nvram::FIELDS.iter().filter(|f| f.set == set).zip(choices) {
+        let Some(value) = selected.and_then(|i| f.values.get(i)) else { continue };
+        if option_value(env, f.key).as_deref().map(str::as_bytes) == Some(value.key.to_bytes()) { continue; }
+        let mut variable = ffi::Variable { key: f.key.as_ptr(), value: value.key.as_ptr() };
+        unsafe { env(ffi::SET_VARIABLE, (&mut variable as *mut ffi::Variable).cast()); }
+    }
 }
 
 pub fn choices(set: &str, preset: Preset) -> Vec<Option<usize>> {
@@ -52,15 +70,6 @@ pub fn choices(set: &str, preset: Preset) -> Vec<Option<usize>> {
         }
         None
     }).collect()
-}
-
-pub fn publish(env: ffi::Environment, set: &str, choices: &[Option<usize>]) {
-    for (f, selected) in nvram::FIELDS.iter().filter(|f| f.set == set).zip(choices) {
-        let Some(value) = selected.and_then(|i| f.values.get(i)) else { continue };
-        if option_value(env, f.key).as_deref().map(str::as_bytes) == Some(value.key.to_bytes()) { continue; }
-        let mut variable = ffi::Variable { key: f.key.as_ptr(), value: value.key.as_ptr() };
-        unsafe { env(ffi::SET_VARIABLE, (&mut variable as *mut ffi::Variable).cast()); }
-    }
 }
 
 #[cfg(test)]

@@ -127,12 +127,14 @@ struct Game {
     machine: Box<Model1System>,
     initial_state: Vec<u8>,
     linked_reset: Option<(loader::Model1Roms, Config)>,
+    rom_path: String,
+    bios_dir: Option<std::path::PathBuf>,
+    loaded_linked_cabinets: u16,
     link_status: Option<[u8; 4]>,
     linked_online_frames: u32,
     factory_nvram_loaded: bool,
     audio_notice: Option<String>,
     nvram_pending: bool,
-    network_settings: Option<automatic_network::Preset>,
     network_pending: bool,
     nvram_wait_frames: u32,
     pixels: Vec<u32>,
@@ -524,7 +526,7 @@ fn publish_nvram_option_visibility(environment: ffi::Environment, set: &str, ena
         for key in [linked_key, automatic_network::KEYS[i]] {
             let mut display = ffi::OptionDisplay {
                 key: key.as_ptr(),
-                visible: game == set,
+                visible: game == set && (key == linked_key || enabled),
             };
             unsafe {
                 environment(
@@ -1200,7 +1202,7 @@ fn options() -> &'static OptionStorage {
         let network_field = [b"_link_id".as_slice(), b"_network", b"_car_color", b"_car_number"]
             .iter().any(|suffix| field.key.to_bytes().ends_with(suffix));
         let help = if network_field {
-            c"Reviewed operator setting for the loaded ROM set. Automatic Network Settings manages this value while enabled, independently of NVRAM Settings. Disable automation for manual control; then this value applies only with NVRAM Settings enabled. Other fields are preserved. Changed persisted values reset the machine."
+            c"Reviewed operator setting for the loaded ROM set. With NVRAM Settings enabled, this displayed value overrides saved NVRAM. Active Automatic Network Settings sets and maintains the managed network values; disable that preset for manual control. Other fields are preserved. Changed persisted values reset the machine."
         } else {
             c"Reviewed operator setting for the loaded ROM set. Applied only while NVRAM Settings is enabled. Other EEPROM fields and calibration are preserved. A changed persisted value resets the machine."
         };
@@ -1211,14 +1213,14 @@ fn options() -> &'static OptionStorage {
         let mut values=vec![(c"disabled",c"Disabled"),(c"2",c"2 Cabinets")];
         if max>2 {values.extend([(c"3",c"3 Cabinets"),(c"4",c"4 Cabinets"),(c"5",c"5 Cabinets"),(c"6",c"6 Cabinets"),(c"7",c"7 Cabinets"),(c"8",c"8 Cabinets"),(c"9",c"9 Cabinets")]);}
         let info = if max == 2 {
-            c"Select the total number of linked cabinets. Requires Netpacket support. Save States are unavailable while the COMM board is fitted. Reload content after changing this option."
+            c"Select the total number of linked cabinets. Requires Netpacket support. Changes take effect when returning to the game. Save States are unavailable while the COMM board is fitted."
         } else {
-            c"Select the total number of linked cabinets, including any LIVE relay. Requires Netpacket support. Save States are unavailable while the COMM board is fitted. Reload content after changing this option."
+            c"Select the total number of linked cabinets, including any LIVE relay. Requires Netpacket support. Changes take effect when returning to the game. Save States are unavailable while the COMM board is fitted."
         };
-        definitions.push(option_definition(key,c"Linked Cabinets (Restart Required)",info,c"system",&values,c"disabled"));
+        definitions.push(option_definition(key,c"Linked Cabinets",info,c"system",&values,c"disabled"));
         let presets = automatic_network::values(set);
         definitions.push(option_definition(automatic_network::KEYS[i], c"Automatic Network Settings",
-            c"Apply the selected native role and a unique car color/number when Linked Cabinets is enabled. Red is Master for VR/VFormula; other colors are Slave. Live selects a relay with the default Red car color/number. Wing War uses Master/Slave. With Linked Cabinets OFF, restore only managed fields to their reviewed offline defaults. Disabled never changes these fields, including on OFF or when disabling automation. Applies independently of NVRAM Settings; updates its displayed values. Changed persisted values reset the machine. Reload all cabinets after topology changes; frontend host/client does not select the native role.",
+            c"Available only while NVRAM Settings is enabled. An active preset sets and maintains the corresponding NVRAM selectors; Red is Master for VR/VFormula, other colors are Slave, and Live uses the default Red identity. Wing War uses Master/Slave. Linked Cabinets OFF selects offline defaults. Disabled never changes the selectors. Changes apply when returning to the game; changed persisted values reset the machine automatically. Frontend host/client does not select the native role.",
             c"system", presets, presets[0].0));
     }
     storage.definitions.splice(end..end, definitions);
@@ -1347,9 +1349,9 @@ fn register_options(environment: ffi::Environment) {
     }
     for (i, (set, key, max)) in netpacket::GAMES.into_iter().enumerate() {
         let value = if max == 2 {
-            c"Linked Cabinets (Restart Required); disabled|2"
+            c"Linked Cabinets; disabled|2"
         } else {
-            c"Linked Cabinets (Restart Required); disabled|2|3|4|5|6|7|8|9"
+            c"Linked Cabinets; disabled|2|3|4|5|6|7|8|9"
         };
         legacy.push(ffi::Variable {
             key: key.as_ptr(),
@@ -1838,6 +1840,18 @@ fn mvd_input(input: Option<ffi::InputState>, device: u32, settings: mvd::Setting
 }
 
 
+fn selected_linked_cabinets(environment: ffi::Environment, set: &str) -> u16 {
+    netpacket::GAMES
+        .iter()
+        .find(|(game, _, _)| *game == set)
+        .and_then(|(_, key, max)| {
+            option_value(environment, key)
+                .and_then(|value| value.parse::<u16>().ok())
+                .filter(|total| (2..=*max).contains(total))
+        })
+        .unwrap_or(1)
+}
+
 fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String> {
     let environment = core
         .environment
@@ -1895,24 +1909,10 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
         system: System::Model1,
         ..Config::default()
     };
-    let linked = netpacket::GAMES
-        .iter()
-        .find(|(set, _, _)| *set == definition.name)
-        .and_then(|(_, key, max)| {
-            option_value(environment, key)
-                .and_then(|v| v.parse::<u16>().ok())
-                .filter(|n| (2..=*max).contains(n))
-        })
-        .unwrap_or(1);
+    let linked = selected_linked_cabinets(environment, &definition.name);
     netpacket::configure(&definition.name, linked);
     if linked > 1 {
         config.cabinet = tgpulse_core::config::Cabinet::Twin;
-        if !netpacket::supported() {
-            notify(
-                Some(environment),
-                "Linked Cabinets enabled, but frontend has no Netpacket support",
-            );
-        }
     }
     config.smooth_shadows = core.settings.smooth_shadows;
     config.netmerc_city_workaround = core.settings.netmerc_city_workaround;
@@ -1946,12 +1946,14 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
         machine,
         initial_state,
         linked_reset,
+        rom_path: path.to_owned(),
+        bios_dir: bios.clone(),
+        loaded_linked_cabinets: linked,
         link_status: None,
         linked_online_frames: 0,
         factory_nvram_loaded,
         audio_notice,
         nvram_pending: core.settings.nvram_settings,
-        network_settings: None,
         network_pending: true,
         nvram_wait_frames: 0,
         pixels: vec![0; WIDTH * HEIGHT],
@@ -2034,6 +2036,48 @@ fn resample_stereo_60hz(input: &[i16], output: &mut Vec<i16>, remainder: &mut u6
     }
 }
 
+fn reconfigure_linked(game: &mut Game, environment: ffi::Environment,
+    settings: &Settings) -> Result<bool, String> {
+    let linked = selected_linked_cabinets(environment, &game.set_name);
+    if linked == game.loaded_linked_cabinets { return Ok(false); }
+    let (backup, eeprom) = game.machine.nvram_blocks();
+
+    // A topology change is rare. Reload resources here so standalone play
+    // does not retain a second complete copy of the Model 1 ROM images.
+    let mut roms = loader::load_model1_zip_with_bios(&game.rom_path,
+        settings.apply_known_rom_repairs, game.bios_dir.as_deref())?;
+    let donor = audio_donor_option(environment);
+    let audio_notice = apply_audio_donor(&mut roms, &game.rom_path, donor);
+    let config = Config {
+        rom_path: game.rom_path.clone(),
+        system: System::Model1,
+        cabinet: if linked > 1 { tgpulse_core::config::Cabinet::Twin }
+            else { tgpulse_core::config::Cabinet::Single },
+        smooth_shadows: settings.smooth_shadows,
+        netmerc_city_workaround: settings.netmerc_city_workaround,
+        audio_mutes: settings.audio_mutes,
+        audio_gains: settings.audio_gains,
+        netmerc_audio_donor: donor,
+        ..Config::default()
+    };
+    let mut machine = Box::new(Model1System::with_config(&roms, config.clone())
+        .map_err(|error| error.to_string())?);
+    machine.sound.set_gains(settings.audio_gains);
+    let initial_state = if linked > 1 { Vec::new() } else { machine.save_state()? };
+
+    netpacket::reconfigure_total(linked);
+    game.machine = machine;
+    game.machine.set_nvram_blocks(&backup, &eeprom);
+    game.initial_state = initial_state;
+    game.linked_reset = (linked > 1).then_some((roms, config));
+    game.loaded_linked_cabinets = linked;
+    game.audio_notice = audio_notice;
+    game.link_status = None;
+    game.linked_online_frames = 0;
+    game.tiles = tilemap::Model1TileCache::default();
+    Ok(true)
+}
+
 fn reset_machine(game: &mut Game) -> Result<(), String> {
     game.mvd_sensors.stop();
     game.mvd_commands.resync();
@@ -2106,26 +2150,32 @@ fn import_save_ram(core: &mut Core) {
     export_save_ram(core);
 }
 
-fn apply_pending_nvram(game: &mut Game, environment: Option<ffi::Environment>, enabled: bool) {
+fn apply_pending_nvram(game: &mut Game, environment: Option<ffi::Environment>, enabled: bool,
+    network_publications: &mut Vec<(String, Vec<Option<usize>>)>) {
     if !game.nvram_pending && !game.network_pending { return; }
     let Some(env) = environment else { return; };
-    let network = automatic_network::read(env, &game.set_name);
-    let network_changed = network != game.network_settings;
-    if network.is_none() { game.network_settings = None; }
-    if !game.nvram_pending && (!network_changed || network.is_none()) {
-        game.network_pending = false;
-        return;
-    }
-    if !enabled && network.is_none() {
-        game.network_pending = false;
+    if !enabled {
         game.nvram_pending = false;
+        game.network_pending = false;
         return;
     }
+    let network = automatic_network::read(env, &game.set_name);
+    game.network_pending = false;
+    let network_choices = network.map(|preset| automatic_network::choices(&game.set_name, preset));
+    if let Some(selected) = &network_choices {
+        if automatic_network::needs_publish(env, &game.set_name, &selected) {
+            network_publications.push((game.set_name.clone(), selected.clone()));
+            // Apply the preset's authoritative selector values before the
+            // next emulated frame; publish them after CORE unlocks.
+            game.nvram_pending = true;
+        }
+    }
+    if !game.nvram_pending { return; }
     let fields: Vec<_> = nvram::FIELDS
         .iter()
         .filter(|f| f.set == game.set_name)
         .collect();
-    let choices: Vec<_> = fields
+    let mut choices: Vec<_> = fields
         .iter()
         .map(|field| {
             option_value(env, field.key)
@@ -2138,28 +2188,18 @@ fn apply_pending_nvram(game: &mut Game, environment: Option<ffi::Environment>, e
                 .unwrap_or(field.default)
         })
         .collect();
-    let (mut backup, mut eeprom) = game.machine.nvram_blocks();
-    let network_choices = network.map(|preset| automatic_network::choices(&game.set_name, preset));
-    let result = if let Some(overrides) = &network_choices {
-        let selected: Vec<_> = choices.iter().zip(overrides).map(|(&manual, &automatic)|
-            automatic.or(enabled.then_some(manual))).collect();
-        nvram::apply_selected(&game.set_name, &mut eeprom, &selected)
-    } else {
-        nvram::apply_settings(&game.set_name, &mut backup, &mut eeprom, &choices)
-    };
-    if result != nvram::Apply::NotReady {
-        game.network_pending = false;
-        game.network_settings = network;
-        if let Some(selected) = &network_choices {
-            automatic_network::publish(env, &game.set_name, selected);
+    if let Some(selected) = &network_choices {
+        for (choice, automatic) in choices.iter_mut().zip(selected) {
+            if let Some(automatic) = automatic { *choice = *automatic; }
         }
     }
+    let (mut backup, mut eeprom) = game.machine.nvram_blocks();
+    let result = nvram::apply_settings(&game.set_name, &mut backup, &mut eeprom, &choices);
     match result {
         nvram::Apply::NotReady => {
             game.nvram_wait_frames += 1;
             if game.nvram_wait_frames >= 1200 {
                 game.nvram_pending = false;
-                game.network_settings = network;
                 game.network_pending = false;
                 notify(
                     environment,
@@ -2287,7 +2327,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     unsafe {
         *info = ffi::SystemInfo {
             library_name: c"TGPulse-Next-M1".as_ptr(),
-            library_version: c"0.1.0.9".as_ptr(),
+            library_version: c"0.1.0.10".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
             block_extract: true,
@@ -2363,13 +2403,24 @@ pub extern "C" fn retro_set_controller_port_device(port: u32, device: u32) {
 pub extern "C" fn retro_reset() {
     with_core(|core| {
         import_save_ram(core);
+        core.settings.nvram_settings = core.environment
+            .and_then(|environment| option_value(environment, c"tgpulse_next_nvram_settings"))
+            .is_some_and(|value| value == "enabled");
         if let Some(game) = core.game.as_mut() {
             game.rumble.stop();
             game.timing.reset();
             let (backup, eeprom) = game.machine.nvram_blocks();
-            if let Err(error) = reset_machine(game) {
+            let reset = core.environment.map_or(Ok(false), |environment|
+                reconfigure_linked(game, environment, &core.settings))
+                .and_then(|changed| if changed { Ok(()) } else { reset_machine(game) });
+            if let Err(error) = reset {
                 notify(core.environment, &format!("Reset failed: {error}"));
                 return;
+            }
+            // Restart also recovers an existing lobby from a previous COMM
+            // mismatch while keeping its frontend callbacks and client slots.
+            if game.loaded_linked_cabinets > 1 {
+                netpacket::reconfigure_total(game.loaded_linked_cabinets);
             }
             game.mvd_commands.resync();
             game.machine.set_nvram_blocks(&backup, &eeprom);
@@ -2447,7 +2498,10 @@ pub extern "C" fn retro_unload_game() {
 
 #[no_mangle]
 pub extern "C" fn retro_run() {
+    let mut network_publications = Vec::new();
+    let mut publish_environment = None;
     with_core(|core| {
+        publish_environment = core.environment;
         let run_start = (core.settings.overlay_font > 0).then(Instant::now);
         import_save_ram(core);
         let Some(game) = core.game.as_mut() else {
@@ -2474,7 +2528,7 @@ pub extern "C" fn retro_run() {
                 core.settings.nvram_settings = option_value(env, c"tgpulse_next_nvram_settings")
                     .is_some_and(|v| v == "enabled");
                 game.nvram_pending = core.settings.nvram_settings;
-            game.network_pending = true;
+                game.network_pending = true;
                 game.nvram_wait_frames = 0;
                 publish_nvram_option_visibility(env, &game.set_name, core.settings.nvram_settings);
                 core.settings.rumble = option_value(env, c"tgpulse_next_gamepad_rumble")
@@ -2490,13 +2544,21 @@ pub extern "C" fn retro_run() {
                 update_audio_settings(&mut core.settings, env);
                 game.machine.sound.set_gains(core.settings.audio_gains);
                 game.machine.sound.set_mutes(core.settings.audio_mutes);
+                // Resume must fit/remove COMM before the authoritative NVRAM
+                // role is applied and before the next native frame runs.
+                if let Err(error) = reconfigure_linked(game, env, &core.settings) {
+                    notify(core.environment,
+                        &format!("Linked Cabinets reconfiguration failed: {error}"));
+                    return;
+                }
             }
         }
         if let Some((_, config)) = game.linked_reset.as_mut() {
             config.audio_gains = core.settings.audio_gains;
             config.audio_mutes = core.settings.audio_mutes;
         }
-        apply_pending_nvram(game, core.environment, core.settings.nvram_settings);
+        apply_pending_nvram(game, core.environment, core.settings.nvram_settings,
+            &mut network_publications);
         if let Some(poll) = core.input_poll {
             unsafe { poll() };
         }
@@ -2587,7 +2649,8 @@ pub extern "C" fn retro_run() {
             config.audio_gains = core.settings.audio_gains;
             config.audio_mutes = core.settings.audio_mutes;
         }
-        apply_pending_nvram(game, core.environment, core.settings.nvram_settings);
+        apply_pending_nvram(game, core.environment, core.settings.nvram_settings,
+            &mut network_publications);
         let machine_end = run_start.map(|_| Instant::now());
         if game.hardware {
             let width = render_width(game, core.settings.aspect_ratio);
@@ -2728,6 +2791,18 @@ pub extern "C" fn retro_run() {
             }
         }
     });
+    if let Some(env) = publish_environment {
+        for (set, choices) in network_publications {
+            automatic_network::publish(env, &set, &choices);
+            // Some frontends do not report a variable-update edge for a core
+            // initiated change. Recheck the displayed selectors next frame.
+            with_core(|core| {
+                if let Some(game) = core.game.as_mut() {
+                    if game.set_name == set { game.nvram_pending = true; }
+                }
+            });
+        }
+    }
 }
 
 #[no_mangle]
@@ -3668,6 +3743,29 @@ mod tests {
             assert_eq!(unsafe { CStr::from_ptr(automatic.key) }, automatic_network::KEYS[i]);
             assert_eq!(unsafe { CStr::from_ptr(automatic.desc) }, c"Automatic Network Settings");
             assert_eq!(unsafe { CStr::from_ptr(automatic.default_value) }, automatic_network::values(set)[0].0);
+        }
+    }
+
+    #[test]
+    fn automatic_network_visibility_requires_nvram_settings() {
+        static VISIBILITY: Mutex<Vec<(String, bool)>> = Mutex::new(Vec::new());
+        unsafe extern "C" fn display(command: u32, data: *mut c_void) -> bool {
+            if command != ffi::SET_CORE_OPTIONS_DISPLAY { return false; }
+            let option = unsafe { &*data.cast::<ffi::OptionDisplay>() };
+            VISIBILITY.lock().unwrap().push((
+                unsafe { CStr::from_ptr(option.key) }.to_string_lossy().into_owned(),
+                option.visible,
+            ));
+            true
+        }
+        for enabled in [false, true] {
+            VISIBILITY.lock().unwrap().clear();
+            publish_nvram_option_visibility(display, "vr", enabled);
+            let seen = VISIBILITY.lock().unwrap();
+            let visible = |key: &str| seen.iter().find(|(name, _)| name == key).unwrap().1;
+            assert!(visible("tgpulse_next_linked_cabinets_vr"));
+            assert_eq!(visible("tgpulse_next_automatic_network_vr"), enabled);
+            assert!(!visible("tgpulse_next_automatic_network_vformula"));
         }
     }
 

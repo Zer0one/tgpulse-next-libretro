@@ -26,6 +26,7 @@ struct Session {
     logged: bool,
     local: u16,
     total: u16,
+    max_total: u16,
     hash: u32,
     send: Option<ffi::NetSend>,
     poll: Option<ffi::NetPoll>,
@@ -35,6 +36,24 @@ struct Session {
     frames: VecDeque<Vec<u8>>,
 }
 impl Session {
+    fn accept_client(&mut self, id: u16) -> bool {
+        // A lobby can be opened before the host selects Linked Cabinets.
+        // Reserve slots up to this title's native limit during setup.
+        let limit = if self.total < 2 { self.max_total } else { self.total };
+        let accepted = self.active && self.local == 0 && id != 0 && id != u16::MAX
+            && (self.clients.contains(&id) || self.clients.len() + 1 < usize::from(limit));
+        if accepted { self.clients.insert(id); }
+        accepted
+    }
+    fn reconfigure_total(&mut self, total: u16) {
+        self.total = total;
+        self.failed = false;
+        self.reported_failure = false;
+        self.logged = false;
+        self.peers.clear();
+        self.roster.clear();
+        self.frames.clear();
+    }
     fn packet(&self, kind: u8, payload: &[u8]) -> Vec<u8> {
         let mut packet = b"TGMN".to_vec();
         packet.extend([1, kind]);
@@ -59,10 +78,14 @@ impl Session {
         if bytes.len() != HEADER + size || !matches!((bytes[5], size), (1, 0) | (2, FRAME_SIZE)) {
             return false;
         }
-        if u16::from_le_bytes(bytes[6..8].try_into().unwrap()) != self.total
-            || u32::from_le_bytes(bytes[8..12].try_into().unwrap()) != self.hash
-        {
-            eprintln!("[TGPulse-Next Libretro] [NetBoard] Incompatible packet: participant {}, sender {}, cabinet total {} vs {}, set hash {} vs {}", self.local, sender, self.total, u16::from_le_bytes(bytes[6..8].try_into().unwrap()), self.hash, u32::from_le_bytes(bytes[8..12].try_into().unwrap()));
+        if u16::from_le_bytes(bytes[6..8].try_into().unwrap()) != self.total {
+            // Peers may resume from the Core Options menu at different times.
+            // Keep waiting for matching HELLO packets instead of permanently
+            // failing the ring while one cabinet still uses the old total.
+            return false;
+        }
+        if u32::from_le_bytes(bytes[8..12].try_into().unwrap()) != self.hash {
+            eprintln!("[TGPulse-Next Libretro] [NetBoard] Incompatible game: participant {}, sender {}", self.local, sender);
             self.failed = true;
             self.roster.clear();
             self.frames.clear();
@@ -122,11 +145,18 @@ pub fn configure(set: &str, total: u16) {
     *s = Session {
         supported,
         total,
+        max_total: GAMES.iter().find(|(game, _, _)| *game == set)
+            .map_or(1, |(_, _, max)| *max),
         hash: set.bytes().fold(2166136261u32, |h, b| {
             (h ^ u32::from(b)).wrapping_mul(16777619)
         }),
         ..Session::default()
     };
+}
+/// Change the cabinet total during a frontend Restart without losing an open
+/// Netplay lobby's callbacks or the host's already connected clients.
+pub fn reconfigure_total(total: u16) {
+    session().lock().unwrap().reconfigure_total(total);
 }
 pub fn clear_frames() {
     session().lock().unwrap().frames.clear();
@@ -160,26 +190,19 @@ unsafe extern "C" fn stop() {
     let mut s = session().lock().unwrap();
     let supported = s.supported;
     let total = s.total;
+    let max_total = s.max_total;
     let hash = s.hash;
     *s = Session {
         supported,
         total,
+        max_total,
         hash,
         ..Session::default()
     };
     eprintln!("[TGPulse-Next Libretro] [NetBoard] Session stopped");
 }
 unsafe extern "C" fn connected(id: u16) -> bool {
-    let mut s = session().lock().unwrap();
-    let accepted = s.active
-        && s.local == 0
-        && id != 0
-        && id != u16::MAX
-        && (s.clients.contains(&id) || s.clients.len() + 1 < (s.total as usize));
-    if accepted {
-        s.clients.insert(id);
-    }
-    accepted
+    session().lock().unwrap().accept_client(id)
 }
 unsafe extern "C" fn disconnected(id: u16) {
     let mut s = session().lock().unwrap();
@@ -211,9 +234,6 @@ pub fn register(env: ffi::Environment) {
         )
     };
     session().lock().unwrap().supported = supported;
-}
-pub fn supported() -> bool {
-    session().lock().unwrap().supported
 }
 fn send_hello() {
     let outgoing = {
@@ -304,15 +324,47 @@ pub fn pump(board: &mut CommBoard) -> Result<(), &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn restart_changes_total_without_losing_lobby_callbacks() {
+        unsafe extern "C" fn send(_: i32, _: *const std::ffi::c_void, _: usize, _: u16) {}
+        unsafe extern "C" fn poll() {}
+        let mut host = node(0, 1);
+        host.send = Some(send);
+        host.poll = Some(poll);
+        host.clients.insert(1);
+        host.peers.insert(1);
+        host.roster = vec![0, 1];
+        host.failed = true;
+        host.frames.push_back(vec![0; FRAME_SIZE]);
+        host.reconfigure_total(2);
+        assert!(host.active && host.supported == false);
+        assert_eq!(host.total, 2);
+        assert_eq!(host.local, 0);
+        assert!(host.send.is_some() && host.poll.is_some());
+        assert!(host.clients.contains(&1));
+        assert!(!host.failed && host.peers.is_empty() && host.roster.is_empty()
+            && host.frames.is_empty());
+    }
     fn node(id: u16, total: u16) -> Session {
         Session {
             active: true,
             local: id,
             total,
+            max_total: total.max(2),
             hash: 42,
             clients: (1..total).collect(),
             ..Session::default()
         }
+    }
+    #[test]
+    fn host_can_open_lobby_before_fitting_comm() {
+        let mut host = node(0, 1);
+        host.max_total = 2;
+        assert!(host.accept_client(1));
+        assert!(!host.accept_client(2));
+        host.reconfigure_total(2);
+        assert!(host.clients.contains(&1));
+        assert!(host.accept_client(1));
     }
     #[test]
     fn roster_admission_framing_mismatch_and_disconnect_boundaries() {
@@ -334,9 +386,11 @@ mod tests {
         let mut a = node(0, 2);
         let mut bad = node(1, 3);
         a.receive(&bad.packet(1, &[]), 1);
-        assert!(a.failed);
+        assert!(!a.failed && !a.ready());
         bad.total = 2;
         bad.hash = 42;
+        a.receive(&bad.packet(1, &[]), 1);
+        assert!(a.ready(), "a peer that changes to the matching total can join");
         a = node(0, 2);
         a.receive(&bad.packet(1, &[]), 9);
         assert!(!a.ready());

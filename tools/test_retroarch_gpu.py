@@ -37,6 +37,7 @@ def main():
         p.add_argument('--'+axis+'-range',type=int,choices=range(50,151,10),default=100)
     p.add_argument('--steering-response',choices=('linear','progressive','fbneo'),default='linear')
     p.add_argument('--linked-cabinets',type=int,choices=range(1,10),default=1)
+    p.add_argument('--automatic-network',choices=('disabled','red','orange','skyblue','pink','black','green','yellow','blue','live','master','slave'),default='disabled',help='Network preset; Disabled preserves explicit NVRAM roles in isolated tests')
     p.add_argument('--netplay-role',choices=('host','client'))
     p.add_argument('--netplay-host',default='127.0.0.1')
     p.add_argument('--netplay-port',type=int,default=55435)
@@ -82,6 +83,10 @@ def main():
         if a.rom.stem.startswith('wingwar') and a.linked_cabinets!=2:p.error('Wing War supports two cabinets')
     if not 1<=a.netplay_port<=65535:p.error('Invalid Netplay port')
     with opts.open('a') as stream:stream.write(f'tgpulse_next_linked_cabinets_{a.rom.stem} = "'+(str(a.linked_cabinets) if a.linked_cabinets>1 else 'disabled')+'"\n')
+    if a.rom.stem in ('vr','vformula','wingwar','wingwaru','wingwarj','wingwar360'):
+        allowed=('master','slave') if a.rom.stem.startswith('wingwar') else ('red','orange','skyblue','pink','black','green','yellow','blue','live')
+        if a.automatic_network!='disabled' and a.automatic_network not in allowed:p.error('Preset is not available for this game')
+        with opts.open('a') as stream:stream.write(f'tgpulse_next_automatic_network_{a.rom.stem} = "{a.automatic_network}"\n')
     selected_nvram={}
 
     for selection in a.nvram_setting:

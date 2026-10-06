@@ -624,8 +624,21 @@ Reuse the current linked-cabinet set registry and reviewed NVRAM values. Keep
 Automatic Network Settings immediately after Linked Cabinets in modern and
 legacy menus. VR/VFormula default to Red (Master), provide unique Slave colors
 and Live (with default Red); Wing War variants default to Master. Disabled never writes operator
-fields, including on Linked Cabinets OFF. Active automation on OFF restores
-only managed fields to their reviewed defaults. Preserve unrelated fields and
-checksum/mirror policy. Synchronize managed Core Options via SET_VARIABLE and
-keep native roles independent of frontend host/client. Cache completed presets;
-reconsider them on option changes rather than querying options every frame.
+fields, including on Linked Cabinets OFF. Hide automation and make no network
+operator writes while the NVRAM Settings master switch is disabled. When it is
+enabled, active automation sets and maintains its managed NVRAM Settings
+selectors, including on startup and Linked Cabinets changes; with Linked
+Cabinets OFF these receive reviewed offline defaults. Manual selectors become
+authoritative when automation is Disabled. Preserve unrelated fields and
+checksum/mirror policy. Apply the preset's managed selector values through the
+NVRAM Settings path before the next emulated frame, then synchronize displayed
+Core Options via SET_VARIABLE only after releasing the core lock. Keep native
+roles independent of frontend host/client.
+Reconsider the preset and selectors on option changes, not every frame.
+Returning from Core Options or using RetroArch Restart rereads Linked Cabinets,
+rebuilds the machine only for a topology change and retains open Netpacket
+callbacks while refreshing its handshake. Fit COMM before applying the
+authoritative operator role and before the next emulated frame. Keep Save RAM
+and operator role persistence across either transition. Treat a temporary
+packet-count difference while peers resume at different times as pending
+setup; retain the game/set identity check.
