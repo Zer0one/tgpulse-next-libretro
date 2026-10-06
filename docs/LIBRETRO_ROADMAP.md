@@ -338,43 +338,28 @@ verified with 83 adapter tests, focused VR ABI transitions and a hash-verified
 macOS installation. Live relay is included. 0.1.0.9 is published; five-platform CI, packages and local GitHub artifact passed. Evidence: LIBRETRO_CI.md.
 See LIBRETRO_MODEL1_LINKED_CABINETS.md for policy and evidence.
 
-## 0.1.0.10 Local Startup and NVRAM Authority Correction
+## 0.1.0.10 Linked-Cabinet Correction — Published 2026-10-06
 
-The published 0.1.0.9 core can freeze on macOS when Automatic Network Settings
-synchronizes an existing operator value during VR startup. The frontend option
-callback re-enters the core lock. The local 0.1.0.10 candidate publishes those
-values after `retro_run` releases the lock. It also gates automation on the
-NVRAM Settings master switch and makes an active preset authoritative for its
-managed selectors; Disabled preserves manual settings. A failing isolated
-0.1.0.9 launch, 85 passing adapter tests, focused ABI transitions and a
-successful Vulkan launch with a copied user save are recorded in
-`LIBRETRO_MODEL1_LINKED_CABINETS.md`. This is maintenance of
-the completed linked-cabinet phase; publication has not been requested.
+The published 0.1.0.9 core could freeze when Automatic Network Settings
+published operator values inside the core lock. Version 0.1.0.10 publishes
+them after unlock, gates automation on NVRAM Settings and makes an active
+preset authoritative for its managed selectors. Disabled preserves manual
+settings. The early Netpacket availability notice was also removed because a
+valid session can start later.
 
-The local candidate also handles Linked Cabinets changes on RetroArch Restart.
-It rebuilds the Model 1 machine on a topology change and refreshes the
-Netpacket handshake while retaining an open lobby's callbacks. A focused VR
-ABI run verified 1 → 2 → 3 → 1 and the associated operator roles; real
-two-frontend linked gameplay also passed with explicit manual roles. The exact
-two-frontend option-change Restart sequence remains to be tried in the frontend.
-This remains maintenance of the completed linked-cabinet phase.
+The reported VR white-line sequence was **2 Cabinets → change Automatic
+Network Settings → Resume → automatic reset**. Version 0.1.0.10 fits COMM on
+Resume before applying the role and before the first native frame, preserving
+Save RAM. An already-open lobby survives topology changes; temporary cabinet
+count differences while peers resume do not permanently fail the session.
+Restart remains supported. This extends the completed linked-cabinet phase
+using the same SM2 3.7–3.8 and Supermodel reference mapping above; no new
+milestone or scope is introduced.
 
-Following a reported first-Restart VR white-line screen, the local candidate
-now applies the active preset to NVRAM before advancing the first emulated
-frame and publishes the matching selectors after the core unlocks. The early
-Netpacket availability notice was removed because a later valid session can
-start despite the registration response. The ABI first-frame test and two
-real automatic-preset RetroArch sessions passed, one with a ten-second delayed
-Slave. The exact in-menu Restart sequence remains for a frontend trial.
-
-The user then identified the actual failure sequence: select 2 Cabinets,
-change Automatic Network Settings, then Resume. The core previously applied
-the new role and reset NVRAM before fitting COMM, so VR could start with a
-linked role and no board. The local candidate now reconfigures COMM on Resume
-before applying the authoritative NVRAM selectors and before the next native
-frame. It preserves Save RAM, accepts an already-open lobby during setup and
-ignores transient packet-count differences while peers resume at different
-times. A focused ABI test covers the exact Resume sequence and staggered
-lobby join. This is maintenance of the completed linked-cabinet phase, using
-the same SM2 3.7–3.8 and Supermodel linked-cabinet reference mapping above;
-no new roadmap milestone or scope is introduced.
+The focused ABI test covers the exact Resume sequence and staggered lobby
+join. All 86 adapter tests passed. Separate two-instance RetroArch runs
+reached game-created COMM online on both peers, including delayed joining;
+the latest run began with options already selected. The exact live in-menu
+interaction remains a user frontend trial. All five CI packages and release
+publication passed; evidence is in `LIBRETRO_MODEL1_LINKED_CABINETS.md` and
+`LIBRETRO_CI.md`.

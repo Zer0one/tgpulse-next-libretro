@@ -487,3 +487,28 @@ Receipts: `/private/tmp/tgpulse-release-0108/verification.json`,
 The published macOS arm64 core passed native ABI/dependency/lifecycle and was installed in local RetroArch with public metadata. Installed core SHA-256: `cc2373d819bc401b2b86fc4d3f5619f758028066e3349ac253bed077351faa99`. Installed metadata SHA-256: `1e1f9d1312a64cddc4e8150dc1d762f5f63e9a539d0b8c2bf4a9134c93eb773d`. Both match the verified release package. The preceding local 0.1.0.9 build was also installed and hash-checked as required by AGENTS.md. These are build and deployment results, separate from gameplay, physical-controller and multi-instance cabinet trials.
 
 Required reasoning: Medium. Shared account usage: 73%; next reset 2026-10-10 09:49:17 CEST.
+
+## Verified 0.1.0.10 Publication (2026-10-06)
+
+- Source commit: `7fb8ba59aee3c242967fd1a0fffcbdb5920e37c2`; annotated tag `v0.1.0.10`.
+- Release: [0.1.0.10 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.10), marked prerelease.
+- All five native build/test/artifact/package jobs and publication passed: [CI 37519007905](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37519007905).
+- Local verification: 86 adapter tests, macOS release build and artifact gate, focused option-change Resume ABI test, and a separate two-instance RetroArch run with game-created COMM online for more than 600 frames on both peers. The real two-instance run started with options already selected; the exact in-menu Resume sequence remains a frontend trial.
+- Downloaded all five release archives and SHA256SUMS. External and internal checksums, version, inventories, metadata, Model 1 scope, licenses and the tagged source revision passed. Linux/macOS packages contain 194 files; Windows contains 202.
+
+| Platform ZIP | SHA-256 |
+| --- | --- |
+| `tgpulse-next-m1-libretro-linux-arm64-0.1.0.10.zip` | `6cbd337958e4176145647dbc85f5098e3be7e24a31fe6043b30bb8c834e9e609` |
+| `tgpulse-next-m1-libretro-linux-x86_64-0.1.0.10.zip` | `92e9d44f63ed81d8d485937c3a66016f9ddaf7729281a12597322f69ec464a5a` |
+| `tgpulse-next-m1-libretro-macos-arm64-0.1.0.10.zip` | `82769ef90b46dd9ebb1516a618e4a93ef0f06280419c68bfffb92aa9ce3d5013` |
+| `tgpulse-next-m1-libretro-macos-x86_64-0.1.0.10.zip` | `7c4b0a609d498f1a00847a4ca0399688eb7c0ab7857cd5ea9cc5066d51d59f84` |
+| `tgpulse-next-m1-libretro-windows-x86_64-0.1.0.10.zip` | `fe1836634d3ac6f94aa6c775ac244d9e94866c337abf92a89cb031e126a2b675` |
+
+The published macOS arm64 core passed the native ABI/dependency/lifecycle gate
+and replaced the verified local build in RetroArch. Its installed SHA-256 is
+`a2b886ecb710f11783895721b3f8a5361bb1819c0e393ea14d577f60a9efab2a`;
+the matching installed `.info` SHA-256 is
+`e7ddd4c8355b22f2c6c2810c27443eae9b0b29a2984cc2f67ddd2912ba5cab00`.
+Both match the downloaded package. The installer preserved the previous binary
+in a dated backup and left conflicting existing settings untouched. Download
+verification files are in `/private/tmp/tgpulse-release-0.1.0.10-verify/`.
