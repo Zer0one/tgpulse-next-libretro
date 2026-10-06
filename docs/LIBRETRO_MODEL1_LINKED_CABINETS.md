@@ -37,24 +37,47 @@ acquired CAR COLOR / NUMBER settings and the native board's RAM/node bound.
 LIVE consumes a transport slot, forwards the ring, and has native ID 0 without
 increasing the playable participant count.
 
+### Automatic Network Settings
+
+Immediately below each loaded set's **Linked Cabinets** selector, choose
+**Automatic Network Settings**. VR/VFormula default to **Red (Master)**;
+Orange, Skyblue, Pink, Black, Green, Yellow and Blue select Slave and the matching
+reviewed car identity. **Live** selects the native relay role and resets
+car color/number to its reviewed Red default. Wing War variants default to Master and offer Slave.
+
+- With Linked Cabinets enabled, apply the selected native role and identity.
+- With Linked Cabinets OFF and automation enabled, restore only managed fields
+  to reviewed defaults: No Link + Red/No.1 (Red), or Wing War Stand Alone.
+- Disabled performs no automatic writes, including when Linked Cabinets goes
+  OFF. Disabling automation preserves values already applied.
+- Automation is independent of the NVRAM Settings master switch and synchronizes
+  its managed option values through Libretro SET_VARIABLE. Disable automation
+  for manual control, including any custom native role/color combination.
+- Changed persisted values use the existing checksum/mirror and machine-reset
+  path. Reload all participants after topology changes. Netplay host/client
+  selection never determines Master/Slave/Live.
+
+The reviewed values and encodings are reused from `nvram_data.rs`; no campaign
+samples or upstream emulation components are changed. Color identities need
+only be unique among playable cabinets; they are not numbered Netplay slots.
+
 ### Connect two cabinets
 
 1. Use the same exact ROM set and core build on both frontends. Keep each
    frontend's saves and configuration separate.
 2. Select **2 Cabinets** on both, then reload content.
-3. Configure MASTER on one cabinet and SLAVE on the other through the existing
-   NVRAM Settings fields or native service menu. For VR/VFormula choose distinct
-   car identities. The Netplay host can be either native role; host does not
+3. Choose Automatic Network Settings presets: Red (Master) and Orange (Slave)
+   for VR/VFormula, or Master and Slave for Wing War. For manual NVRAM/service
+   configuration, set automation to Disabled and use distinct playable identities. The Netplay host can be either native role; host does not
    automatically mean MASTER.
 4. Host a RetroArch Netplay session on one frontend and connect the other to it.
 5. Let the games perform their native COMM startup. A transport roster alone
    is not proof that the game has established its link.
 
 For MASTER/SLAVE/LIVE, select **3 Cabinets** everywhere and set LINK ID = LIVE
-on the third VR/VFormula instance. Keep automatic setup enabled if desired:
-it initializes new saves with its reviewed offline policy; explicit NVRAM
-Settings then apply the selected operator roles. With NVRAM Settings disabled,
-a valid saved service-menu role is preserved. No role is assigned by transport.
+on the third VR/VFormula instance. Automatic Network Settings can select Master, Slave and Live independently
+on each instance. Disable automation before applying custom NVRAM Settings
+or using saved service-menu values. No role is assigned by transport.
 
 Restart/reload all cabinets after changing topology or roles during a session.
 For standalone VR operation, set **Linked Cabinets = Disabled** and
@@ -304,3 +327,35 @@ No emulator source change or release was required for this diagnosis.
   and its `mixed/` and `matched/` evidence directories.
 
 Required reasoning: High. Shared account usage: 70%; reset 2026-10-10 09:49 CEST.
+
+## Automatic Network Settings Verification — 2026-10-06
+
+References inspected: SM2 `src/libretro/core_options.h`, `core.cpp` and
+`PORTING_PLAN.md` 3.7–3.8; Supermodel `Src/OSD/libretro/libretro.cpp`,
+`LibretroNvramSettings.h` and `Docs/ROADMAP.md` default/override policy.
+Reuse per-set frontend option registries, native NVRAM patches and reset after
+persisted changes. The smallest adaptation adds user-approved presets in the
+adapter; no equivalent automatic Master/color preset was found in those paths.
+
+83 adapter tests passed, including adjacency/default checks and every preset
+(including Live) on all six native-eligible sets, native integrity and unrelated
+operator-field preservation. The existing NVRAM ABI runner's new focused mode
+verified VR's eight colors, Live restoring default Red, frontend option synchronization,
+Disabled followed by OFF, active automation on OFF, and manual overrides while
+automation is Disabled. Native bookkeeping can advance during frames, so the
+Disabled equality check covers operator EEPROM rather than all live backup RAM.
+This is API/NVRAM evidence, not a new multi-instance gameplay/controller test.
+
+The macOS release build passed native ABI/dependency/lifecycle and Model 1 scope
+checks and was installed locally with matching SHA-256. Evidence:
+`/private/tmp/tgpulse-automatic-network-tests.log`,
+`/private/tmp/tgpulse-automatic-network-live-red-20261006/result.json`,
+`/private/tmp/tgpulse-automatic-network-artifact.log`,
+`/private/tmp/tgpulse-automatic-network-install.json`.
+Publication requested for release 0.1.0.9; see LIBRETRO_CI.md for CI and package evidence.
+
+```sh
+python3 tools/test_libretro_nvram_settings.py \
+  --core tgpulse_next_m1_libretro.dylib --rom-dir /path/to/model1/roms \
+  --automatic-network-only --output /path/to/new-isolated-results
+```

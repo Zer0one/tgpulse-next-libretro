@@ -33,6 +33,7 @@ pub const GET_CORE_OPTIONS_VERSION: u32 = 52;
 pub const SET_CORE_OPTIONS_V2: u32 = 67;
 pub const SET_CORE_OPTIONS_DISPLAY: u32 = 55;
 pub const SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK: u32 = 69;
+pub const SET_VARIABLE: u32 = 70;
 pub const PIXEL_FORMAT_XRGB8888: u32 = 1;
 pub const REGION_NTSC: u32 = 0;
 pub const DEVICE_JOYPAD: u32 = 1;

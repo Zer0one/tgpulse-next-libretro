@@ -24,6 +24,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--core',type=Path,required=True)
     p.add_argument('--rom-dir',type=Path,required=True)
+    p.add_argument('--automatic-network-only',action='store_true',help='Run focused VR network preset transitions only')
     p.add_argument('--samples',type=Path,default=ROOT/'validation/nvram-campaigns/2026-10-01')
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--netmerc-seed-rom',type=Path,
@@ -40,6 +41,10 @@ def main():
     def env(cmd,data):
         if cmd==15:
             v=c.cast(data,c.POINTER(Variable)).contents;v.value=opts.get(v.key);return v.value is not None
+        if cmd==70:
+            v=c.cast(data,c.POINTER(Variable)).contents
+            if opts.get(v.key)!=v.value:opts[v.key]=v.value;changed[0]=True
+            return True
         if cmd==17:
             c.cast(data,c.POINTER(c.c_bool))[0]=changed[0];changed[0]=False;return True
         if cmd==52:c.cast(data,c.POINTER(c.c_uint))[0]=2;return True
@@ -73,6 +78,8 @@ def main():
 
     def load(name,automatic=True,rom=None):
         opts.clear();opts.update({b'tgpulse_next_renderer':b'software',b'tgpulse_next_initial_nvram_setup':b'enabled' if automatic else b'disabled'})
+        for network_set in ('vr','vformula','wingwar','wingwaru','wingwarj','wingwar360'):
+            opts[('tgpulse_next_automatic_network_'+network_set).encode()]=b'disabled'
         changed[0]=False;visible.clear();messages.clear();core.retro_init()
         path=str((rom or a.rom_dir/(name+'.zip')).resolve(strict=True)).encode()
         assert core.retro_load_game(c.byref(GameInfo(path,None,0,None))),name
@@ -86,9 +93,58 @@ def main():
         return state,size
 
     def save(name):
-        raw=c.string_at(core.retro_get_memory_data(0),65728);validate_save(raw,name);return raw
+        raw=c.string_at(core.retro_get_memory_data(0),65728)
+        validate_save(raw,name);return raw
 
     def unload():core.retro_unload_game();core.retro_deinit()
+
+    if a.automatic_network_only:
+        load('vr')
+        def set_options(**values):
+            opts.update({('tgpulse_next_'+k).encode():v.encode() for k,v in values.items()})
+            changed[0]=True
+            for _ in range(3):core.retro_run()
+            return save('vr')
+        # Keep manual operator overrides OFF to prove the automation is independent.
+        initial=set_options(automatic_network_vr='red',linked_cabinets_vr='disabled')
+        allowed={8,9,13,35,68,69,73,95}
+        cases=[]
+        for name,color in [('red',0),('orange',7),('skyblue',6),('pink',5),('black',4),('green',3),('yellow',2),('blue',1)]:
+            result=set_options(automatic_network_vr=name,linked_cabinets_vr='2')
+            eeprom=result[65600:65728]
+            assert (eeprom[13],eeprom[35])==(1 if name=='red' else 2,color)
+            assert opts[b'tgpulse_next_nvram_vr_link_id']==(b'MASTER' if name=='red' else b'SLAVE')
+            assert opts[b'tgpulse_next_nvram_vr_car_color']==name.upper().encode()
+            assert all(x==y or i in allowed for i,(x,y) in enumerate(zip(initial[65600:65728],eeprom)))
+            assert result[64:65600]==initial[64:65600], 'Unrelated backup RAM changed'
+            cases.append(name)
+        relay=set_options(automatic_network_vr='live')
+        assert (relay[65613],relay[65635])==(3,0)
+        assert opts[b'tgpulse_next_nvram_vr_link_id']==b'LIVE'
+        assert opts[b'tgpulse_next_nvram_vr_car_color']==b'RED'
+        result=relay
+        # Compare operator EEPROM: native bookkeeping can advance in backup RAM.
+        before=result
+        disabled=set_options(automatic_network_vr='disabled')
+        assert disabled[65600:]==before[65600:], "Disabled changed operator EEPROM"
+        off=set_options(linked_cabinets_vr='disabled')
+        assert off[65600:]==before[65600:], "Disabled + OFF changed operator EEPROM"
+        restored=set_options(automatic_network_vr='orange')
+        assert (restored[65613],restored[65635])==(0,0)
+        assert opts[b'tgpulse_next_nvram_vr_link_id']==b'NO LINK'
+        assert opts[b'tgpulse_next_nvram_vr_car_color']==b'RED'
+        manual=set_options(automatic_network_vr='disabled', nvram_settings='enabled',
+            nvram_vr_link_id='SLAVE', nvram_vr_car_color='GREEN', linked_cabinets_vr='2')
+        assert (manual[65613],manual[65635])==(2,3)
+        manual_off=set_options(linked_cabinets_vr='disabled')
+        assert manual_off[65600:]==manual[65600:]
+        unload()
+        report={'sets':['vr'],'presets':cases,'live_relay_uses_default_red':True,'disabled_preserves_nvram':True,
+                'disabled_then_off_preserves_nvram':True,'enabled_off_restores_defaults':True,
+                'disabled_preserves_manual_overrides_on_off':True,
+                'unrelated_fields_preserved':True,'frontend_options_synchronized':True}
+        (a.output/'result.json').write_text(json.dumps(report,indent=2)+'\n')
+        print(json.dumps(report));return
 
     results=[]
     for doc in docs:

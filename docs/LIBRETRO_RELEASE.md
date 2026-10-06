@@ -2,7 +2,7 @@
 
 This experimental core targets Sega Model 1. Current source selects only
 Model 1 machine components and required shared devices (a single system build).
-Version 0.1.0.2 introduced this component split; 0.1.0.8 retains it alongside
+Version 0.1.0.2 introduced this component split; 0.1.0.9 retains it alongside
 the reviewed Model 1 integration and the retained performance improvements
 documented in `LIBRETRO_MODEL1_PERFORMANCE.md`. Consult the package's
 BUILD_INFO for its compiled scope. Model 2 and combined Libretro

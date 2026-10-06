@@ -68,7 +68,7 @@ Reviewed target: TGPulse-Next `0.1.0.1`, commit
 `3c75f9b2b155e8bb50a225c69520948ef72ecd48` baseline. The source inspection and
 adaptation boundaries are recorded in [the upstream review](LIBRETRO_UPSTREAM_REVIEW.md).
 This is a finite list of changes from the reviewed delta, not a recurring
-upstream-check milestone. U1–U9 and the retained performance changes are integrated; 0.1.0.8 is published. Existing completed phases
+upstream-check milestone. U1–U9 and the retained performance changes are integrated; 0.1.0.9 is prepared. Existing completed phases
 and local follow-up changes remain intact; Model 2/combined-core work follows
 this current Model 1 alignment.
 
@@ -324,3 +324,16 @@ the GitHub macOS arm64 core is installed locally with matching SHA-256.
 Previous identity directories were copied non-destructively. This is a naming
 maintenance release; no implementation phase is added or reprioritized.
 Evidence is recorded in `LIBRETRO_CI.md`.
+
+## Linked-Cabinet Preset Extension — 2026-10-06
+
+Reference mapping: SM2 PORTING_PLAN 3.7–3.8 and its per-game Linked Cabinets/
+NVRAM options; Supermodel's per-game linked selector and reviewed default/
+override policy. Model 1 adds adapter-only Automatic Network Settings adjacent
+to Linked Cabinets, using existing native values and integrity/reset helpers.
+No sockets, role inference from host/client, new NVRAM encodings or upstream
+emulation changes are introduced. This extends the completed cabinet phase;
+no separate roadmap is created. Effort: Medium / S, implemented locally and
+verified with 83 adapter tests, focused VR ABI transitions and a hash-verified
+macOS installation. Live relay is included. Publication requested for 0.1.0.9; CI evidence follows.
+See LIBRETRO_MODEL1_LINKED_CABINETS.md for policy and evidence.

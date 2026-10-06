@@ -173,13 +173,20 @@ pub enum Apply {
 
 /// Patch only reviewed fields and their native integrity/mirror bytes.
 pub fn apply(set: &str, eeprom: &mut [u8], choices: &[usize]) -> Apply {
+    let selected: Vec<_> = FIELDS.iter().filter(|f| f.set == set).enumerate()
+        .map(|(i, f)| Some(choices.get(i).copied().unwrap_or(f.default))).collect();
+    apply_selected(set, eeprom, &selected)
+}
+
+/// None leaves a field untouched; use the same integrity policy as manual settings.
+pub fn apply_selected(set: &str, eeprom: &mut [u8], choices: &[Option<usize>]) -> Apply {
     if !valid(set, eeprom) {
         return Apply::NotReady;
     }
     let t = template(set).unwrap();
     let before = eeprom.to_vec();
     for (index, field) in FIELDS.iter().filter(|f| f.set == set).enumerate() {
-        let chosen = choices.get(index).copied().unwrap_or(field.default);
+        let Some(chosen) = choices.get(index).copied().flatten() else { continue };
         let value = field
             .values
             .get(chosen)

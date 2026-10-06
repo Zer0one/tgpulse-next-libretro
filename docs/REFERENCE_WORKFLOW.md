@@ -617,3 +617,15 @@ characters in runtime identities. Future Model 2 builds use the distinct
 ambiguous Netplay discovery. Preserve the public binary basename and Core Label.
 When changing identities, preserve existing core-named settings/save directories
 and copy their files to the new name without overwriting destination files.
+
+## Automatic Network Preset Policy
+
+Reuse the current linked-cabinet set registry and reviewed NVRAM values. Keep
+Automatic Network Settings immediately after Linked Cabinets in modern and
+legacy menus. VR/VFormula default to Red (Master), provide unique Slave colors
+and Live (with default Red); Wing War variants default to Master. Disabled never writes operator
+fields, including on Linked Cabinets OFF. Active automation on OFF restores
+only managed fields to their reviewed defaults. Preserve unrelated fields and
+checksum/mirror policy. Synchronize managed Core Options via SET_VARIABLE and
+keep native roles independent of frontend host/client. Cache completed presets;
+reconsider them on option changes rather than querying options every frame.
