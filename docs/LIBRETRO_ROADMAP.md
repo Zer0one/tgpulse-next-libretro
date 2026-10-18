@@ -1,5 +1,48 @@
 # TGPulse-Next Libretro implementation roadmap
 
+## Direct Widescreen Mode — 2026-10-18
+
+| Status | Activity | Evidence / Limits |
+| --- | --- | --- |
+| 🟢 | Align Widescreen Activation With Supermodel | User-approved follow-up to phase 5.2a: Disabled default; hardware Expand modes select 16:9 with Aspect Ratio Auto/16:9; explicit 4:3 suppresses expansion. Preserve native-capable games, Auto/Service Menu settings, explicit native aspect overrides and Software. 93 unit checks, 36 ABI geometry/Save RAM cases, 89 modern/legacy registrations, menu audit and four real RetroArch Vulkan image deliveries pass. Both public cores installed with verified hashes. |
+
+Reference: current Supermodel `Docs/ROADMAP.md`, Widescreen Value-Label
+Follow-Up, and the user clarification in the Supermodel chat. SM2's existing
+Aspect Ratio policy remains native/presentation-only; its deferred true-3D
+renderer feature is not imported. This adapts the existing TGPulse adapter and
+GPU composition, without changing the emulated machine or standalone frontend.
+
+- Disabled retains the existing stored `stretch` value and mode 0. With Aspect
+  Ratio 16:9 it stretches the complete native image, as before.
+- Expand 3D View Only / Expand 3D View + Stretch 2D keep their stored values.
+  Hardware expansion publishes 16:9 with Aspect Ratio Auto or 16:9; explicit 4:3
+  suppresses it;
+  it never rewrites that saved selection. The optional stretch covers both
+  native 2D layers, unlike Supermodel's lower-background-only stretch.
+- Disabled replaces the former expansion default so new default configurations
+  retain native/Auto presentation rather than becoming wide. Existing explicit
+  expansion selections intentionally acquire the newly requested behavior.
+- Games with native widescreen support remain completely outside the expansion
+  path. Their native monitor, Auto and manual Aspect Ratio behavior is unchanged.
+- Widescreen Mode now applies on Resume (see selector lifecycle correction below); Software remains unchanged.
+
+Production build and 25-export/dependency/empty-lifecycle gate pass. All 89
+modern/legacy registrations and 44 reviewed keys pass; only Widescreen metadata
+changes. The 36 actual-core geometry/Save RAM probes accept a mocked hardware
+context and do not render. Four separate real RetroArch Vulkan sessions verify
+image delivery/presentation for VF Expand with 4:3, Expand + 2D with Auto,
+Disabled with 16:9, and native VR with Auto. Screenshots show operator
+menus; no 3D/gameplay visual acceptance or OpenGL/GLES runtime retest is claimed.
+
+Installed/build SHA-256:
+`ab259112f83000ede33c0bbdbd440ded41d1ac5d22769ac8de4b1fd4812804f4`.
+The earlier direct-mode delivery replaced the known GitHub 0.1.0.11 artifact, not the
+local pre-task build; their complete option registrations and runtime identity
+were compared before replacement. Matching info and active config/System assets
+were verified unchanged. No routine binary backup or dependency installation.
+Evidence: `outputs/widescreen-direct-20261018/`. No commit or push. This current
+contract supersedes older aspect-gated expansion/default descriptions below.
+
 ## Two-Option Network Convention — 2026-10-17
 
 Resume Regression Correction: the initial mock missed RetroArch's consuming
@@ -303,7 +346,7 @@ The blocked rows are last, regardless of their phase number.
 | 🟢 | 3.7. Software Core Options | Smooth Shadows, presentation-only Aspect Ratio, Master Volume, per-source Model 1 Gain selectors (Auto, Mute, then 10–100%; Mute stores `0`), VR-family Gamepad Rumble, Timing / FPS Overlay, Known Bad Dump ROM Repairs and selectable native/60 Hz timing exist. In 60 Hz mode each callback advances and renders a new machine frame, so game and sound run about 4.3% faster; audio is resampled to the native output rate. The listed options are implemented; driving ranges are implemented in phase 3.8; steering response is implemented in phase 3.9. | Complete |
 | 🟢 | 5.1. Vulkan renderer | Frontend-owned Vulkan v5 device/queue, shared standalone raster/resolve shaders, synchronized image handoff and context lifecycle. Native images are verified in macOS RetroArch through existing MoltenVK. | Complete; High reasoning |
 | 🟢 | 5.3. OpenGL/GLES renderer | Frontend-owned OpenGL 4.3/GLES 3.1 compute adapter. Actual 2D/3D images, normal context recreation and unannounced loss verified through the SM2-style EGL host on Linux Mesa. Audio and NVRAM match Software. macOS GL 4.1 cannot run this compute path. | Complete; High reasoning |
-| 🟢 | 5.2a. Widescreen and supersampling | Three widescreen modes and native supersampling scales 1–4, applied at content reload. Widescreen modes affect wide aspect only; supersampling also applies in 4:3. Vulkan and OpenGL/GLES use the standalone shaders. | Complete; High reasoning |
+| 🟢 | 5.2a. Widescreen and supersampling | Disabled plus two direct-16:9 expansion modes apply on Resume; native supersampling scales 1–4 apply at content reload. Native-capable games and Software bypass expansion; supersampling also applies in 4:3. Vulkan and OpenGL/GLES use the standalone shaders. | Complete; High reasoning |
 | 🟢 | 3.8. Driving analog ranges | Steering, Accelerator and Brake Output Range for VR/VFormula and their recognized sets: 50–150% in 10% steps, default 100%, live updates; controls remain visible for all titles. Scaling preserves Model 1 center/rest and native limits. 39 adapter checks, macOS release build, isolated RetroArch registration/frame delivery and Development installation pass. | Complete; Medium reasoning |
 | 🟢 | 3.9. Driving Steering Response | Linear / Progressive (Fine Center) / FBNeo Logarithmic (Fine Center), default Linear. Current SM2/Supermodel curves adapted to Model 1 20–80–E0, before output range; VR/VFormula only, live updates. 44 adapter checks, macOS release build and bounded RetroArch registration/frame delivery pass; Development installed. | Complete; Medium reasoning |
 | 🟢 | 6.1. Linked cabinets | SM2/Supermodel Netpacket workflow adapted to existing M1COMM. Per-set selectors default Disabled; native NVRAM roles retained. All six eligible sets reached game-created links in real RetroArch pairs; VR also passed LIVE relay. COMM Save States remain unavailable. 47 adapter checks, macOS build and Development install pass. | Complete; High reasoning |
@@ -324,7 +367,7 @@ The blocked rows are last, regardless of their phase number.
 | Known Bad Dump ROM Repairs | TGPulse-Next already repairs the SHA-1-identified legacy `315-5711.bin` in memory. The Libretro System option defaults to Enabled, preserving the standalone behavior; Disabled leaves the original bytes intact. It affects SWA, Wing War and, once bootable, NetMerc sets that contain this chip. A restart is required. SM2's ROM CRC Verification is a different function. | Implemented; option registration and build are verified. A gated test covers both loader choices when a user-owned matching ZIP is supplied; that ROM-dependent test has not run here. Other repairs require individually documented original hashes and corrected bytes before inclusion. |
 | A/V Timing | SM2's 60 Hz Compatibility duplicates occasional video frames without speeding the machine. Supermodel instead runs one machine frame per callback at 60 Hz and couples video and sound timing. Model 1 follows the user's Supermodel-style choice: Native 57.524160 Hz remains default; optional 60 Hz advances and renders every callback, speeds game and sound by about 4.3%, and resamples generated audio to the same output sample rate. | Implemented in the adapter, including the fractional audio position in Save States. Offline tests, option registration and the macOS release build pass. User-run presentation trials remain outside this roadmap. |
 | Model 1 source audio | SM2 phase 3.7 reviews category, visibility and defaults; its audio balance and DSB volume apply live. Supermodel's roadmap has no comparable audio phase; its core offers separate sound/music volume. TGPulse standalone has output-only MultiPCM1/2, YM3438 and optional DSB gains/mutes. | Implemented as separate source controls with global keys shared by all ROM sets, following SM2 and Supermodel audio option scope. All source Gain selectors default to Auto: MultiPCM1/2 and DSB use standalone 50/50/100%, while FM Auto uses 90% in Libretro rather than the standalone 30%. The canonical menu shows Auto, Mute (stored as `0`) and 10–100% in 10% steps without a separate Mute switch. Saved textual mutes remain readable as temporary aliases until the user chooses a canonical value; no conversion is forced on read. Isolated RetroArch tests cover global/per-game persistence, while adapter tests cover effective zero Gain. Gains appear only for fitted sound sources, subject to frontend display-hint support, and apply live. The standalone mix is unchanged; listening remains user-run. |
-| Aspect and widescreen | SM2 reports Auto/4:3/16:9 geometry without changing its 496×384 framebuffer. TGPulse standalone already has both behaviors: Auto reads VR's saved monitor setting and presents the native image; On widens the 3D field of view to 683×384 with optional 2D stretch, like Supermodel. The current Libretro software output is fixed at 496×384. | Presentation-only Aspect Ratio is implemented with Auto default, VR EEPROM byte 0x0a and 4:3 fallback. Changes report geometry live after option, Save RAM or Save State updates; the image stays 496×384. Offline tests and macOS release build pass. Hardware renderers now support wider 3D rendering and optional stretch of both native 2D layers; 4:3 and Software retain native geometry. |
+| Aspect and widescreen | SM2 reports Auto/4:3/16:9 geometry without changing its 496×384 framebuffer. TGPulse standalone already has both behaviors: Auto reads VR's saved monitor setting and presents the native image; On widens the 3D field of view to 683×384 with optional 2D stretch, like Supermodel. The current Libretro software output is fixed at 496×384. | Presentation-only Aspect Ratio is implemented with Auto default, VR EEPROM byte 0x0a and 4:3 fallback. Changes report geometry live after option, Save RAM or Save State updates; the image stays 496×384. Offline tests and macOS release build pass. Hardware Expand modes now select 16:9 directly with wider 3D rendering and optional stretch of both native 2D layers. Disabled and Software retain native framebuffer geometry and normal Aspect Ratio handling. |
 | Driving analog ranges and response | Current SM2 and Supermodel expose live Steering/Accelerator/Brake Output Range (50–150%, default 100%) and Steering Response. Model 1 VR/VFormula currently maps steering around 0x80 and pedals from 0x20, within 0x20–0xE0. | Ranges implemented in phase 3.8; Steering Response implemented in phase 3.9. Scaling uses the existing center/rest, preserving native defaults and limits. Model 2 presets 63% (30-80-D0) and 75.3% (00-C0) require Model 1-specific validation rather than direct copying. These control emulated ADC output, not frontend binding assignment. |
 | VR rumble | SM2 negotiates Libretro's rumble interface, drives P1 strong/weak motors and clears them at lifecycle boundaries. TGPulse standalone already decodes VR/VFormula motor commands into pad levels; its rumble default is Off. | Implemented by sharing the standalone pad policy and adapting only its output to Libretro. At the user's request the Libretro Gamepad Rumble option defaults On, matching SM2 while leaving the standalone default unchanged. It remains visible for all titles, applies to VR/VFormula and is inert when no rumble interface exists. Reset, unload, state load, input removal and disable stop both motors. Offline tests and macOS release build pass; physical-pad behavior remains user-run. |
 | Timing/FPS display | SM2 composes its Supermodel-style Dear ImGui panel into software/GPU frames, uses 61-callback averages and Off/Auto/11–14 px options. TGPulse already supplies imgui 0.12. | Implemented using the existing ImGui dependency and an adapter-only software compositor. Defaults Off; Auto is 13 px. Reset/state load and option changes clear measurements. 24 offline tests and native-size visual inspection pass; 120 warmed synthetic draws averaged 0.421 ms. macOS release build and Development install are verified. This is not a gameplay benchmark. |
@@ -622,3 +665,50 @@ synchronous vectors, so the Supermodel packet-ring initializer is not applicable
 
 Effort: High / M; initial estimate 1–2% account use. Observed account usage
 38% → 39% (rounded, shared account); reset 2026-10-24 22:40:57 Europe/Rome.
+
+
+## Aspect Ratio Gate Correction — 2026-10-18
+
+The user's final refinement restricts artificial expansion to Aspect Ratio Auto
+or 16:9. Explicit 4:3 suppresses expansion without changing the stored WM mode.
+Disabled + 16:9 continues to stretch the whole image. Native-capable titles,
+Auto monitor interpretation, their manual overrides and Software remain unchanged.
+This supersedes the earlier direct expansion under explicit 4:3.
+
+The existing effective-aspect helper and geometry/default tests were adapted;
+93 checks pass. The 36-case actual-core ABI matrix changes only the two hardware
+non-native expansion cases with explicit 4:3; every native Save RAM fingerprint
+is unchanged. The 89-registration/44-key menu audit, artifact gate and four
+RetroArch Vulkan image-delivery cases pass: 4:3 blocks expansion, Auto allows
+it, Disabled + 16:9 stretches and native VR Auto remains wide. Screenshots show
+operator menus, not 3D/gameplay acceptance. No other-platform runtime claim.
+
+Installed/build SHA-256:
+`ab259112f83000ede33c0bbdbd440ded41d1ac5d22769ac8de4b1fd4812804f4`.
+Info/config/System preserved; evidence: `outputs/widescreen-aspect-gate-20261018/`.
+The later selector lifecycle correction makes WM live on Resume as well as Aspect Ratio. The
+same selector was added to Supermodel at the user's request; native widescreen
+handling in this core was not copied or changed. No commit/push.
+
+
+## Widescreen Selector Lifecycle Correction — 2026-10-18
+
+The user reported VF remaining wide across selector choices and required the
+already verified renderer to be preserved. The runtime adapter cached Widescreen
+Mode at load: Auto + Expand stayed at 683 pixels / 16:9 after selecting Disabled
+and after Restart; content reload restored 496 pixels / 4:3. Refresh only the
+mode selector in the existing pending-options Resume block. No renderer, shader,
+projection or native-widescreen implementation is changed. This supersedes the
+previous Widescreen Mode reload requirement; Renderer/Supersampling still reload.
+
+Verified the failing before/after option lifecycle; 93 existing adapter checks,
+89 modern/legacy registrations / 44 reviewed keys and final artifact gate pass.
+Actual VF 3D scenes in one isolated RetroArch 1.22.2 macOS Vulkan session verify
+all three WM choices on Resume, explicit 4:3 suppression and Disabled + 16:9
+stretch. Native F8 screenshots retained; no reset/GPU failure in the run log.
+Native/Software rules retain their existing test coverage; no other-platform
+runtime claim. UI was tested on build `268d2e8178004865e446c9c7bc138aa98633e84d24c3566806bdc7fae5760138`;
+the final build changes only the Aspect Ratio help to the current Framework
+workbook wording. Local public core installed atomically, matching SHA-256
+`55b6b8931841c5b1a82b19421ed6b6e23a80c489655923adca1c3ac5133acc68`; matching info and deployment-protected files unchanged.
+Evidence: `outputs/widescreen-live-selector-20261018/`. No commit or push.

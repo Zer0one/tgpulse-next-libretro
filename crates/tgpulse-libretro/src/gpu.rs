@@ -238,7 +238,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             backend: Backend::Auto,
-            wide: 1,
+            wide: 0,
             ss: 1,
             srgb: false,
         }

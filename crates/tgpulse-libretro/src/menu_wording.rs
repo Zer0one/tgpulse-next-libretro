@@ -12,7 +12,7 @@ pub fn find(key: &CStr) -> Option<(&'static CStr, &'static CStr, &'static CStr)>
             Some((c"A/V Timing (Restart Required)", c"Select the video cadence and corresponding audio timing.", c"video")),
         // Menu Review row 9, Order 8.
         b"tgpulse_next_aspect_ratio" =>
-            Some((c"Aspect Ratio", c"Select the displayed aspect ratio or derive it automatically from the native monitor or cabinet configuration.", c"video")),
+            Some((c"Aspect Ratio", c"Select Auto, 4:3 or 16:9. Auto follows native presentation and applicable Widescreen Mode. Explicit 4:3 suppresses expansion; 16:9 with Widescreen Mode Disabled stretches the original image. Native widescreen settings are preserved.", c"video")),
         // Menu Review row 12, Order 40.
         b"tgpulse_next_initial_nvram_setup" =>
             Some((c"Automatic Initial NVRAM Setup (Restart Required)", c"Initialize missing save data from a validated NVRAM template and apply approved initial settings while preserving existing valid saves.", c"system")),
@@ -108,7 +108,7 @@ pub fn find(key: &CStr) -> Option<(&'static CStr, &'static CStr, &'static CStr)>
             Some((c"Timing / FPS Overlay", c"Display timing and frame-rate measurements to inspect emulation and rendering performance.", c"video")),
         // Menu Review row 203, Order 207.
         b"tgpulse_next_widescreen_mode" =>
-            Some((c"Widescreen Mode", c"Expand the 3D field of view, with optional 2D layer stretching, or stretch the complete image. Applies only to games without native widescreen support, with a widescreen Aspect Ratio and hardware rendering. Native widescreen is preserved. Reload content after changing this option.", c"video")),
+            Some((c"Widescreen Mode", c"Expand the 3D field of view and report 16:9 automatically, optionally stretching both 2D layers. Applies only to games without native widescreen support, with hardware rendering and Aspect Ratio set to Auto or 16:9. Explicit 4:3 suppresses expansion. Disabled preserves Aspect Ratio and native monitor settings. Native widescreen is unchanged. Changes apply when returning to the game without a reset.", c"video")),
         _ => None,
     }
 }

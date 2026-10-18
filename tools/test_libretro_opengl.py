@@ -45,7 +45,7 @@ def main():
     host.tgpulse_gl_start.restype = c.c_bool; host.tgpulse_gl_error.restype = c.c_char_p
     host.tgpulse_gl_frame.argtypes = [c.c_uint, c.c_uint, c.c_bool]; host.tgpulse_gl_frame.restype = c.c_bool
     host.tgpulse_gl_pixels.restype = c.c_void_p
-    width = 683 if a.api != 'software' and a.aspect == '16_9' and a.widescreen != 'stretch' else 496
+    width = 683 if a.api != 'software' and a.rom.stem != 'vr' and a.aspect != '4_3' and a.widescreen != 'stretch' else 496
     warming = [False]
     system = str(a.system_dir.resolve()).encode() if a.system_dir else None
     options = {b'tgpulse_next_aspect_ratio':a.aspect.encode(), b'tgpulse_next_widescreen_mode':a.widescreen.encode(), b'tgpulse_next_supersampling':str(a.supersampling).encode(), b'tgpulse_next_renderer': b'software' if a.api == 'software' else b'opengl',

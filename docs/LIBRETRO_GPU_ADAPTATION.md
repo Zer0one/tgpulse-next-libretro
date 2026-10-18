@@ -216,3 +216,41 @@ change, build, dependency installation or Development redeployment was needed.
 Assessment reasoning: High. Account usage reads 45%; next reset
 2026-10-07 15:58:51 CEST. No exclusive task cost can be inferred from the
 unchanged rounded account percentage.
+
+
+## Direct Widescreen Selection — 2026-10-18
+
+The user-approved Supermodel alignment supersedes the earlier requirement for
+a wide Aspect Ratio and the earlier default. Disabled (historical raw `stretch`,
+mode 0) is now the default. Hardware expansion reports 16:9 directly for both
+Expand choices without modifying the saved Aspect Ratio. Disabled returns that
+selector to normal authority, including full-image stretch at 16:9.
+
+The existing native-capability predicate still suppresses every expansion mode
+for native-widescreen games, preserving Auto/monitor and manual overrides.
+Software and standalone are unchanged. TGPulse's optional 2D stretch still
+covers both native layers; Supermodel's only affects the lower background.
+Content reload remains required. The single implementation roadmap records
+actual validation and delivery; no new renderer/shader path was introduced.
+
+
+## Aspect Ratio Gate Refinement — 2026-10-18
+
+The final user clarification supersedes expansion independent of explicit 4:3.
+Expansion may run with Aspect Ratio Auto or 16:9 only. Explicit 4:3 suppresses
+it. Disabled keeps normal aspect handling, including whole-image stretch at
+16:9. The native-capability exclusion and Software behavior remain unchanged.
+Existing selected values survive; no monitor NVRAM or Aspect Ratio selection is
+rewritten. Validation/delivery are recorded in the sole implementation roadmap.
+
+
+## Widescreen Selector Lifecycle Correction — 2026-10-18
+
+The previous content-reload requirement is superseded for Widescreen Mode only.
+The option was read exclusively at content load, so selecting Disabled during
+an expanded session left the active mode unchanged, including after Restart.
+Refresh only the existing `game.graphics.wide` selector in the pending-options
+Resume block, alongside Aspect Ratio. Existing per-frame projection, viewport,
+GPU allocation/resize, shaders and 2D composition are unchanged. Renderer and
+Supersampling retain their content-reload requirement. Native-capable titles
+continue to pass through the existing exclusion predicate.

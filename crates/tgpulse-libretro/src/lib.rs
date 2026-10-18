@@ -772,6 +772,14 @@ fn selected_aspect_ratio(mode: AspectRatio, set_name: &str, eeprom: &[u16]) -> f
     }
 }
 
+fn effective_aspect_ratio(hardware: bool, wide: u32, mode: AspectRatio, selected: f32) -> f32 {
+    if hardware && wide > 0 && !matches!(mode, AspectRatio::FourThree) {
+        ASPECT_16_9
+    } else {
+        selected
+    }
+}
+
 fn expanded_render_width(hardware: bool, wide: u32, aspect: f32) -> u32 {
     if hardware && wide > 0 && aspect > ASPECT_4_3 + 0.01 {
         683
@@ -846,9 +854,9 @@ fn graphics_settings(environment: ffi::Environment) -> gpu::Settings {
             _ => gpu::Backend::Auto,
         },
         wide: match option_value(environment, c"tgpulse_next_widescreen_mode").as_deref() {
-            Some("stretch") => 0,
+            Some("expand_3d") => 1,
             Some("expand_3d_2d") => 2,
-            _ => 1,
+            _ => 0, // Disabled; retain the historical "stretch" saved value.
         },
         ss: option_value(environment, c"tgpulse_next_supersampling")
             .and_then(|v| v.parse::<u32>().ok())
@@ -916,7 +924,9 @@ fn request_graphics(
 }
 
 fn game_aspect_ratio(game: &Game, mode: AspectRatio) -> f32 {
-    selected_aspect_ratio(mode, &game.set_name, &game.machine.ioboard.eeprom().data)
+    // Native-capable games already bypass expansion in widescreen_hack_mode.
+    effective_aspect_ratio(game.hardware, game.graphics.wide, mode,
+        selected_aspect_ratio(mode, &game.set_name, &game.machine.ioboard.eeprom().data))
 }
 
 fn publish_aspect_ratio(game: &mut Game, mode: AspectRatio, environment: ffi::Environment) {
@@ -1188,7 +1198,7 @@ fn options() -> &'static OptionStorage {
             option_definition(
                 c"tgpulse_next_aspect_ratio",
                 c"Aspect Ratio",
-                c"Automatic follows the original monitor configuration stored in NVRAM for Virtua Racing; other Model 1 games default to 4:3. The explicit values override the monitor setting for presentation only. This option does not expand the rendered view; Widescreen Hack controls expansion on supported renderers. Changes take effect immediately.",
+                c"Select Auto, 4:3 or 16:9. Auto follows native presentation and applicable Widescreen Mode. Explicit 4:3 suppresses expansion; 16:9 with Widescreen Mode Disabled stretches the original image. Native widescreen settings are preserved.",
                 c"video",
                 &[(c"auto", c"Auto"), (c"4_3", c"4:3"), (c"16_9", c"16:9")],
                 c"auto",
@@ -1260,7 +1270,7 @@ fn options() -> &'static OptionStorage {
     let end=storage.definitions.len()-1;
     storage.definitions.splice(end..end,[
         option_definition(c"tgpulse_next_renderer",c"Renderer (Restart Required)",c"Select frontend-owned GPU rendering or Software. Auto follows supported frontend context preference.",c"video",&[(c"auto",c"Auto"),(c"vulkan",c"Vulkan"),(c"opengl",c"OpenGL / GLES"),(c"software",c"Software")],c"auto"),
-        option_definition(c"tgpulse_next_widescreen_mode",c"Widescreen Hack (Restart Required)",c"Applies only to games without native widescreen support. Expand the 3D view while preserving or stretching 2D layers, or stretch the complete image. Requires a widescreen Aspect Ratio and hardware rendering. Native widescreen, including Service Menu settings, is preserved.",c"video",&[(c"expand_3d",c"Expand 3D View Only"),(c"expand_3d_2d",c"Expand 3D View + Stretch 2D"),(c"stretch",c"Stretch 3D and 2D View")],c"expand_3d"),
+        option_definition(c"tgpulse_next_widescreen_mode",c"Widescreen Mode",c"Expand the 3D field of view and report 16:9 automatically, optionally stretching both 2D layers. Applies only to games without native widescreen support, with hardware rendering and Aspect Ratio set to Auto or 16:9. Explicit 4:3 suppresses expansion. Disabled preserves Aspect Ratio and native monitor settings. Native widescreen is unchanged. Changes apply when returning to the game without a reset.",c"video",&[(c"stretch",c"Disabled"),(c"expand_3d",c"Expand 3D View Only"),(c"expand_3d_2d",c"Expand 3D View + Stretch 2D")],c"stretch"),
         option_definition(c"tgpulse_next_supersampling",c"Supersampling (Restart Required)",c"Requires Vulkan or OpenGL/GLES rendering. Use the standalone Model 1 supersampling pass. Higher scales average more 3D samples per output pixel and increase GPU time and memory. Tile detail is unchanged.",c"video",&[(c"1",c"1x (Disabled)"),(c"2",c"2x (4 Samples)"),(c"3",c"3x (9 Samples)"),(c"4",c"4x (16 Samples)")],c"1")
     ]);
     let values = [(c"50", c"50%"), (c"60", c"60%"), (c"70", c"70%"),
@@ -1429,7 +1439,7 @@ fn register_options(environment: ffi::Environment) {
         ),
         (
             c"tgpulse_next_widescreen_mode",
-            c"Widescreen Hack (Restart Required); expand_3d|expand_3d_2d|stretch",
+            c"Widescreen Mode; stretch|expand_3d|expand_3d_2d",
         ),
         (
             c"tgpulse_next_supersampling",
@@ -2488,7 +2498,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     unsafe {
         *info = ffi::SystemInfo {
             library_name: c"TGPulse-Next-M1".as_ptr(),
-            library_version: c"0.1.0.11".as_ptr(),
+            library_version: c"0.1.0.12".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
             block_extract: true,
@@ -2676,6 +2686,9 @@ pub extern "C" fn retro_run() {
                     .filter(|value| *value <= 800)
                     .unwrap_or(100);
                 core.settings.aspect_ratio = aspect_ratio_option(env);
+                // Apply the selector on Resume; both GPU paths already resize per frame.
+                game.graphics.wide = widescreen_hack_mode(
+                    &game.set_name, graphics_settings(env).wide);
                 core.settings.driving_ranges = driving_ranges(env);
                 core.settings.mvd = mvd_settings(env);
                 core.settings.diagnostic = diagnostic_settings(env);
@@ -3775,18 +3788,29 @@ mod tests {
                 assert_eq!(widescreen_hack_mode(set, selected), selected);
             }
         }
-        assert_eq!(graphics_settings(no_rumble_environment).wide, 1);
+        assert_eq!(graphics_settings(no_rumble_environment).wide, 0);
     }
 
     #[test]
-    fn gpu_expansion_requires_a_wide_presentation_and_real_hardware_path() {
-        for wide in 0..=2 {
-            assert_eq!(expanded_render_width(false, wide, ASPECT_16_9), 496);
-            assert_eq!(expanded_render_width(true, wide, ASPECT_4_3), 496);
-            assert_eq!(
-                expanded_render_width(true, wide, ASPECT_16_9),
-                if wide == 0 { 496 } else { 683 }
-            );
+    fn gpu_expansion_selects_wide_aspect_without_changing_native_or_software_modes() {
+        for mode in [AspectRatio::Auto, AspectRatio::FourThree, AspectRatio::SixteenNine] {
+            let selected = selected_aspect_ratio(mode, "vf", &[]);
+            for wide in 0..=2 {
+                let software = effective_aspect_ratio(false, wide, mode, selected);
+                assert_eq!(software, selected);
+                assert_eq!(expanded_render_width(false, wide, software), 496);
+                let expand = wide > 0 && !matches!(mode, AspectRatio::FourThree);
+                let hardware = effective_aspect_ratio(true, wide, mode, selected);
+                assert_eq!(hardware, if expand { ASPECT_16_9 } else { selected });
+                assert_eq!(expanded_render_width(true, wide, hardware),
+                    if expand { 683 } else { 496 });
+                let native_mode = widescreen_hack_mode("vr", wide);
+                for monitor in [0, 1] {
+                    let mut eeprom = [0; 64]; eeprom[5] = monitor;
+                    let native = selected_aspect_ratio(mode, "vr", &eeprom);
+                    assert_eq!(effective_aspect_ratio(true, native_mode, mode, native), native);
+                }
+            }
         }
     }
 
@@ -4116,7 +4140,7 @@ mod tests {
     }
 
     #[test]
-    fn renderer_defaults_expand_only_3d_and_no_srgb_is_exposed() {
+    fn renderer_defaults_disable_expansion_and_no_srgb_is_exposed() {
         let definitions = &options().definitions;
         let find = |key: &CStr| {
             definitions
@@ -4126,7 +4150,7 @@ mod tests {
         };
         assert_eq!(
             unsafe { CStr::from_ptr(find(c"tgpulse_next_widescreen_mode").default_value) },
-            c"expand_3d"
+            c"stretch"
         );
         let ss = find(c"tgpulse_next_supersampling");
         assert_eq!(unsafe { CStr::from_ptr(ss.default_value) }, c"1");

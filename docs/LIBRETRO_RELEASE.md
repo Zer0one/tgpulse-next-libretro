@@ -2,7 +2,7 @@
 
 This experimental core targets Sega Model 1. Current source selects only
 Model 1 machine components and required shared devices (a single system build).
-Version 0.1.0.2 introduced this component split; 0.1.0.11 retains it alongside
+Version 0.1.0.2 introduced this component split; 0.1.0.12 retains it alongside
 the reviewed Model 1 integration and the retained performance improvements
 documented in `LIBRETRO_MODEL1_PERFORMANCE.md`. Consult the package's
 BUILD_INFO for its compiled scope. Model 2 and combined Libretro
@@ -52,9 +52,12 @@ Software rendering is retained. Vulkan and OpenGL/GLES rendering use the
 frontend's device/context. OpenGL requires desktop 4.3 or GLES 3.1 compute
 support; macOS OpenGL 4.1 cannot run it. On macOS select RetroArch's Vulkan
 driver with an available MoltenVK runtime. This package does not install or
-replace RetroArch's drivers. The Widescreen Hack applies only to games without
-native widescreen support and only with a wide Aspect Ratio. It defaults to
-Expand 3D View Only; the other modes also stretch 2D or stretch the full image.
+replace RetroArch's drivers. Widescreen Mode defaults to Disabled. On non-native-capable games,
+hardware Expand modes automatically report 16:9 with Aspect Ratio Auto or 16:9;
+explicit 4:3 suppresses expansion;
+the optional 2D stretch covers both native layers. Disabled leaves Aspect Ratio
+in control, including full-image stretch at 16:9. Native widescreen games and
+Software keep their existing behavior. Mode changes apply when returning to the game, without a reset.
 Supersampling offers 1–4x on hardware renderers, including in 4:3.
 
 ## Included features

@@ -16,24 +16,21 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
-release line is 0.1.0.11.
+release line is 0.1.0.12.
 
 ## Current Source And Downloads
 
-Version **0.1.0.11** packages these changes since
-[0.1.0.10](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.10):
+Version **0.1.0.12** updates Widescreen Mode:
 
-- Two network controls: **Linked Cabinets** and **Auto Network Role Settings**,
-  with native role/identity synchronization and automatic reset after effective
-  changes. Existing lobby callbacks survive machine reconfiguration.
-- Shared option wording and functional menu groups, a global Controller Profile
-  Type, and **L3 Service / R3 Test** ordering.
-- Default **60 Hz** timing, selectable native timing, canonical source Gain
-  Mute values, and the reviewed Sega NetMerc sensor Roll polarity.
-- Focused reset/audio recovery and network lifecycle verification. See the
-  [audio report](docs/LIBRETRO_AUDIO_RESET_2026-10-18.md) and
-  [network integration report](docs/NETWORK_TWO_OPTION_2026-10-17.md) for scope
-  and limitations.
+- Disabled is the default; the two expansion modes report 16:9 with Aspect Ratio
+  Auto or 16:9. Explicit 4:3 suppresses expansion.
+- Changes apply when returning to the game, without reset or content reload.
+  Native widescreen games and Software keep their existing presentation.
+- Existing saved values remain readable; `stretch` now displays Disabled.
+  Renderer and Supersampling still require content reload.
+
+See the [release notes](docs/releases/0.1.0.12.md) and
+[renderer adaptation](docs/LIBRETRO_GPU_ADAPTATION.md) for scope and verification.
 
 See [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
 for published binary packages and their verification status.
@@ -67,8 +64,8 @@ complete Libretro cores are tracked separately in the
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
-Version [0.1.0.11](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.11)
-is available as an experimental prerelease with five verified native platform packages.
+The 0.1.0.12 preview uses five native platform packages; publication requires
+all matrix jobs and package checks to pass.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
 for verified binary packages.
@@ -125,7 +122,7 @@ on every callback, making gameplay and sound about 4.3% faster. It resamples
 audio to the same frontend output rate. Reload content after changing it.
 The `Aspect Ratio` option defaults to Auto: Virtua Racing follows its saved
 monitor setting, while other Model 1 sets use 4:3 unless explicitly overridden.
-Software retains 496×384 output. Hardware expansion follows the effective wide aspect and the selected Widescreen Hack.
+Software retains 496×384 output. Hardware Widescreen expansion reports 16:9 when Aspect Ratio is Auto or 16:9; explicit 4:3 suppresses it; Disabled retains the normal presentation.
 `Driving Steering Output Range`, `Driving Accelerator Output Range` and
 `Driving Brake Output Range` apply to VR/VFormula: 50–150% in 10% steps,
 default 100%, with immediate updates. Scaling respects Model 1 center/rest and
@@ -240,11 +237,16 @@ MoltenVK; Auto keeps Software when the frontend prefers macOS OpenGL 4.1.
 Native Vulkan images are verified in RetroArch; desktop OpenGL/GLES images and
 context recreation are verified with the isolated Mesa EGL check host.
 
-`Widescreen Hack (Restart Required)` applies to games without native widescreen
-support. It defaults to Expand 3D View Only; the other choices expand the 3D
-view and stretch 2D, or stretch the complete image. These choices apply only
-with a widescreen aspect; 4:3 keeps native geometry. Native widescreen settings
-remain authoritative. `Supersampling (Restart Required)` offers scales 1–4
+`Widescreen Mode` defaults to Disabled. For games without native widescreen
+support, Expand 3D View Only and Expand 3D View + Stretch 2D directly report
+16:9 on hardware renderers when Aspect Ratio is Auto or 16:9. Explicit 4:3
+suppresses expansion without changing the saved Widescreen Mode. The
+second mode stretches both native 2D layers. Disabled preserves the selected
+Aspect Ratio; selecting 16:9 there stretches the complete native image. Native
+widescreen games retain their existing Auto/monitor settings and explicit
+aspect overrides for every Widescreen Mode selection. Software is unchanged.
+Widescreen Mode applies when returning to the game, without a reset. The historical saved value
+`stretch` now displays Disabled; existing expansion selections remain valid. `Supersampling (Restart Required)` offers scales 1–4
 (default 1), including in 4:3. These options remain visible; supersampling requires Vulkan or OpenGL/GLES. sRGB correction is not exposed by the core.
 
 See [renderer adaptation](docs/LIBRETRO_GPU_ADAPTATION.md) and

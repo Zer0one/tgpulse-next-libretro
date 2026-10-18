@@ -103,9 +103,7 @@ def main():
         # match both the reconciled editable workbook and F14, independently.
         if order == 22: name = 'Sega NetMerc: Audio Donor (Restart Required)'
         if order == 207:
-            help_text = ('Expand the 3D field of view, with optional 2D layer stretching, or stretch the complete image. '
-                         'Applies only to games without native widescreen support, with a widescreen Aspect Ratio and hardware rendering. '
-                         'Native widescreen is preserved. Reload content after changing this option.')
+            help_text = 'Expand the 3D field of view and report 16:9 automatically, optionally stretching both 2D layers. Applies only to games without native widescreen support, with hardware rendering and Aspect Ratio set to Auto or 16:9. Explicit 4:3 suppresses expansion. Disabled preserves Aspect Ratio and native monitor settings. Native widescreen is unchanged. Changes apply when returning to the game without a reset.'
         for key in keys:
             d = modern[key]
             check(d['name'] == name, key + ': reviewed name')
