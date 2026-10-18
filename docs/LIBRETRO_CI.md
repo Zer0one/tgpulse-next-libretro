@@ -529,3 +529,20 @@ Ignored verification receipts: `outputs/release-0.1.0.11/verification.json`,
 `local-install.json`, `github-install.json`, local test/artifact logs and
 `github-artifact.log`. Account usage observed 39% → 42% (rounded and shared
 across concurrent work); reset 2026-10-24 22:40:57 Europe/Rome.
+
+
+## Verified 0.1.0.12 Publication — 2026-10-18
+
+- Source/tag: `v0.1.0.12`, commit `7e3af79b08d670b7568eb0c6dfa35371cbac6381`, published directly from `main`.
+- Release: [0.1.0.12 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.12), marked prerelease.
+- [CI run 39162481874](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/39162481874): all five native targets and publication succeeded. Linux x86_64/ARM64, macOS Apple Silicon/Intel and Windows x86_64 GNU use the shared Libretro Makefile, native machine/adapter checks, artifact/lifecycle gates and package checks.
+- Downloaded every published ZIP and SHA256SUMS. External/internal checksums, exact tagged source, version, metadata, Model 1 scope, complete file inventories and licenses passed. Linux/macOS packages contain 194 files each; Windows contains 202.
+- Local release build passed 93 adapter tests and the 25-export/dependency/empty-lifecycle artifact check, then was installed with backup/hash comparison. The GitHub Apple Silicon artifact passed the same native artifact gate and replaced that local build under the public core name. Installed metadata matches the release package.
+- Final installed GitHub core SHA-256: `05e0e74e440245648e130ed650043ffbc1b6b91aa5333fc35645b52d310ffaa0`; metadata SHA-256: `fcd427ff7dffde030f7e04f80f54d8ab9c40b655be616aeb13dd1eea60ccffd3`. Both were compared with the downloaded release archive and installed files.
+- Retained Widescreen implementation evidence: 36 ABI geometry/Save RAM cases, 89 modern/legacy registrations / 44 reviewed keys, and actual VF 3D transitions in macOS RetroArch Vulkan without reset. These trials were not repeated solely for the version increment. No new OpenGL/GLES, other-platform gameplay or physical-controller qualification is claimed.
+- No working/release branch was created. Public names, native save format and frontend configuration paths remain unchanged.
+
+Ignored receipts: `outputs/release-0.1.0.12/verification.json`, local build/test/artifact
+logs, `local-install.json`, `github-artifact.log` and `github-install.json`.
+Account usage observed 69% → 72% (rounded, shared across concurrent work);
+reset 2026-10-24 22:40:57 Europe/Rome.
