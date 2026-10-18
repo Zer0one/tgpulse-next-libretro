@@ -1,5 +1,14 @@
 # Reference adaptation workflow
 
+## Git Branch Convention
+
+Use `main` for work and `origin/main` for publication unless the user explicitly
+requests a different branch. Do not create working, feature or release branches
+by default. Releases are tags on `main`. Commit and push still require the
+user's authorization. An automatic approval rejection is not permission to
+publish an alternative branch; report the block and request any missing
+authorization for `main`.
+
 ## Shared Libretro Framework Reference
 
 User-designated on 2026-10-12: use

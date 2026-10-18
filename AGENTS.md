@@ -22,6 +22,13 @@ personal settings, saves or generated build products. Keep tests and publication
 evidence separate from actual game or controller testing. Commit and push future
 porting work only when requested for that work.
 
+Work directly on `main` and publish to `origin/main`. Do not create or publish
+working, feature or release branches unless the user explicitly requests an
+exception. A release uses a tag on `main`, not a separate release branch.
+If automatic approval blocks publication to `main`, explain that block and
+request the required authorization; never create an alternative branch as a
+workaround. This is the user's default convention across their GitHub projects.
+
 Write project documentation and workbook labels in English unless the user
 explicitly requests another language. Use the shared reference at
 `/Users/andrea/dev/libretro-core-framework/FRAMEWORK.md` and its source register

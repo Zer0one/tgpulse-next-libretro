@@ -2,7 +2,7 @@
 
 This experimental core targets Sega Model 1. Current source selects only
 Model 1 machine components and required shared devices (a single system build).
-Version 0.1.0.2 introduced this component split; 0.1.0.10 retains it alongside
+Version 0.1.0.2 introduced this component split; 0.1.0.11 retains it alongside
 the reviewed Model 1 integration and the retained performance improvements
 documented in `LIBRETRO_MODEL1_PERFORMANCE.md`. Consult the package's
 BUILD_INFO for its compiled scope. Model 2 and combined Libretro
@@ -85,7 +85,7 @@ Supersampling offers 1–4x on hardware renderers, including in 4:3.
   hidden managed selectors synchronized. Effective topology/operator changes
   cause one automatic machine reset when execution resumes (or on the next
   running frame in a non-pausing Netplay menu). Save States are unavailable
-  while the COMM board is fitted. These source updates postdate 0.1.0.10.
+  while the COMM board is fitted. This convention is included from 0.1.0.11.
 - Optional, hash-guarded in-memory repair of the known 315-5711 bad dump.
 
 NetMerc remains experimental. Its required Model 1 I/O BIOS can be found in the
@@ -131,8 +131,8 @@ frontend behavior.
 ## LCF Version Reconciliation Review — 2026-10-12
 
 The public four-part `0.1.0.PORT_REVISION` sequence was explicitly established
-for this independent port. Keep the existing `0.1.0.10` tag and identities
-unchanged during local LCF work; this task does not publish a version.
+for this independent port. The existing `0.1.0.10` tag was retained during local LCF work; the subsequent
+user-authorized publication advances the port revision to `0.1.0.11`.
 The reviewed TGPulse-Next source snapshot has its own four-part release
 `0.1.0.1` (`f303b712455571b60cbea2249e1022935d398e22`). Do not concatenate
 that entire release with a fifth segment or imply that the port revision

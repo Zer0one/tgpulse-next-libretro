@@ -2488,7 +2488,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     unsafe {
         *info = ffi::SystemInfo {
             library_name: c"TGPulse-Next-M1".as_ptr(),
-            library_version: c"0.1.0.10".as_ptr(),
+            library_version: c"0.1.0.11".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
             block_extract: true,

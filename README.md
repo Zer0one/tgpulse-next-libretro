@@ -16,12 +16,12 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
-is published as 0.1.0.10.
+release line is 0.1.0.11.
 
 ## Current Source And Downloads
 
-The latest binary preview is **[0.1.0.10](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.10)**.
-The current source additionally includes:
+Version **0.1.0.11** packages these changes since
+[0.1.0.10](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.10):
 
 - Two network controls: **Linked Cabinets** and **Auto Network Role Settings**,
   with native role/identity synchronization and automatic reset after effective
@@ -35,8 +35,8 @@ The current source additionally includes:
   [network integration report](docs/NETWORK_TWO_OPTION_2026-10-17.md) for scope
   and limitations.
 
-These source changes are not included in the 0.1.0.10 download. No new binary
-release is implied by this source update.
+See [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
+for published binary packages and their verification status.
 
 **Port status:** an experimental Libretro adapter lives in
 `crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
@@ -67,8 +67,8 @@ complete Libretro cores are tracked separately in the
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
-Version [0.1.0.10](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.10)
-is available as an experimental prerelease with five native platform packages.
+The 0.1.0.11 preview uses five native platform packages; publication requires
+all matrix jobs and package checks to pass.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
 for verified binary packages.
