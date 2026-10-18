@@ -23,7 +23,12 @@ evidence separate from actual game or controller testing. Commit and push future
 porting work only when requested for that work.
 
 Write project documentation and workbook labels in English unless the user
-explicitly requests another language. Follow `docs/REFERENCE_WORKFLOW.md` for
+explicitly requests another language. Use the shared reference at
+`/Users/andrea/dev/libretro-core-framework/FRAMEWORK.md` and its source register
+when evaluating incoming or outgoing Libretro solutions.
+Framework candidates do not imply implementation authorization or compliance;
+preserve explicit user decisions and published compatibility. Follow
+`docs/REFERENCE_WORKFLOW.md` for
 each phase: inspect the current reference implementation, reuse its established
 workflow and deliverables, and document the smallest necessary adaptation.
 Ask about genuine adaptation decisions; routine implementation choices can

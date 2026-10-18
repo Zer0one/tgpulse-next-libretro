@@ -18,7 +18,20 @@ remain unchanged. Low sampling rates reject calibration with a reason;
 there is no successful calibration based only on elapsed time.
 
 No SDL handles, host devices or frontend callbacks enter the emulated machine.
-The existing native pose conversion retains neutral offsets and polarity.
+The native pose conversion retains neutral offsets. The user-approved
+2026-10-10 adaptation reverses sensor Roll at the final pose conversion;
+Yaw/Pitch polarity, sensor-axis bindings, calibration and Right Stick
+controls remain unchanged. Right Stick controls Yaw/Pitch only. This is a
+Libretro control preference, not a standalone machine correction.
+
+Verification for this polarity change: 88 adapter tests pass, including both
+Roll directions, the frontend sensor path and unchanged Right Stick behavior.
+The macOS ARM64 release passes the Model 1 scope, 25-export ABI and empty
+lifecycle checks; the public core and matching metadata are installed with
+backup and verified SHA-256. Installed core hash:
+`80520618acea6b35f4b34dbb35321335bc9a531438aeadca1a3fe189e442c849`.
+Physical-controller acceptance remains a user trial; no commit or release
+publication was performed for this change.
 
 ## Options And Bindings
 

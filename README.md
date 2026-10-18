@@ -7,16 +7,36 @@ GitHub fork of either source repository. The initial tree is a snapshot of
 `3c75f9b2b155e8bb50a225c69520948ef72ecd48`, itself based on
 [TGPulse](https://github.com/deepblueworks/TGPulse). The snapshot was imported
 as a fresh history; the remotes `upstream-next` and `upstream-original` retain
-access to both source histories. The local U1 integration selectively imports
+access to both source histories. The U1 integration selectively imports
 NetMerc machine changes from `27db9fa`; see [scope and verification](docs/LIBRETRO_U1_INTEGRATION.md).
 Its machine Save State format is 5: older formats are rejected without
-migration. Existing Save RAM remains compatible. Local U2 adds the approved
+migration. Existing Save RAM remains compatible. U2 adds the approved
 Special: Sega NetMerc profile and right-stick MVD controls; see
 [controls and verification](docs/LIBRETRO_U2_CONTROLS.md). U5 adds frontend-owned
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
 is published as 0.1.0.10.
+
+## Current Source And Downloads
+
+The latest binary preview is **[0.1.0.10](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.10)**.
+The current source additionally includes:
+
+- Two network controls: **Linked Cabinets** and **Auto Network Role Settings**,
+  with native role/identity synchronization and automatic reset after effective
+  changes. Existing lobby callbacks survive machine reconfiguration.
+- Shared option wording and functional menu groups, a global Controller Profile
+  Type, and **L3 Service / R3 Test** ordering.
+- Default **60 Hz** timing, selectable native timing, canonical source Gain
+  Mute values, and the reviewed Sega NetMerc sensor Roll polarity.
+- Focused reset/audio recovery and network lifecycle verification. See the
+  [audio report](docs/LIBRETRO_AUDIO_RESET_2026-10-18.md) and
+  [network integration report](docs/NETWORK_TWO_OPTION_2026-10-17.md) for scope
+  and limitations.
+
+These source changes are not included in the 0.1.0.10 download. No new binary
+release is implied by this source update.
 
 **Port status:** an experimental Libretro adapter lives in
 `crates/tgpulse-libretro`. It accepts complete Model 1 sets with racing,
@@ -30,11 +50,20 @@ pending. The
 standalone source remains buildable. SM2-Emu Libretro is an architectural and
 workflow reference, not vendored code.
 
+Shared conventions and cross-project interchange also use the
+Libretro Core Framework,
+under the local [reference adaptation workflow](docs/REFERENCE_WORKFLOW.md).
+It is a documentation reference, not a code dependency or a claim that every
+Framework proposal is implemented in this core.
+
 The [Libretro implementation roadmap](docs/LIBRETRO_ROADMAP.md) lists the
 remaining port features. User-run game and controller trials are outside it
 except the specifically requested DualSense rumble/MVD comparison.
 Potential changes to return to TGPulse-Next are tracked in the maintained
 [upstream backport register](docs/UPSTREAM_BACKPORT_CANDIDATES.md).
+Potential improvements to carry from Model 1 into the planned Model 2 and
+complete Libretro cores are tracked separately in the
+[core family improvement register](docs/FAMILY_CORE_IMPROVEMENTS.md).
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
@@ -67,9 +96,9 @@ CARGO_NET_OFFLINE=true make -f Makefile.libretro
 Set `TARGET_ARCH` to a target triple when using its cross toolchain.
 The locked release build writes
 `tgpulse_next_m1_libretro.so`, `.dylib` or `.dll` at the repository root.
-The Makefile's `platform=unix` entry point is used by the proposed Linux
-libretro-super recipe. The five GitLab jobs use the official Libretro Rust
-templates; see [build targets and verification](docs/LIBRETRO_CI.md).
+The five Libretro GitLab jobs use this Makefile through the official Rust
+templates. The proposed `libretro-super` patch registers the matching core
+metadata; see [build targets and verification](docs/LIBRETRO_CI.md).
 
 Release CI verifies native Linux
 x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64 builds. The published
@@ -90,8 +119,8 @@ version 0.1.0.2. See
 boundaries, standalone build and measured differences.
 Keep updater-managed cores, ROMs, personal settings and saves untouched.
 
-The `A/V Timing` Core Option defaults to native Model 1 timing (about
-57.524 Hz). Its optional 60 Hz mode advances and renders a new machine frame
+The `A/V Timing` Core Option defaults to 60 Hz; native Model 1 timing
+(about 57.524 Hz) remains selectable. The 60 Hz mode advances and renders a new machine frame
 on every callback, making gameplay and sound about 4.3% faster. It resamples
 audio to the same frontend output rate. Reload content after changing it.
 The `Aspect Ratio` option defaults to Auto: Virtua Racing follows its saved
@@ -103,11 +132,13 @@ default 100%, with immediate updates. Scaling respects Model 1 center/rest and
 native limits. The options remain visible for every title and apply only to
 the recognized driving profiles. Frontend remapping still owns physical input assignments.
 
-Each controller port offers two Device Type variants: the default full profile
-with `+ Test/Service Slots`, and the same profile without that suffix, which
-disables Test and Service while retaining gameplay and analog controls. Model 1
-uses Test on L3 and Service on R3. Player 2 can select its variant independently;
-Star Wars Arcade retains separate Pilot and Gunner names.
+`Controller Profile Type` is the first Input option and applies to all ports:
+Normal omits Test/Service slots; Normal + Test/Service is the default. Controls
+retains None and the current game-specific profile for remapping. L3 is Service
+and R3 is Test. Historical reduced-profile IDs follow the global choice;
+existing remaps are preserved and may need review after this default-binding
+alignment. Star Wars Arcade retains separate Pilot and Gunner names. Profile
+changes refresh modern menus while paused and apply without a game reset.
 `Driving Steering Response` applies to VR/VFormula and defaults to Linear.
 Progressive (Fine Center) and FBNeo Logarithmic (Fine Center) follow the current
 SM2/Supermodel curves, adapted to the native Model 1 steering span. Changes
@@ -117,7 +148,8 @@ apply immediately; the curve is applied before Steering Output Range.
 initializes missing or invalid Save RAM using the approved set-specific image;
 valid existing saves take precedence. VR's initial policy is EXPORT / NO LINK /
 SPECIAL. `NVRAM Settings` defaults to Disabled; enabling it exposes the approved
-operator fields for the current set. Their defaults match the native menu.
+operator fields for the current set. The general switch appears only when the
+loaded set has reviewed fields. Their defaults match the approved native/policy defaults.
 Changing an applied setting resets the game to refresh its native settings.
 Ten sets have reviewed selectors. NetMerc uses backup RAM and exposes Game
 Difficulty, Country and Advertise Sound. Its automatic policy selects Export
@@ -127,23 +159,37 @@ when absent. See [NetMerc settings integration](docs/LIBRETRO_U8_NETMERC_SETTING
 See the [review workbook](docs/model1_core_options_review.xlsx) and
 [NVRAM procedure](docs/NVRAM_CAPTURE.md) for the reviewed list and evidence.
 
-`Linked Cabinets (Restart Required)` defaults to Disabled and is separate per
-eligible set. It connects the existing Model 1 COMM board through RetroArch
-Netplay/Libretro Netpacket. Configure native MASTER/SLAVE and optional VR LIVE
-roles through NVRAM Settings or the service menu; the transport does not assign
-them. Each frontend needs its own saves. Save States are unavailable with COMM
-fitted. See the [linked-cabinet guide](docs/LIBRETRO_MODEL1_LINKED_CABINETS.md)
-for supported sets, startup and reproducible multi-instance evidence.
+The two network controls are always available: **Linked Cabinets** defaults to
+Disabled (`-1`; `0`/`1` aliases), and **Auto Network Role Settings (ANRS)**
+defaults to native No Link / Stand Alone (`0`). Unsupported games show
+Not Supported in both. Linked Cabinets connects/disconnects Model 1 COMM
+independently of the selected native role. ANRS applies role/identity even with
+NVRAM Settings disabled, hides and synchronizes managed native selectors, and
+returns them with their last applied values when disabled (`-1`). Effective
+changes coalesce into one automatic reset when execution resumes. In a
+non-pausing Netplay menu they may apply on the next running frame. Save States are available
+with Linked Cabinets disabled and unavailable with COMM fitted. This replaces
+the previous Network Board/ANS convention without migration of old tokens.
+See the [linked-cabinet guide](docs/LIBRETRO_MODEL1_LINKED_CABINETS.md).
 
 Source Gain options are global across Model 1 sets and default to Auto.
 MultiPCM 1/2 and DSB (MPEG) use the standalone reference levels of 50/50/100%.
 FM (YM3438) Auto uses 90%; its standalone reference level remains 30%.
-Each selector offers Mute, Auto and 0–100% in
-10% steps, with immediate updates. Only Gains for sound sources reported by the
-loaded machine are shown; no source Gain appears without content. Master Volume
-remains visible. Old set-qualified Gain keys are ignored; the core does not
-rewrite personal option files. Global source Gains
-are restored in 0.1.0.1; the 0.1.0.0 preview used per-set Gain keys.
+Each selector shows Auto, Mute, then 10–100% in 10% steps, with immediate
+updates. Mute is stored as `0`, the shared core-family format. Only Gains for
+sound sources reported by the loaded machine are shown; no source Gain
+appears without content. Master Volume remains visible. Old set-qualified Gain
+keys are ignored. Global
+source Gains are restored in 0.1.0.1; the 0.1.0.0 preview used per-set Gain keys.
+
+Older saved `mute` or `Mute` values still silence their source. While one is
+selected, the menu also lists its legacy alias; selecting the regular Mute
+choice saves the canonical `0`. Once all legacy values in the active options
+file have been replaced, the next load shows only Auto, Mute and 10–100%.
+Reading an old value does not convert it. RetroArch owns and saves
+the options file during its normal lifecycle. For optional batch cleanup with
+RetroArch closed, preview `python3 tools/migrate_audio_gain_options.py PATH`
+and apply with `--apply`; the tool backs up each changed file.
 
 `Sega NetMerc Audio Donor` is always visible and applies only to NetMerc on content
 reload. It defaults to Virtua Fighter; Virtua Racing, Star Wars Arcade, Wing War

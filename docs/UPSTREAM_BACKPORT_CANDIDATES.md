@@ -1,5 +1,41 @@
 # Upstream Backport Candidates
 
+## Frontend Ordering — 2026-10-17
+
+F04 global/game-specific menu ordering is Libretro presentation policy only;
+there is no native machine or standalone backport. Reuse is recorded in the
+family register and reported to Framework instead.
+
+## Final Menu Registration Audit — 2026-10-17
+
+Common Linked Cabinets help and legacy placeholder sort-rank corrections are
+Libretro metadata only; no standalone machine backport is applicable. The
+reusable audit belongs to the Libretro family/Framework workflow instead.
+See [the registered-definition report](LIBRETRO_MENU_WORDING_2026-10-13.md).
+
+## Resume Update Signal Correction — 2026-10-17
+
+Retaining the frontend option-update signal before consuming reads fixes paused
+menu edits in the Libretro adapter. This implements existing Framework F05 and
+Supermodel behavior; no native machine or standalone backport is needed.
+See [the correction report](NETWORK_TWO_OPTION_2026-10-17.md).
+
+## Two-Option Network Authority — 2026-10-17
+
+The F14 0.1.21 integration changes Libretro control authority, visibility,
+selector publication and reset coalescing; native CommBoard and standalone
+are unchanged. It adds no machine backport. Formula's role/number mapping is
+an adapter-specific correction against the reviewed native field table.
+See [delivery and verification](NETWORK_TWO_OPTION_2026-10-17.md).
+
+## Network Convention Integration — 2026-10-14
+
+Board/topology separation, local complete-frame loopback and offline ANS
+precedence are Libretro adapter policies. The native CommBoard and standalone
+remain unchanged; no new machine backport candidate is added. Future desktop
+adoption would require its own host-transport/default review. Evidence:
+[Framework network integration](NETWORK_INTEGRATION_2026-10-14.md).
+
 ## Purpose And Maintenance
 
 Maintain a single register of port changes that could benefit TGPulse-Next
@@ -59,6 +95,37 @@ is prepared, add its source commit and review link; when adopted, record the
 upstream commit and close the candidate instead of deleting its history.
 Candidate registration alone does not claim standalone acceptance.
 
+## Register Reconciliation — 2026-10-09
+
+Reviewed the current local Gain compatibility, shared build recipe, submission
+documents and linked-cabinet policy alongside this register. Stable IDs B1–B19
+remain unchanged; this document update does not refresh the remote upstream
+comparison revision or claim any upstream adoption.
+
+The following recent work adds no frontend-neutral machine candidate:
+
+- **Gain compatibility:** temporary registration of published `mute`/`Mute`
+  values and canonical `0` persistence belong to Libretro Core Options.
+  The standalone mixer remains unchanged; Model 1 FM Auto at 90% is a port
+  policy. Reuse is recorded under FC5 in the
+  [family improvement register](FAMILY_CORE_IMPROVEMENTS.md).
+- **Build and onboarding:** the single `Makefile.libretro`, public core
+  metadata and Libretro CI integration are port infrastructure. B4 still
+  covers reusable machine feature gates; B10 covers the separately identified
+  native Windows linkage fix. Source-side CI readiness is not proof of a
+  completed Libretro-hosted pipeline.
+- **Automatic Network Settings and Resume:** authoritative selector updates,
+  NVRAM Settings gating, publication outside the core lock and lobby callback
+  preservation remain adapter responsibilities. B19 is still the separately
+  transferable native receive-capacity helper. See FC2/FC7 for family reuse.
+- **Batocera sensors:** the frontend capability gap remains outside the
+  standalone machine; the review below and FC10 preserve that boundary.
+
+B13 remains superseded as a standalone optimization proposal and must be
+reviewed with B18. The existing performance, calibration and physical-device
+limits on all other entries remain in force. No new standalone patch,
+implementation approval or publication is implied by this reconciliation.
+
 ## Linked-Cabinet Resume Review — 2026-10-06
 
 The 0.1.0.10 Resume ordering, automatic network Core Options, lobby admission
@@ -66,6 +133,23 @@ and transient Netpacket count handling belong to the Libretro adapter and its
 frontend transport. They do not add a standalone backport candidate. B19 remains
 the separately identified frontend-neutral COMM receive-capacity helper; no
 upstream adoption or source modification is claimed.
+
+## Batocera DualSense Sensor Review — 2026-10-07
+
+Batocera 43.1 exposes the Bluetooth DualSense gamepad and a separate Motion
+Sensors evdev node; live accelerometer and gyroscope events were observed.
+Its RetroArch 1.22.2 configuration selects `udev` for both input and joypad.
+The corresponding RetroArch `udev` joypad implementation has null Libretro
+sensor callbacks. An isolated probe of Batocera's installed SDL2 opens the
+gamepad after adding its existing mapping, but reports neither sensor. The
+current RetroArch source includes `udev` support for a sibling sensor node;
+that code has not been verified in a Batocera frontend build here.
+
+This is a frontend capability gap, not a TGPulse-Next machine change. It adds
+no standalone backport candidate. Keep the existing core's unavailable-sensor
+fallback; do not open evdev devices or copy host sensor handling into the
+emulated machine. Any Batocera fix belongs in a separately verified RetroArch
+build or integration, with actual Libretro sensor callbacks checked afterward.
 
 ## B3 Calibration Validation Follow-Up — 2026-10-04
 
@@ -75,3 +159,18 @@ reproduces both insufficient polling and single-transient rejection with the
 actual helper. The physical cause is unconfirmed pending the reported
 rejection category. B3 remains a configurable-timing candidate; a standalone
 three-second default or tolerance change is not yet justified by this evidence.
+
+## LCF Wording Follow-Up — 2026-10-12
+
+The common Core Option description and Gain label alignment is Libretro
+presentation policy. It creates no frontend-neutral upstream candidate and
+changes no machine or standalone behavior. Stable B1–B19 dispositions remain
+unchanged; native upstream reconciliation is not implied.
+
+## Authorized LCF Implementation Follow-Up — 2026-10-12
+
+Global profile selection, shared Test/Service slots, option visibility/timing
+policy and canonical ANS tokens are adapter conventions, not standalone
+machine fixes. The new synthetic-cornering helper entry point isolates
+frontend-processed input; the standalone native-ADC path is unchanged.
+No new machine backport candidate is added; B1–B19 dispositions remain intact.

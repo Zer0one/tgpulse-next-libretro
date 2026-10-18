@@ -59,12 +59,12 @@ Supersampling offers 1–4x on hardware renderers, including in 4:3.
 
 ## Included features
 
-- Native Model 1 timing; optional Supermodel-style 60 Hz mode advances a new
-  machine frame each callback and speeds game/sound by approximately 4.3%.
+- Default 60 Hz mode advances a new machine frame each callback and speeds
+  game/sound by approximately 4.3%; native Model 1 timing remains selectable.
 - Per-title controls for Virtua Racing/Formula, Virtua Fighter, Wing War,
   Star Wars Arcade and Sega NetMerc, including distinct Pilot/Gunner roles and
-  full or reduced Test/Service profiles. Test is L3 and Service is R3 in the
-  full profiles. Driving ranges/response and frontend rumble are exposed.
+  a global Normal / Normal + Test/Service profile selector. Service is L3
+  and Test is R3 when slots are enabled; historical subclass IDs remain readable. Driving ranges/response and frontend rumble are exposed.
 - Sega NetMerc MVD supports right-stick, calibrated P1 sensors and fixed-camera
   control, with virtual Holder, Calibrate and Recenter actions. Sensor drift
   compensation defaults to 50%; optional CSV diagnostics write to the frontend
@@ -79,11 +79,13 @@ Supersampling offers 1–4x on hardware renderers, including in 4:3.
   Current machine Save State format is 5, without migration from old formats.
 - Experimental linked cabinets through Libretro Netpacket for supported
   Virtua Racing/Formula and Wing War sets. Configure native MASTER/SLAVE/LIVE
-  roles using the service menu or NVRAM options. With NVRAM Settings enabled,
-  Automatic Network Settings can select the native role and identity. Changing
-  Linked Cabinets takes effect when returning to the game; a changed operator
-  value triggers an automatic machine reset. Save States are unavailable while
-  the COMM board is fitted.
+  roles using the service menu or NVRAM options. Current source provides
+  Linked Cabinets and Auto Network Role Settings (ANRS); ANRS manages native
+  role/identity independently of the general NVRAM Settings switch and keeps
+  hidden managed selectors synchronized. Effective topology/operator changes
+  cause one automatic machine reset when execution resumes (or on the next
+  running frame in a non-pausing Netplay menu). Save States are unavailable
+  while the COMM board is fitted. These source updates postdate 0.1.0.10.
 - Optional, hash-guarded in-memory repair of the known 315-5711 bad dump.
 
 NetMerc remains experimental. Its required Model 1 I/O BIOS can be found in the
@@ -111,7 +113,7 @@ Future implementation is tracked only in
 
 MultiPCM 1/2, FM (YM3438) and DSB (MPEG) Gain selectors are global across
 Model 1 sets, defaulting to Auto. In 0.1.0.5, Auto uses 50/50/90/100%; FM Auto is 90%, while the standalone FM reference remains 30%.
-Mute and 0–100% in 10% steps apply immediately. The 0.1.0.1 release showed
+Mute (stored as `0`) and 10–100% in 10% steps apply immediately. The 0.1.0.1 release showed
 all Gain selectors for every title. Current development builds show only the
 sources fitted to the loaded game: MultiPCM 1/2 and YM3438 for all Model 1
 sets, plus DSB for Star Wars Arcade and its clone. No source Gain is shown
@@ -125,3 +127,21 @@ entries from this core's options files. Do not remove NVRAM or unrelated keys.
 The core does not edit personal option files or migrate a title's gains into
 global settings automatically. Explicit frontend game-option overrides remain
 frontend behavior.
+
+## LCF Version Reconciliation Review — 2026-10-12
+
+The public four-part `0.1.0.PORT_REVISION` sequence was explicitly established
+for this independent port. Keep the existing `0.1.0.10` tag and identities
+unchanged during local LCF work; this task does not publish a version.
+The reviewed TGPulse-Next source snapshot has its own four-part release
+`0.1.0.1` (`f303b712455571b60cbea2249e1022935d398e22`). Do not concatenate
+that entire release with a fifth segment or imply that the port revision
+measures upstream coverage. This is the documented exception to LCF F19's
+three-part-upstream example. Continue recording the exact upstream revision
+and integrated/adapted/excluded/pending features in the upstream review.
+Automatic Holder and Alternative Audio Gains remain explicitly excluded from
+the required port alignment and deferred as optional frontend features;
+no fresh upstream-head or full hardware-acceptance claim is made here.
+Before the next separately authorized publication, advance the port revision
+and reconcile runtime version, metadata, tag, notes and source provenance
+through the existing shared recipe. Existing releases are not renamed.

@@ -47,8 +47,9 @@ every physical control works in RetroArch.
 | Star Wars Arcade | `swa`, `swaj` | Pilot stick/throttle/view/weapon controls; Gunner stick and Laser/Torpedo only. | Different named P1 Pilot and P2 Gunner controller ports. |
 | NetMerc (experimental) | `netmerc` | Own stick ADC order and MVD Holder, no Start switch. | Special: Sega NetMerc on both ports, P2 Test/Service only. U2 adds native Trigger/Thumb/Holder aliases, correct Y polarity and P1 right-stick MVD; see [controls and verification](LIBRETRO_U2_CONTROLS.md). U5 adds frontend-owned motion sensors, three-second calibration and adjustable drift compensation (50% default); see [sensor integration](LIBRETRO_U5_SENSORS.md). Calibration seed is optional; physical gameplay acceptance remains user-run. |
 
-For shared service controls, retain TGPulse's established preference: **Test on
-L3, Service on R3**. This differs from the current SM2 Libretro mapping.
+For shared service controls, follow the user-approved SM2/LCF order as of
+2026-10-12: **Service on L3, Test on R3**. The global Controller Profile Type
+selects Normal or Normal + Test/Service; old per-port variant IDs follow it.
 RetroArch remapping may change physical assignments; the descriptors must name
 the cabinet action actually sent to the machine. Unknown or inapplicable
 signals must stay inactive, rather than inheriting a misleading Model 2 label.
@@ -837,3 +838,13 @@ unsupported titles or rendering paths. Reviewed per-set NVRAM fields and
 Linked Cabinets selectors retain their explicitly agreed filtering. Native input
 descriptors remain profile-specific. Sega NetMerc City Workaround is always visible
 in Video, defaults to Enabled and applies live only to NetMerc.
+
+## LCF Profile And Operator Slot Alignment — 2026-10-12
+
+This supersedes the historical per-port variant and Test=L3/Service=R3 entries
+above. The global Controller Profile Type is first in Input; its full default
+includes Service=L3 and Test=R3 on both applicable ports. Controls advertises
+one current profile, retaining None and remapping. Both accepted joypad IDs
+follow the global choice; a disabled port remains disabled. Native bits,
+SWA Pilot/Gunner distinctions, VR1 aliases and MVD commands are preserved.
+Profile publication during paused-menu refresh runs outside the core lock.

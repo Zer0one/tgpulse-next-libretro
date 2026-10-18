@@ -1,197 +1,188 @@
 # Libretro-Super Pull Request Review: TGPulse-Next Model 1
 
-## Submission Target
+## Submission Target And Scope
 
-The proposed PR targets [`libretro/libretro-super`](https://github.com/libretro/libretro-super),
-base branch `master`. The TGPulse proposal is prepared against libretro-super commit
-`3c142c68ed6fa509c8b4cdc5ca47877efbf75951` on local review branch
-`codex/add-tgpulse-next-m1` at `/private/tmp/tgpulse-libretro-super-pr`.
-The exact two-file diff is saved as
-[`pr/libretro-super-tgpulse-next-m1.patch`](pr/libretro-super-tgpulse-next-m1.patch).
-The upstream submission is prepared locally for review; no Libretro pull
-request has been opened. The 0.1.0.6 source release is published independently of this upstream
-submission.
+The [submitted PR #2132](https://github.com/libretro/libretro-super/pull/2132)
+targets `libretro/libretro-super`, base branch `master`. It adds one metadata file:
+`dist/info/tgpulse_next_m1_libretro.info`. The prepared patch is
+[`docs/pr/libretro-super-tgpulse-next-m1.patch`](pr/libretro-super-tgpulse-next-m1.patch).
+The published PR head is `1c1828a893d08d893e42c009c7ca7f30e9997443`
+against base `9c08e5e6f33a60dc97ff2d232fe6b938557bebb4`.
 
-| Proposed upstream file | Adaptation |
-| --- | --- |
-| `dist/info/tgpulse_next_m1_libretro.info` | Use the public Core Name `TGPulse-Next-M1`, Core Label `Sega - Model 1 (TGPulse-Next)` and version `0.1.0.10`. |
-| `recipes/linux/cores-linux-x64-generic` | Add one `tgpulse_next_m1` entry pointing to `Zer0one/tgpulse-next-libretro` `main`; use `GENERIC Makefile.libretro .`. |
+[Libretro's core onboarding guide](https://docs.libretro.com/development/cores/developing-cores/#add-your-core-to-libretro-infrastructure)
+separates the core `.info` registration in `libretro-super` from the source
+repository's `.gitlab-ci.yml`. This source repository has one
+[`Makefile.libretro`](../Makefile.libretro) release build path and
+[official-template CI definitions](../.gitlab-ci.yml) for Linux x86_64/ARM64,
+macOS Intel/Apple Silicon and Windows x86_64. Its published
+[v0.1.0.10 release](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.10)
+passed the five-platform GitHub matrix and package checks. The Libretro-owned
+pipeline has not run, so its platform output remains an onboarding gate.
 
-The new source-side [`Makefile.libretro`](../Makefile.libretro) is required by
-the existing buildbot's `GENERIC` contract: it invokes Make with
-`platform=unix`, then copies `tgpulse_next_m1_libretro.so` from the source
-root. The wrapper builds only the `tgpulse-libretro` package, which selects
-the `model1` feature without Model 2 machine dependencies. It accepts the five
-existing desktop target triples and produces the public core filename at the
-source root. The Linux x86_64 recipe requires compatible Rust/Cargo, GCC and
-static `libstdc++.a`. The source-side [`.gitlab-ci.yml`](../.gitlab-ci.yml)
-extends Libretro's official Rust templates for Linux x86_64/ARM64, Windows
-x86_64 GNU and macOS Intel/Apple Silicon. Those jobs have not run on
-Libretro-owned runners; the existing GitHub workflow remains the published
-five-platform release baseline. Both CI definitions now invoke the same
-Makefile, with Windows GNU/MinGW in the common target policy; the updated
-GitHub workflow passed all five native jobs for v0.1.0.6.
+A previous local proposal also added one Linux x86_64 recipe to the older
+`libretro-super` recipe lists. That would have registered only one of the five
+verified targets. The current proposal uses the source-side Libretro CI
+configuration for platform builds and keeps the upstream patch limited to
+metadata. The existing `libretro-super` recipe lists do not expose matching
+entries for all five targets.
 
-The source `.info` now has the public name and label. Following the user's 2026-10-05 naming update, local
-`tools/install_dev_core.py` installs `tgpulse_next_m1_libretro` with the same
-public metadata; its historical script filename is retained. Prior Development
-files are retired into a backup directory. Published v0.1.0.6 packages use the corrected public `.info`;
-v0.1.0.3 archives retain their historical metadata.
-The earlier isolated local-installer check retained the then-agreed Development name and
-label. A separate offline package preflight passed with the public name and
-label, including version, licenses, source revision and checksums. The new
-macOS arm64 Makefile build also passed artifact checks and was installed under
-the Development name with matching SHA-256. Version 0.1.0.6 is now published;
-its exact-source package evidence is recorded in `LIBRETRO_CI.md`.
+The [local review checkout](/private/tmp/tgpulse-libretro-super-pr) contains
+the submitted metadata change. Its single-file diff was compared with current
+upstream `master` before publication. The PR registers identity; distribution through
+the Libretro buildbot depends on maintainers connecting and running the source
+CI. No ROM, save, personal settings or build product belongs in this patch.
 
-The updated wrapper was built in an isolated Debian 12 Linux x86_64 container
-with Rust/Cargo 1.97.1. The test used a ROM-free source snapshot based on local
-HEAD `822c73f`, plus the uncommitted wrapper, metadata and FM Auto change. The
-output was `tgpulse_next_m1_libretro.so` (SHA-256
-`9d369ead94b5e49ce802471063073f915969ced08eb7549481b8de3e0cc39371`).
-The existing artifact checker passed ELF64/x86-64 format, 25 Libretro ABI
-exports, three empty lifecycle cycles and compiled `model1` scope. `ldd`
-found only `libgcc_s`, `libm`, `libc` and the ELF loader; no dependency was
-missing. A buildbot-style `clean` then `build` sequence passed. These are
-build/ABI checks, not RetroArch gameplay tests. The macOS arm64 public-named
-core built through the same Makefile and passed the artifact checker; the
-locally installed Development copy has SHA-256
-`9cb8f8964dc365f836e1706b3b50f9d33b3bdeb9fedd721652d5b2e43bad98ad`.
-The current shared recipe sets the public macOS `@rpath` install name during
-linking and signs/verifies the native output. Its 194-file macOS package
-preflight passed. GitHub's production build now calls this same recipe and
-validates/packages the root artifact; the prior direct Cargo build and
-workflow-local linkage/normalization commands have been removed. The Windows
-native job follows Supermodel's MSYS2 setup and uses the same GNU target as
-Libretro's Rust template. The revised remote matrix passed for v0.1.0.6,
-including native GNU Windows loading and lifecycle checks. All five published packages were downloaded and
-verified against their manifests, GitHub digests and tagged source revision.
-The GitHub macOS arm64 build is installed locally under the Development name.
+## Submitted PR Title
 
-Model 1 embeds its game catalogue and NVRAM tables, so this PR has no required
-`system` asset for the core as a whole. Sega NetMerc requires its I/O BIOS;
-its diagnostic display also uses an optional HD44780 BIOS. Neither is
-distributed. No `libretro-system-files` contribution is needed for this
-initial integration.
+Register experimental TGPulse-Next Model 1 core for Libretro CI
 
-## Ecosystem Build Integration Boundary
-
-The two-file proposal registers public metadata and one Linux x86_64
-`libretro-super` recipe. It does not by itself establish distribution through
-Libretro's multi-platform buildbot. The [official core-development guide](https://docs.libretro.com/development/cores/developing-cores/#add-your-core-to-libretro-infrastructure)
-also calls for source-side `.gitlab-ci.yml` integration, and the
-[macOS build guide](https://docs.libretro.com/development/retroarch/compilation/osx/#gitlab-ci-mimicry)
-identifies GitLab CI as the buildbot path for cores. The five official Rust
-template includes and their inherited job names were checked against
-`libretro-infrastructure/ci-templates` commit
-`96f603ee450eff3e9ad2baeac75b300aa83c1c9e`. The Rust image definition at
-`libretro-build-rust` commit `674682c815b69127805c44ec9ddee6d5bb69a509`
-contains the target toolchains; actual pipeline execution and packaged output
-on Libretro hosts remain unverified.
-
-The source-side `.gitlab-ci.yml` uses the official Rust templates, replacing
-their default Cargo command and rename step with this package's explicit
-Model 1 Makefile contract. Linux ARM64 adds the cross C++ compiler needed for
-static `libstdc++`; Windows uses the GNU cross toolchain in the Rust image.
-Android, iOS and webOS are intentionally not registered. Repository ownership
-or a Libretro-managed mirror is a maintainer decision, not a prerequisite for
-preparing or reviewing the source-side build contract.
-
-## Proposed PR Title
-
-Add experimental TGPulse-Next Model 1 core (info file + Linux x64 recipe)
-
-## Proposed PR Body
+## Submitted PR Body
 
 ### Summary
 
 This PR registers **TGPulse-Next-M1**, an experimental, single-system
 Sega Model 1 Libretro core. Its independent source repository is
 [`Zer0one/tgpulse-next-libretro`](https://github.com/Zer0one/tgpulse-next-libretro).
-The resulting buildbot core is `tgpulse_next_m1_libretro`, displayed as
-**Sega - Model 1 (TGPulse-Next)**. The local installation uses the same public
-identity.
+The proposed buildbot core is `tgpulse_next_m1_libretro`, displayed as
+**Sega - Model 1 (TGPulse-Next)**.
 
-### Changes And Build Requirements
+### Core Registration And Build Requirements
 
 - Add `dist/info/tgpulse_next_m1_libretro.info` with public metadata, version
   `0.1.0.10`, ZIP content support and experimental status.
-- Add a Linux x86_64 recipe that fetches the public source repository's `main`
-  branch and invokes its root `Makefile.libretro`.
-- The Makefile performs a locked release build of the Model 1 adapter and
-  publishes the public `tgpulse_next_m1_libretro` library. The source also
-  provides Libretro Rust-template jobs for Linux x86_64/ARM64, macOS
-  Intel/Apple Silicon and Windows x86_64. The build hosts need compatible
-  Rust/Cargo and the target C++ runtime toolchain.
+- The source repository provides one `Makefile.libretro` release build path and
+  Libretro CI definitions for Linux x86_64/ARM64, macOS Intel/Apple Silicon and
+  Windows x86_64. These builds require compatible Rust/Cargo and C++ toolchains.
+  Libretro-hosted execution remains to be verified during onboarding.
 
-### Core Scope And Assets
+### Core Highlights
 
-The core loads complete Model 1 ZIP sets. It provides Libretro Core Options
-v2, software output plus Vulkan/OpenGL rendering, game-specific controls,
-Save RAM and Save States, and linked cabinets for supported sets. It compiles
-Model 1 machine components and the shared devices they require. Model 2 is
-outside this build.
+- Extend Model 1 emulation with experimental Sega NetMerc support, including
+  music through optional substitute sample banks. Incomplete original ROM
+  dumps cannot provide complete original audio. TeknoParrot's
+  [publicly reported NetMerc work](https://www.patreon.com/TeknoParrotTeam/posts/teknoparrot-does-168035857)
+  inspired this work; no TeknoParrot code or game assets are included.
+- Support motion-sensor input and calibration for Sega NetMerc MVD controls.
+- Expose reviewed, game-specific NVRAM operator settings directly in
+  RetroArch's Core Options, with optional automatic initial setup.
+- Simplify linked-cabinet setup with Automatic Network Settings presets for
+  supported games, alongside the Linked Cabinets option. The presets manage
+  the relevant operator values when NVRAM Settings is enabled.
+- Fill Model 1 emulation gaps and improve performance relative to the
+  original TGPulse, while retaining its machine implementation and buildable
+  standalone application.
+
+### Upstream Integration And Local Adaptations
+
+- This independent repository began with a documented TGPulse-Next source
+  snapshot. TGPulse-Next development preceded this Libretro port; the port
+  selectively integrated later NetMerc machine, I/O, tracking, audio and
+  state changes without merging repository histories.
+- The Libretro adapter adds frontend-owned rendering, input, audio, Core
+  Options, persistence and Netpacket transport around the reused machine.
+  The Model 1-only build is a port integration, separate from TGPulse-Next's
+  standalone host code.
+- Model 1 machine improvements developed in this port are recorded as
+  [upstream backport candidates](https://github.com/Zer0one/tgpulse-next-libretro/blob/main/docs/UPSTREAM_BACKPORT_CANDIDATES.md).
+  Their presence in this core does not claim adoption by TGPulse-Next.
+
+### Libretro Integration
+
+- Load complete Model 1 ZIP sets through a narrow adapter that owns Libretro
+  callbacks, Core Options v2, frontend input and output, and clean shutdown.
+- Expose frontend-managed Save RAM and serialized Save States. The build
+  selects Model 1 machine components and their shared devices; Model 2 is
+  outside this core.
+
+### Input And Controls
+
+- Provide game-specific RetroPad controls and use Libretro input and rumble
+  interfaces where supported.
+
+### NVRAM And Persistence
+
+- Provide Automatic Initial NVRAM Setup for new or invalid Save RAM and
+  optional, game-specific NVRAM Settings for reviewed operator fields.
+- Keep existing valid Save RAM authoritative until NVRAM Settings is enabled;
+  preserve unrelated fields when applying selected overrides.
+
+### Rendering, Timing And Audio
+
+- Provide software output and frontend-owned Vulkan and OpenGL/GLES render
+  paths, with widescreen and supersampling options where applicable.
+- Default to native Model 1 timing; offer an optional 60 Hz mode. Expose
+  Master Volume and per-source Gains for sources in the loaded game.
+
+### Linked Cabinets
+
+- Use Libretro Netpacket transport for supported Model 1 cabinet links while
+  retaining the game's native COMM protocol and operator roles.
+- Keep Save States unavailable while a linked COMM board is fitted.
+
+### Core Assets
 
 The game catalogue and NVRAM tables are embedded; no separate system
 database is required. Users provide game ROMs. Sega NetMerc requires a
 user-supplied I/O BIOS; its diagnostic display can use an optional HD44780
 BIOS. Neither is distributed by this recipe.
 
-### Validation
+### Tests And Validation
 
-The published [v0.1.0.6 release](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.6)
-has a passing [five-platform CI run](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37351380108)
-using the shared Makefile. Published packages were checked for ABI, metadata,
-licenses, source revisions and checksums. The Libretro GitLab jobs use the
-current official Rust templates but have not yet run on Libretro-owned
-infrastructure. Runtime and controller evidence is recorded in the source
-repository.
+The published [v0.1.0.10 release](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.10)
+passed its [five-platform CI run](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/37519007905)
+using the shared Makefile:
 
-### Limitations And Licensing
+- Native builds, machine and adapter tests, and Model 1-only scope checks passed
+  on Linux x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64.
+- Each core passed Libretro ABI, dependency and empty-lifecycle checks. All
+  published packages passed metadata, license, source-revision and checksum
+  verification after download.
+- Focused Libretro ABI checks covered the Linked Cabinets option-change Resume
+  sequence. Separate two-instance RetroArch runs established game-created
+  COMM online on both peers; they started with options already selected.
+
+Detailed evidence and the limits of runtime/controller trials are recorded in
+the source repository.
+
+### Limitations And Reviewer Attention
 
 - Sega NetMerc remains experimental. Save States are unavailable while a
   linked COMM board is fitted; hardware rendering requires a compatible
   frontend and driver.
+- The Libretro-owned GitLab build has not yet run. The rendering context
+  lifecycle, Save State validation, NVRAM overrides and Netpacket transport
+  merit independent review.
+
+### Licensing And Attribution
+
 - The project root is MIT licensed; retained third-party source notices and
   packaged dependency licenses remain available in the source repository.
+- Thanks to the author of [TGPulse](https://github.com/deepblueworks/TGPulse),
+  whose original emulator is the foundation of
+  [TGPulse-Next](https://github.com/Zer0one/TGPulse-Next) and this core.
+- Thanks to the [TeknoParrot team](https://www.patreon.com/TeknoParrotTeam/posts/teknoparrot-does-168035857)
+  for publishing NetMerc research that inspired our independent work on that
+  game.
 
 ### AI-Assisted Development
 
-OpenAI Codex assisted substantially with code, analysis, debugging,
-documentation and automated checks. The human maintainer set requirements,
-reviewed design decisions and performed real-game and controller trials.
+This core began as a study of how AI assistance can support the development
+of application software. OpenAI Codex assisted substantially with code,
+analysis, debugging, documentation and automated checks. The human maintainer
+set requirements, reviewed design decisions and performed real-game and
+controller trials. It is experimental and may contain bugs or inaccurate
+emulation; the published checks do not replace independent review and testing.
 
 ## Review And Publication Gates
 
-1. Confirm the two-file upstream diff, public metadata, local Development
-   installer, source-side Makefile and `.gitlab-ci.yml`. The FM Auto Gain
-   change belongs to source release 0.1.0.5 and is outside the two-file
-   libretro-super registration patch.
-2. The exact v0.1.0.6 source commit passed the revised five-platform native
-   GitHub matrix and downloaded-package verification. Libretro-owned GitLab
-   execution remains a separate onboarding gate.
-3. After user review and explicit authorization, create the upstream PR from
-   a suitable fork and verify its diff against current `libretro-super/master`.
-   The source wrapper and public metadata are already published on `main`.
+1. Confirm the single-file `libretro-super` diff, its public identity and
+   version, and the source repository's `Makefile.libretro` and `.gitlab-ci.yml`.
+2. Recheck the exact source release, five published package manifests and
+   matching `.info` metadata. Request Libretro-owned CI execution for all five
+   declared targets; local and GitHub runs do not establish that gate.
+3. PR #2132 was published from `Zer0one/libretro-super` after user
+   authorization. Its sole changed file is the matching `.info`; GitHub
+   reported no PR checks immediately after creation.
 
-**Current state:** The upstream patch and reviewer text are prepared locally.
-Version 0.1.0.6 and its revised five-platform packages are published and
-verified; upstream PR publication still awaits user review.
-
-## 0.1.0.7 Identity And Publication Update
-
-The proposed metadata and reviewer message now use `TGPulse-Next - Model 1`
-and version `0.1.0.7`. Core Label and binary filename are unchanged.
-[Release 0.1.0.7](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.7)
-and all five native jobs passed; downloaded packages and the local GitHub
-macOS installation were verified. Earlier publication sections above retain
-their historical evidence. No Libretro PR has been opened.
-
-## 0.1.0.8 Identity And Publication Update
-
-Current proposed metadata and reviewer text use `TGPulse-Next-M1`, version
-`0.1.0.8`. Core Label and binary filename are unchanged.
-[Release 0.1.0.8](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.8)
-passed all five native jobs; downloaded packages and the local GitHub macOS
-installation are verified. Prior sections retain historical evidence.
-No Libretro PR has been opened.
+**Current state:** The registration PR is open. Libretro-owned CI onboarding
+and independent reviewer acceptance remain pending.

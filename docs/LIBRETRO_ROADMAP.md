@@ -1,5 +1,121 @@
 # TGPulse-Next Libretro implementation roadmap
 
+## Two-Option Network Convention — 2026-10-17
+
+Resume Regression Correction: the initial mock missed RetroArch's consuming
+GET_VARIABLE reads. Corrected following current Framework F05 and Supermodel's
+paused callback/pending-update implementation; retain the update before profile
+reads and apply once on Resume. Real macOS RGUI now verifies ANRS, NVRAM Difficulty,
+unchanged Resume and combined topology/role reset. The revised ten-set ABI matrix
+reproduces consuming reads, repeated callbacks and the no-display-callback path.
+93 tests pass; corrected public core installed with backup/hash verification.
+See the correction section in [the report](NETWORK_TWO_OPTION_2026-10-17.md).
+
+Status: Implemented And Verified — 2026-10-17. The user authorized production integration here without commit/push and without a specific usage CAP. Ten workbook rows, authority handover, persistence/integrity, registration and representative linked behavior pass; delivery evidence is recorded in [the integration report](NETWORK_TWO_OPTION_2026-10-17.md).
+
+Authoritative contract: [Framework 0.1.21, F14](/Users/andrea/dev/libretro-core-framework/FRAMEWORK.md).
+Per-game review: [Network Review](/Users/andrea/dev/libretro-core-framework/outputs/01a13152-dbfa-7e30-bc9d-0477abc2cccc/Framework_Network_Review.xlsx), single sheet. This revision supersedes prior Network Board / Automatic Network Settings semantics and older network comments in Menu Review; previous delivered work is a baseline, not completion of this task.
+
+- Exactly two always-visible controls: Linked Cabinets and Auto Network Role Settings (ANRS); both display Not Supported for unsupported games. Remove the separate Network Board option.
+- Linked Cabinets: -1 Disabled/default, with 0/1 aliases; board disconnected unless required, then local loopback. 2..n per-game totals; theoretical role count permitted where unknown, identified as theoretical.
+- ANRS: -1 Disabled/manual; 0 native Standalone/No Link default; 1 Master; 2..n Slave/ID; r special native role with l/s aliases. Use native labels and contextual ID descriptions. When Standalone is not separately defined, Master means Standalone in loopback and Master in a network, not a converted role.
+- Keep topology and role independent. ANRS overrides NVRAM Settings and works when it is disabled. Hide only the corresponding native role/ID controls while automation is active; keep them synchronized with ANRS even while hidden. On disabling ANRS, show the last applied values under normal NVRAM Settings authority; do not restore earlier manual choices. Preserve unrelated fields and integrity.
+- Retain program-implied roles/identities; dedicated Relay programs have one choice, and non-Relay Virtual On must not offer Relay. Respect the reviewed per-game defaults.
+- No compatibility with the previous networking model. Invalid values fall back to default with notification. Coalesce effective changes into one automatic reset on Resume; unchanged Resume does not reset.
+- Acceptance: all applicable catalogue rows mapped; modern/legacy registration, labels/values/defaults/aliases, unsupported-game visibility, NVRAM priority/manual restoration, native persistence/integrity, local and representative linked behavior checked separately; verify installed artifact identity when delivery is authorized. Do not present theoretical totals as multiplayer qualification.
+- Prototypes are excluded from analysis/acquisition/testing/implementation unless the user explicitly requests them. Royal Ascot II is not working and excluded from operational qualification.
+
+### Progress Reporting To The Framework Chat
+
+The user explicitly authorized this project's chat to send meaningful integration updates to Framework thread `01a13152-dbfa-7e30-bc9d-0477abc2cccc`, host `local`, using send_message_to_thread. Report implementation progress, blockers, any proposed contract changes, validation evidence/limits and local delivery with paths and hashes. Update this roadmap as work progresses. Report facts without treating findings as authorization to alter the shared contract. This reporting authorization does not itself authorize implementation or commit/push.
+
+Model 1 Delivery: 93 adapter tests, all ten workbook rows, six-set authority/persistence/alias/reset matrix, lobby-preserving Restart and actual two-instance VR COMM online for 600 consecutive frames passed. Public macOS core installed with backup and matching hash; no commit/push. No new physical-gameplay or other-platform qualification. Required reasoning High; effort M.
+
+Model 1 Focus: reconcile six existing network sets and native colors/identities (including Virtua Formula numbers), remove superseded board gating and old preset aliases; retain native COMM behavior and document Save State availability separately.
+
+## Network Board And Local Loopback Feasibility — 2026-10-14
+
+| Status | Activity | Reference / Model 1 Adaptation / Evidence |
+| --- | --- | --- |
+| 🟢 | Separate Network Board Presence From Linked Topology | Production integration authorized and completed on 2026-10-14. Framework 0.1.18 F14; SM2 current ANS reference alignment / M2Comm LoopbackTransport; Supermodel current Network Board/Linked Cabinets integration. New Board Enabled/Disabled selector, independent local/external topology, offline ANS precedence, preserved selections and automatic Resume reset. Native CommBoard unchanged. 93 adapter tests, final six-set ABI transitions/paused-visibility/NVRAM preservation, modern/legacy registration and macOS release/artifact checks pass. Public core installed with backup/hash verification. Existing topology tokens/defaults retained; new Board defaults Enabled like Supermodel. Board-present Save States remain disabled. [Integration evidence](NETWORK_INTEGRATION_2026-10-14.md); [historical feasibility](NETWORK_LOOPBACK_FEASIBILITY_2026-10-14.md). |
+
+Recommended reasoning: High; M effort, initial 1–3% indicative usage within
+the user's shared 55% CAP. Account moved 52% → 53%; optional trials stopped
+with margin. Integration follow-up retains the shared 55% CAP. Deliberate exclusions:
+native board changes and full topology/platform/gameplay requalification. Device echo
+and normal board-present NoLink startup remain separately qualified.
+
+## User-Revised Framework Menu Wording — 2026-10-13
+
+### Frontend Option Ordering — 2026-10-17
+
+Status: Completed And Installed — 2026-10-17. User-approved directive: [Framework 0.1.25 F04](/Users/andrea/dev/libretro-core-framework/FRAMEWORK.md) and [Framework roadmap](/Users/andrea/dev/libretro-core-framework/ROADMAP.md), Frontend Option Ordering. Adapted the shared registration sort; preserved System/global relative order and all option metadata/behavior. All 89 V2/89 legacy registrations pass the extended existing audit against the reference workbook. Actual VR/macOS RGUI System, Video, Audio and Input pages verified. 93 tests, build/artifact checks and hash-verified public installation pass. Medium / S; initial estimate 0.5–1% shared-account usage. [Evidence and limits](LIBRETRO_MENU_WORDING_2026-10-13.md). No commit/push.
+
+- Within menus/submenus other than System, preferably place global options at the top. Group options displayed as `<Game Name>: ...` at the bottom and sort that group lexicographically by the complete displayed label (game, then option).
+- Preserve functional parameter groups inside that order: Sega NetMerc MVD Horizontal/Vertical Range stay consecutive, Horizontal then Vertical. User correction implemented in both registration paths; updated audit passes with all metadata unchanged and public installation verified. Alphabetical ordering must not split a functional group.
+- Both subsequent group proposals are user-approved and delivered: MVD Input → Horizontal Range → Vertical Range → Gravity Stabilization → Drift Compensation → Sensor Diagnostics; Diagnostic Display → Position → Background Opacity. Shared V2/legacy ordering, 89-definition metadata-preservation audit, 93 tests and hash-verified public installation pass. Evidence in the same menu-wording report; no new game/visual trial or publication.
+- System is generally exempt and retains its functional grouping/order. Preserve explicit exceptions such as NVRAM Settings and native operator-field ordering. Do not move options between categories to satisfy this rule.
+- Review final modern and legacy registration order within the grouping supported by each API, preserving keys, values, defaults, visibility and established exceptions. Keep workbook sorting and stable Order identifiers unchanged.
+- Framework 0.1.27 F04 records the completed whole-core functional-group review and approved MVD/LCD delivery. Retain the reviewed dependency/axis/source/native blocks and independently asserted sequences in future ordering changes; inspect actual dependencies before adding other groups. Do not reopen the completed delivery solely for this reference update.
+- Integrate this check with the existing final-registration audit; document justified exceptions and report adoption evidence to Framework. This roadmap scheduling does not start implementation, builds or deployment.
+
+
+### Final Registered Menu Wording Audit — SM2 Feedback, 2026-10-17
+
+Status: Completed — Registered-Definition Audit, 2026-10-17. Reference: [SM2 wording interchange](/Users/andrea/dev/sm2-emu-libretro/Docs/FRAMEWORK_MENU_WORDING_HANDOFF_2026-10-17.md), current Framework F04/F14 and the approved Menu Review. Checked 89 V2/89 legacy definitions and 34 workbook rows/44 keys. Corrected common Linked Cabinets help and a legacy/V2 placeholder sort-rank collision; preserved all choices/labels/defaults. Reconciled the shared workbook under subsequent explicit authorization (034/035/222 and typos077/084), preserving styles/tables/history. Final audit passes against the updated actual file. 93 tests and artifact checks pass; signed public core installed with backup/hash verification. [Evidence, exceptions and hashes](LIBRETRO_MENU_WORDING_2026-10-13.md). This is registration acceptance, not new visual-menu/gameplay qualification. No commit/push.
+
+- Inspect final V2 registrations for every applicable game, including dynamically constructed definitions. Compare complete names/help, raw values, displayed labels, order and defaults against the reviewed contract; counts, templates and common prefixes are insufficient.
+- Require one identical full Linked Cabinets help across supported variants within this core, with no per-game suffixes or raw ROM identifiers. Keep topology detail in values/project documentation, distinguish unsupported placeholders and document genuine hardware differences. Compare equivalent cross-core text without copying incompatible hardware claims.
+- Scan registered strings for ROM identifiers and stale wording. Review the Crosshair Style lightun typo only if applicable; do not introduce the Model 2-specific Manx TT item into this core. Shared workbook reconciliation is complete: 034/035 and 077/084 corrected; obsolete 222 physically removed. Preserve remaining Order IDs and do not restore removed entries from historical Source Options.
+- Verify legacy labels/values where help is unavailable. Reuse existing audits and repeat after changes to option construction. Assertions must encode the reviewed contract rather than preserve generated deviations as expected output.
+- Report registration evidence and any required correction to Framework; distinguish it from frontend/gameplay acceptance. This roadmap update does not start implementation, builds, installation or publication.
+
+Model 1 follow-up to the delivered F14 integration: current automatic_network.rs already defines shared LINK_HELP and ROLE_HELP. Verify their final registered use; do not presume the SM2 suffix defect exists. Preserve delivered behavior and Model 1 hardware semantics.
+
+
+| Status | Activity | Scope / Acceptance |
+| --- | --- | --- |
+| 🟡 | Apply The User-Revised Menu Workbook | Implemented 34 reviewed rows / 44 existing keys in V2 and legacy registration, excluding native per-game NVRAM. Complete registration comparison preserves keys, values, labels, defaults, categories and ordering; 92 adapter tests and macOS release/ABI checks passed. Public core installed with backup and matching SHA-256. Single-colon Audio Donor correction and factual Widescreen exception documented. The approved generic Gamepad Rumble comment supersedes its previous exception. Visible Core Options acceptance remains pending because CUA coordinate actions returned `noWindowsAvailable`; isolated sessions are closed. [Evidence and exceptions](LIBRETRO_MENU_WORDING_2026-10-13.md). |
+
+Reference mapping: SM2 phase 3.7/current PORTING_PLAN.md and Supermodel Docs/ROADMAP.md; follow-up to this roadmap phase 3.10. This is a new wording revision, not evidence
+that previous canonical-text work already implements the user's latest edits.
+The user has combined formerly separate entries and changed core membership;
+preserve those decisions. The workbook's `Source Options` sheet is historical
+registration evidence: do not use its original split rows or Order links to
+undo the reviewed table. Exclude individual per-game NVRAM operator fields
+from harmonization.
+
+`Details` distinguishes global applicability (blank), a group of games or a
+specific game. For non-game-specific, non-NVRAM rows, a retained qualifier
+after `—` has been moved into the comment as an applicability sentence; the
+category remains in Details. Game-specific names already identify their game.
+Use the reviewed text, including those applicability sentences, across the
+relevant registration paths. Preserve raw option keys, saved values, defaults,
+visibility and behavior; a shared label does not authorize changing emulation
+or replacing native feedback with synthetic feedback.
+
+Approved consolidation follow-up (2026-10-13): the workbook now has 203
+review entries. Use Timing / FPS Overlay (Order 012) for all three cores,
+including the former Frame Timing Overlay; use Gamepad Rumble (Order 071)
+for all three cores, including the former Force Feedback; use one Off-Screen
+Reload Shortcut (Order 088) for Model 2 and Model 3. Former Orders 200, 212
+and 218 are superseded by these rows. Core flag union is authoritative; do
+not recreate the removed rows or alter raw keys/behavior because labels merge.
+
+Single-game core option labels must start with `<Game Name>: `, using exactly
+one colon and one following space, then the option description in Title Case.
+Apply this to the effective target label: Name (New) when populated, otherwise
+Name. Group/global options do not receive a single-game prefix. Per-game NVRAM
+operator parameters remain outside cross-core harmonization. Validate this
+prefix and the merged labels as part of the pending wording acceptance below.
+
+Acceptance: reconcile every applicable reviewed row against current option
+keys, validate modern/legacy labels and help, and inspect the resulting menu.
+Record any unresolved mapping without inventing a missing feature. This entry
+records implementation and registration/build/deployment evidence in the linked
+report, while retaining the incomplete visible-menu gate. No commit or push was
+made. Recommended reasoning: Medium; S–M effort, preliminary usage 0.5–2%.
+
 Status: 2026-10-05. This is the single active implementation plan for the
 independent port. Model 1 is the current implementation scope; the final
 repository goal is three distinct Libretro cores, defined below. User-run game,
@@ -60,6 +176,7 @@ Model 1 machine, menus and repository determine which features apply.
 | SM2 1: preserve machine/audio timing and state against a software baseline; phase 5: retain software and GPU frontend paths; Supermodel has no matching audio-clock optimization phase | P4 batches Model 1 UART clock advancement only within the existing next-edge interval after rendering the same audio clocks. Preserve endpoint tick order, serial phase, PCM, Save RAM and machine state. Exclude audio timing shortcuts, Model 2's HLE UART and frontend settings. |
 | SM2 1: preserve machine/video/audio/state against a software baseline; phase 5: retain Software, Vulkan and OpenGL paths; Supermodel has no matching Model 1 lighting phase | P5 selects the polygon light parameter directly in the shared Model 1 renderer, following the local MAME source comparison. Preserve colour arithmetic, clipping, output, state and standalone behavior. Exclude frontend settings, Model 2 lighting, new caches and copied MAME code. |
 | SM2 6: linked cabinets and Save States | Save RAM and Save States are implemented. Linked cabinet transport is now implemented in phase 6.1 with native Model 1 roles and operator settings. |
+| SM2 section 8: Power Sled Automatic Network Settings and Linked Launcher; Supermodel `Docs/ROADMAP.md`: Automatic Network Settings alignment | Phase 6.3 adopts shared raw ANS values; launcher development belongs to a separate multi-core project, retaining reviewed Model 1 native mappings, Master default and published-value compatibility. Exclude Power Sled layout/program rules, Model 2/3 hardware mappings and Supermodel's new-option Disabled default. |
 
 ## Current Upstream Alignment — 2026-10-04
 
@@ -164,6 +281,10 @@ neither feature has a matching SM2/Supermodel implementation to copy.
 | --- | --- | --- | --- |
 | 🔵 | E1. Automatic MVD Holder | After U2, optionally reuse upstream's frame-bounded Holder sequencer with Auto/Manual selection and read-only game context. Preserve manual Holder binding, pulse limits, native acknowledgements and state/lifecycle behavior. This automation is separate from the native Holder input. | High / S–M / 0.5–2% |
 | 🔵 | E2. NetMerc Alternative Audio Gains | After U4, optionally expose the live upstream preset, default Off. Select coefficients from the actually loaded donor/procedural/original path; preserve stored manual gains, master volume and mutes, and restore manual gains when disabled. | High / S / 0.5–1% |
+| 🔵 | E3. Supplemental View/VR1 on D-Pad Up | Cross-core consistency candidate reviewed on 2026-10-11. Reference: SM2 `PORTING_PLAN.md` section 8, **VR1 Supplemental View Binding**, current `src/libretro/input.cpp` and [approved interchange](/Users/andrea/dev/sm2-emu-libretro/Docs/VR1_VIEW_BINDING_INTERCHANGE_2026-10-11.md). Supermodel current roadmap has no corresponding View-binding phase. **Already covered:** Star Wars Arcade (`swa`, `swaj`), P1 Pilot: Down and Up share the existing VR1 label and native active-low IN1 `0x10` action. P2 Gunner has no independent native View input, despite its profile name; do not invent one. Coverage applies to complete and reduced Test/Service profile variants. **Required aliases: none** in the current Model 1 catalogue. **Conflicts/exclusions:** VR/VFormula and standard Wing War use Up for independent View 4; preserve their VR4 mappings. Virtua Fighter uses Up for gameplay movement and has no View; Wing War 360 and Sega NetMerc have no View/VR1 action. Preserve all existing bindings and any VR2/VR4 profiles. Reassess only if a future single-View profile lacks the alias; do not create a second camera action or overwrite an independent Up input. Source review only; no implementation or new gameplay qualification. | Low / documentation only; no implementation scheduled for currently covered profiles. |
+| 🔵 | E4. Lightgun Standard source arbitration | Approved consistency candidate reviewed on 2026-10-11; **not applicable to the current Model 1 adapter**. Reference: SM2 `PORTING_PLAN.md` section 8, **Standard Gun Input Fallback**, current `src/libretro/input.cpp`, its input checks and [approved interchange](/Users/andrea/dev/sm2-emu-libretro/Docs/LIGHTGUN_STANDARD_INTERCHANGE_2026-10-11.md). Supermodel current roadmap has no matching source-arbitration phase. Current Model 1 profiles expose Racing, Joystick, Flight and MVD controls, with no Lightgun/Mouse callback arbitration or Standard/Lightgun Only mode. Star Wars Arcade Gunner uses analog-stick flight channels; Sega NetMerc uses MVD orientation, not a Lightgun protocol. Neither is an integration gap for this contract. Retain for future Model 2/Complete review only if a supported native Lightgun title is implemented: Standard combines Lightgun, Mouse and Analog Stick; constant `IS_OFFSCREEN` alone must not select Lightgun and suppress Mouse/Stick. Coordinate changes or real Trigger/Reload/Aux commands may select Lightgun; apply its off-screen status only when selected, retaining independent Mouse edge reload and explicit reload. Lightgun Only remains callback-only, without fallback or assumed physical-device detection. Preserve target-native protocol, scale and calibration; exclude Model 2 mappings, new Model 1 control modes and implementation in this review. | Low / documentation only; no current Model 1 implementation scheduled. |
+| 🟢 | E5. Synthetic cornering rumble and frontend deadzone | Approved consistency candidate reviewed on 2026-10-11; **implemented and locally delivered on 2026-10-12** for VR/VFormula drive-board pad approximation. Reference: SM2 `PORTING_PLAN.md` section 8, **Upstream v0.9.44 Cornering Rumble Deadzone**, current `core.cpp`/`rumble.cpp` and [approved interchange](/Users/andrea/dev/sm2-emu-libretro/Docs/RUMBLE_FRONTEND_DEADZONE_INTERCHANGE_2026-10-11.md); Supermodel `Docs/ROADMAP.md`, **Cross-core synthetic cornering rumble review**, records no equivalent synthetic effect. The pre-adaptation shared frontend helper `crates/tgpulse/src/input/model1_rumble.rs` applies `CORNER_DEADZONE = 0.2` to native steering deflection under Clutch/Center after drive-board activation. Before adaptation Libretro passed `machine.inputs.steer`, not the processed analog callback; its racing input first adds a 0.15 centre filter and native ADC conversion, then applies core response/range settings. Revised user contract: supply frontend-processed analog steering to synthetic cornering, with a rumble-only 5% onset threshold replacing the larger legacy threshold; rescale the remaining 95% travel to the same maximum (`max(0, abs(axis) - 0.05) / 0.95` for normalized travel). This supersedes the previous no-additional-threshold requirement; preserve frontend-zero silence, left/right symmetry and existing peak levels (low 0.24, high 0.12). Retain native command decoder, activation gating, Clutch/Center applicability, impacts, push direction/steps, flip boost, motor mixing, Gamepad Rumble persistence and lifecycle stops. NetMerc binary motor output is outside this candidate; do not add cornering effects to other profiles. The helper is shared with standalone: isolate the Libretro adaptation rather than silently changing standalone policy or emulated steering/calibration. Do not read frontend configuration or add deadzone Core Options. Future acceptance: focused zero/below-onset/above-onset/symmetry/full-travel and existing native-effect/reset checks; physical response remains separate. Delivered through the isolated frontend-axis helper; native/standalone policies retained. Zero/onset/symmetry/full-travel and native-effect checks pass; physical response remains separate. | Medium / S; included in LCF delivery. |
+| 🟢 | E6. Global Controller Profile Type | LCF F09 and SM2 phase 3.7/current global-selector implementation: first Input option, Normal / Normal + Test/Service, full default, one choice across ports, current profile plus None in Controls and modern paused-menu refresh. Authorized on 2026-10-12; preserve published subclass compatibility, remapping, special native commands and the newly approved L3 Service / R3 Test order. Implementation authorized on 2026-10-12; replace advertised per-port variants with the global selector, preserving None and historical device IDs. | High / M; implementation and ABI paused-refresh/re-entry checks pass; actual visible Normal/full paused-menu refresh passed in VR / RetroArch 1.22.2 on 2026-10-13, without Resume or Restart; test session closed normally. Evidence: LIBRETRO_LCF_PROFILE_UI_2026-10-13.md. |
 
 ## Milestones
 
@@ -179,7 +300,7 @@ The blocked rows are last, regardless of their phase number.
 | 🟢 | 3.5. Automatic Initial NVRAM Setup | Enabled by default. Complete independent set templates initialize absent/invalid Save RAM; valid existing saves take precedence. Native calibration and unrelated settings remain in each template. VR starts EXPORT / NO LINK / SPECIAL. | Complete; High reasoning |
 | 🟢 | 3.6. NVRAM Settings | Disabled by default. All 40 reviewed fields have per-set keys, observed native values/defaults, exact-set visibility and native CRC/mirror updates. Changed selections reset the machine to refresh native caches. 41 adapter checks, all nine ABI sets and isolated RetroArch save readback pass; Development installed. | Complete; High reasoning |
 | 🟢 | 6.2. Frontend persistence | Save RAM and Save States use the existing machine APIs and frontend-owned files. | Complete |
-| 🟢 | 3.7. Software Core Options | Smooth Shadows, presentation-only Aspect Ratio, Master Volume, per-source Model 1 Gain selectors (Mute/Auto/0–100%), VR-family Gamepad Rumble, Timing / FPS Overlay, Known Bad Dump ROM Repairs and selectable native/60 Hz timing exist. In 60 Hz mode each callback advances and renders a new machine frame, so game and sound run about 4.3% faster; audio is resampled to the native output rate. The listed options are implemented; driving ranges are implemented in phase 3.8; steering response is implemented in phase 3.9. | Complete |
+| 🟢 | 3.7. Software Core Options | Smooth Shadows, presentation-only Aspect Ratio, Master Volume, per-source Model 1 Gain selectors (Auto, Mute, then 10–100%; Mute stores `0`), VR-family Gamepad Rumble, Timing / FPS Overlay, Known Bad Dump ROM Repairs and selectable native/60 Hz timing exist. In 60 Hz mode each callback advances and renders a new machine frame, so game and sound run about 4.3% faster; audio is resampled to the native output rate. The listed options are implemented; driving ranges are implemented in phase 3.8; steering response is implemented in phase 3.9. | Complete |
 | 🟢 | 5.1. Vulkan renderer | Frontend-owned Vulkan v5 device/queue, shared standalone raster/resolve shaders, synchronized image handoff and context lifecycle. Native images are verified in macOS RetroArch through existing MoltenVK. | Complete; High reasoning |
 | 🟢 | 5.3. OpenGL/GLES renderer | Frontend-owned OpenGL 4.3/GLES 3.1 compute adapter. Actual 2D/3D images, normal context recreation and unannounced loss verified through the SM2-style EGL host on Linux Mesa. Audio and NVRAM match Software. macOS GL 4.1 cannot run this compute path. | Complete; High reasoning |
 | 🟢 | 5.2a. Widescreen and supersampling | Three widescreen modes and native supersampling scales 1–4, applied at content reload. Widescreen modes affect wide aspect only; supersampling also applies in 4:3. Vulkan and OpenGL/GLES use the standalone shaders. | Complete; High reasoning |
@@ -187,6 +308,11 @@ The blocked rows are last, regardless of their phase number.
 | 🟢 | 3.9. Driving Steering Response | Linear / Progressive (Fine Center) / FBNeo Logarithmic (Fine Center), default Linear. Current SM2/Supermodel curves adapted to Model 1 20–80–E0, before output range; VR/VFormula only, live updates. 44 adapter checks, macOS release build and bounded RetroArch registration/frame delivery pass; Development installed. | Complete; Medium reasoning |
 | 🟢 | 6.1. Linked cabinets | SM2/Supermodel Netpacket workflow adapted to existing M1COMM. Per-set selectors default Disabled; native NVRAM roles retained. All six eligible sets reached game-created links in real RetroArch pairs; VR also passed LIVE relay. COMM Save States remain unavailable. 47 adapter checks, macOS build and Development install pass. | Complete; High reasoning |
 | 🟢 | 4.1. Model 1 single system build | Reference: SM2 `PORTING_PLAN.md` phase 4 system-specific build/ABI/core-info/license/package gates; Supermodel `Docs/ROADMAP.md` has no multi-system split to copy. Adaptation: `model1`/`model2` Cargo machine features, both by default for standalone; M1 adapter selects only `model1`. Single-source catalogue is selected at build time: 10 M1 entries; i960, MB86235, SHARC, Model 2 machines/SCSP and the combined debugger are excluded. Library M2-only and combined configurations remain available; M2 Libretro is still phase 7. Local M1/full/M2 and adapter tests, nine-set pre-split video/audio/state/Save RAM equality, RetroArch Vulkan, package/scope checks and Development installation pass. Binary 3,557,184 → 3,422,352 bytes (−3.79%); warm scoped rebuild 18.540 → 13.097 s. See `LIBRETRO_BUILD_SCOPE.md`. | Complete; High reasoning; account 55% → 56% during implementation. Version 0.1.0.2 passes all five native CI builds and downloaded-package verification. |
+| 🟢 | 3.10. LCF common option descriptions | User-authorized on 2026-10-12. Reference: LCF F04/F05/F07, SM2 phase 3.7 and current `core_options.h`; Supermodel option text only where behavior is equivalent. Reuse common wording for NVRAM/initial setup/ANS, timing/overlay, source Gains, aspect, steering curves/ranges and rumble. Keep Model 1 hardware, Auto levels, native defaults and lifecycle differences explicit. Remove Gain Absolute suffixes in modern and legacy registration. Saved values, defaults and behavior are unchanged. Completed: 88 adapter tests, macOS ARM64 release, Model 1 scope/25-export ABI/lifecycle checks and public local installation with backup and matching SHA-256. No new frontend-menu or gameplay qualification is claimed. | Medium / S / 0.5–1% indicative. |
+| 🟢 | 3.11. NVRAM Settings master visibility | Approved roadmap requirement on 2026-10-12. Reference: SM2 phase 3.7 and `update_option_visibility()`/`options_for_game()`; LCF F06 records the current target difference. Show the general NVRAM Settings selector only when the loaded set has reviewed implemented fields; hide it without content or without supported fields. Preserve existing per-set field gating, saved switch/values, enabled/disabled behavior and automatic-reset policy. Check load/unload/set changes and modern display callbacks; older frontend APIs may lack hiding support. Supermodel native field/visibility rules are not copied. | Medium / S; implementation and load/unload visibility checks complete. |
+| 🟢 | 3.12. LCF A/V Timing default and value labels | Existing approved interchange: SM2 phase 3.7/current A/V Timing and LCF F07. Adopt 60 Hz (Default), then 57.524 Hz (Native Model 1), with raw `60hz`/`native`; preserve explicit saved choices, new-frame production and resampling. This functional/default alignment remains separate from phase 3.10 wording and was implemented in the subsequent authorized LCF package; explicit native and default 60 Hz checks pass. | Medium / S / 0.5–1% indicative. |
+| 🟢 | 3.13. Shared Test and Service slot order | User-approved on 2026-10-12. Reference: current SM2 phase 3.7/input descriptors and polling, LCF F09 edition 0.1.4 and retained TEST_SERVICE_LCF_INTERCHANGE_2026-10-12.md. Apply L3 Service / R3 Test to both ports of all supported profiles; preserve native bit polarity, gameplay and special commands. Saved remaps are not rewritten. Descriptors and polling aligned on both ports; focused native-bit checks and final local deployment pass. | Medium / S; authorized with the LCF package. |
+| 🟢 | 6.3. Canonical Automatic Network Settings | Implemented locally on 2026-10-12. Adopt raw `0`, progressive numeric cabinet values and `relay`; preserve native mappings and published saved-value compatibility. Launcher development is excluded following the user decision on 2026-10-12; it belongs to a separate project adding support for multiple cores. Detailed contract and reference adaptation below. Existing completed phases and deferred/blocked priorities remain unchanged. | Medium / S–M; usage estimate at implementation start after compatibility review. |
 | 🔵 | 7. Model 2 and combined core adaptation | After the current Model 1 scope, inspect actual standalone board support and reference features, then extend the shared adapter for Model 2 and build both Model 2-only and combined cores. Keep system-specific timing, inputs, rendering, NVRAM and state explicit. | High; effort and usage estimate after reference/board review |
 | 🟢 | 4. Build and distribution — Model 1 preview foundation | Versions 0.1.0.0, 0.1.0.1 and 0.1.0.2 published as prereleases. Linux x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64 pass native builds, machine/adapter tests, ABI/dependency/lifecycle gates, licenses and core/info packaging. All five downloaded ZIPs and internal checksums match the fixed source tag. Version 0.1.0.2 delivers the single-system component split; Model 2/combined Libretro packaging follows their future adapters. See `LIBRETRO_CI.md`. | Complete for the Model 1 preview; High reasoning |
 | 🟢 | NetMerc NVRAM inclusion | U1 startup, U2 controls, U3 complete acquisition and user-approved U8 integration are complete. Automatic Export and the three reviewed operator selectors pass ABI, RetroArch readback and Development installation gates. | Complete; see U8 and `LIBRETRO_U8_NETMERC_SETTINGS.md` |
@@ -197,7 +323,7 @@ The blocked rows are last, regardless of their phase number.
 | --- | --- | --- |
 | Known Bad Dump ROM Repairs | TGPulse-Next already repairs the SHA-1-identified legacy `315-5711.bin` in memory. The Libretro System option defaults to Enabled, preserving the standalone behavior; Disabled leaves the original bytes intact. It affects SWA, Wing War and, once bootable, NetMerc sets that contain this chip. A restart is required. SM2's ROM CRC Verification is a different function. | Implemented; option registration and build are verified. A gated test covers both loader choices when a user-owned matching ZIP is supplied; that ROM-dependent test has not run here. Other repairs require individually documented original hashes and corrected bytes before inclusion. |
 | A/V Timing | SM2's 60 Hz Compatibility duplicates occasional video frames without speeding the machine. Supermodel instead runs one machine frame per callback at 60 Hz and couples video and sound timing. Model 1 follows the user's Supermodel-style choice: Native 57.524160 Hz remains default; optional 60 Hz advances and renders every callback, speeds game and sound by about 4.3%, and resamples generated audio to the same output sample rate. | Implemented in the adapter, including the fractional audio position in Save States. Offline tests, option registration and the macOS release build pass. User-run presentation trials remain outside this roadmap. |
-| Model 1 source audio | SM2 phase 3.7 reviews category, visibility and defaults; its audio balance and DSB volume apply live. Supermodel's roadmap has no comparable audio phase; its core offers separate sound/music volume. TGPulse standalone has output-only MultiPCM1/2, YM3438 and optional DSB gains/mutes. | Implemented as separate source controls with global keys shared by all ROM sets, following SM2 and Supermodel audio option scope. All source Gain selectors default to Auto: MultiPCM1/2 and DSB use standalone 50/50/100%, while FM Auto uses 90% in Libretro rather than the standalone 30%. Each selector retains Mute and 0–100% in 10% steps without a separate Mute switch. Gains appear only for fitted sound sources, subject to frontend display-hint support, and apply live. The standalone mix is unchanged. Offline tests cover the Libretro default and Auto choice; listening remains user-run. |
+| Model 1 source audio | SM2 phase 3.7 reviews category, visibility and defaults; its audio balance and DSB volume apply live. Supermodel's roadmap has no comparable audio phase; its core offers separate sound/music volume. TGPulse standalone has output-only MultiPCM1/2, YM3438 and optional DSB gains/mutes. | Implemented as separate source controls with global keys shared by all ROM sets, following SM2 and Supermodel audio option scope. All source Gain selectors default to Auto: MultiPCM1/2 and DSB use standalone 50/50/100%, while FM Auto uses 90% in Libretro rather than the standalone 30%. The canonical menu shows Auto, Mute (stored as `0`) and 10–100% in 10% steps without a separate Mute switch. Saved textual mutes remain readable as temporary aliases until the user chooses a canonical value; no conversion is forced on read. Isolated RetroArch tests cover global/per-game persistence, while adapter tests cover effective zero Gain. Gains appear only for fitted sound sources, subject to frontend display-hint support, and apply live. The standalone mix is unchanged; listening remains user-run. |
 | Aspect and widescreen | SM2 reports Auto/4:3/16:9 geometry without changing its 496×384 framebuffer. TGPulse standalone already has both behaviors: Auto reads VR's saved monitor setting and presents the native image; On widens the 3D field of view to 683×384 with optional 2D stretch, like Supermodel. The current Libretro software output is fixed at 496×384. | Presentation-only Aspect Ratio is implemented with Auto default, VR EEPROM byte 0x0a and 4:3 fallback. Changes report geometry live after option, Save RAM or Save State updates; the image stays 496×384. Offline tests and macOS release build pass. Hardware renderers now support wider 3D rendering and optional stretch of both native 2D layers; 4:3 and Software retain native geometry. |
 | Driving analog ranges and response | Current SM2 and Supermodel expose live Steering/Accelerator/Brake Output Range (50–150%, default 100%) and Steering Response. Model 1 VR/VFormula currently maps steering around 0x80 and pedals from 0x20, within 0x20–0xE0. | Ranges implemented in phase 3.8; Steering Response implemented in phase 3.9. Scaling uses the existing center/rest, preserving native defaults and limits. Model 2 presets 63% (30-80-D0) and 75.3% (00-C0) require Model 1-specific validation rather than direct copying. These control emulated ADC output, not frontend binding assignment. |
 | VR rumble | SM2 negotiates Libretro's rumble interface, drives P1 strong/weak motors and clears them at lifecycle boundaries. TGPulse standalone already decodes VR/VFormula motor commands into pad levels; its rumble default is Off. | Implemented by sharing the standalone pad policy and adapting only its output to Libretro. At the user's request the Libretro Gamepad Rumble option defaults On, matching SM2 while leaving the standalone default unchanged. It remains visible for all titles, applies to VR/VFormula and is inert when no rumble interface exists. Reset, unload, state load, input removal and disable stop both motors. Offline tests and macOS release build pass; physical-pad behavior remains user-run. |
@@ -363,3 +489,136 @@ the latest run began with options already selected. The exact live in-menu
 interaction remains a user frontend trial. All five CI packages and release
 publication passed; evidence is in `LIBRETRO_MODEL1_LINKED_CABINETS.md` and
 `LIBRETRO_CI.md`.
+
+## Approved ANS Follow-Up — 2026-10-09
+
+**Phase 6.3: implemented and locally delivered on 2026-10-12.** Model 1 now
+uses canonical tokens with compatibility reads for the published color/role
+names. Mapping/registration and Restart/Resume checks pass; SM2 results remain
+separate from Model 1 evidence.
+This extends phase 6.1 without reopening its completed transport work.
+
+Reference review before prioritization: SM2 `PORTING_PLAN.md` section 8,
+**Power Sled Automatic Network Settings and Linked Launcher**, its current
+`automatic_network.cpp`, launcher and convention documents; Supermodel
+`Docs/ROADMAP.md`, **Automatic Network Settings alignment**. The approved
+[interchange document](/Users/andrea/dev/sm2-emu-libretro/Docs/ANS_TGPULSE_INTERCHANGE_2026-10-09.md)
+supplies the Model 1 contract. Reuse token and launcher conventions only;
+exclude Model 2/3 native mappings, Power Sled program/layout rules and the
+references' waiver of compatibility for previously unpublished ANS options.
+
+### Canonical Values And Preserved Behavior
+
+| Raw Value | VR / VFormula | Wing War Variants |
+| --- | --- | --- |
+| `0` | Disabled | Disabled |
+| `1` | Red (Master) | Master |
+| `2` | Orange (Slave) | Slave |
+| `3` | Skyblue (Slave) | Not Offered |
+| `4` | Pink (Slave) | Not Offered |
+| `5` | Black (Slave) | Not Offered |
+| `6` | Green (Slave) | Not Offered |
+| `7` | Yellow (Slave) | Not Offered |
+| `8` | Blue (Slave) | Not Offered |
+| `relay` | Live (Relay) | Not Offered |
+
+Keep the visible **Automatic Network Settings** name, existing six per-set
+keys, adjacency, visibility policy and effective Master default (raw `1`).
+Do not introduce `none`, `100` or `live` as new canonical alternatives.
+Preserve preset-index meanings, native NVRAM keys/values, offline defaults,
+integrity, unrelated fields, enabled NVRAM Settings gating and current
+Resume/Restart behavior. Disabled preserves manual choices; native roles do
+not derive from frontend host/client status. Native total limits remain nine
+for VR/VFormula and two for Wing War.
+
+ANS shipped in the published Model 1 releases. Preserve required old saved
+color/role reads while new selections use canonical values, following the
+existing published-option compatibility contract. Update modern and legacy
+frontend API registration together; the latter is distinct from saved-value
+compatibility. Do not eagerly rewrite frontend-owned files or introduce an
+offline migration utility.
+
+### Separate Launcher Project — 2026-10-12
+
+The user assigned launcher development to a separate project that will add
+support for multiple cores progressively. The Framework F15 contract remains
+reference material for that project, not implementation work in this core.
+Phase 6.3 covers canonical ANS values and published-value compatibility only.
+
+### Implementation Acceptance
+
+Reuse focused checks for all canonical presets across all six sets, Disabled,
+offline restoration, Live/Relay identity, old saved-value compatibility and
+unchanged native patches. Use the established runner for necessary registration,
+persistence checks; do not repeat a full gameplay campaign for
+a token change. After implementation, update its documentation and install the
+verified macOS core with matching public metadata and SHA-256 under AGENTS.md.
+This roadmap update performs none of those implementation or deployment steps.
+Commit and push require a separate request.
+
+## LCF Review Decisions — 2026-10-12
+
+Reviewed LCF edition 0.1.3 against the current target and SM2 option source.
+The sole roadmap retains approved ANS in 6.3 and cornering rumble in E5;
+3.10 records authorized wording, 3.11 records the approved SM2 master-switch
+visibility requirement, 3.12 retains the separately approved timing alignment,
+and E6 records the profile candidate awaiting implementation approval.
+Launcher development belongs to the separate multi-core project.
+F19 version reconciliation remains a pre-publication review: preserve existing
+tags and resolve the upstream scheme/coverage before a new version is chosen.
+No implementation of these pending items is implied by this reconciliation.
+
+## Authorized LCF Package Delivery — 2026-10-12
+
+The user authorized every applicable item from the LCF review except launcher
+development, which belongs to the separate multi-core project. E1/E2 remain
+previously excluded optional upstream conveniences; E3 needs no new binding and
+E4 is not applicable. No new effects or hardware features were invented.
+
+Delivered locally: 3.10 descriptions/Gain labels; 3.11 master NVRAM visibility;
+3.12 60 Hz default with explicit native compatibility; 3.13 shared Service/Test
+slots; 6.3 canonical ANS; E5 processed-axis cornering rumble. E6's global profile
+is implemented and installed, with callback-level paused refresh, historical
+IDs and None verified; actual visible paused Controls review remains separate
+and awaits approval to close the two test instances. Current version/tag are
+unchanged; the completed F19 review records the four-part port-version exception
+and reviewed upstream boundary in LIBRETRO_RELEASE.md.
+
+Evidence: 92 adapter tests; standalone compilation; existing native
+Restart/Resume/lobby callback probe; canonical and old-value modern/legacy
+registration; VR/VF/SWA profile callbacks, safe re-entry and visibility; bounded
+VR RetroArch 1.22.2 software startup, 60 Hz and clean runner exit. No physical
+pad/rumble or new distributed-cabinet gameplay acceptance is claimed.
+The final macOS ARM64 build passes compiled Model 1 scope, 25 ABI exports and
+empty lifecycle gates. Public core/info are installed with backup and matching
+SHA-256. Installed core: `89195e6d82d1685204ff19a99c39553181eb9b992883510b91bf6559b122e185`.
+No commit, push or release was performed. See REFERENCE_WORKFLOW.md and the
+retained isolated evidence under `/private/tmp/tgpulse-lcf-*`.
+
+## E6 Paused-Menu Verification Closure — 2026-10-13
+
+The pending visible Controls check is complete: the installed public core
+updates the sole advertised VR profile in both directions while paused,
+without Resume or Restart. None remains offered; no stale profile variant
+appears. The isolated session was closed through Quit RetroArch and no process
+remains. This supersedes the 2026-10-12 pending visual-check status above.
+Evidence and frontend/hardware limits:
+[LCF profile UI verification](LIBRETRO_LCF_PROFILE_UI_2026-10-13.md).
+
+
+## Audio Recovery After Reset — Framework Follow-Up 2026-10-18
+
+Status: Technical Verification Complete; no production audio correction required.
+User listening and two-peer audio/gameplay are not claimed. Reference: Framework
+F12/F14 edition 0.1.40; SM2's corresponding PORTING_PLAN follow-up and frontend
+recording report; Supermodel's ROADMAP/reset-queue investigation. Model 1 uses
+synchronous vectors, so the Supermodel packet-ring initializer is not applicable.
+
+- [x] Inspect startup/reset/flush and producer progress: native/frontend PCM and resampling remainder are cleared; no separate blocked producer or ring full/empty ambiguity exists.
+- [x] Compare startup, two explicit resets and VF option-triggered resets: eight native/60 Hz cases across VR, VF, SWA and NetMerc, 30,000 frames; repeated-reset PCM is identical and nonzero.
+- [x] Actual isolated RetroArch Vulkan/60 Hz/CoreAudio3 run, two native UI resets and 120-second PCM recording; no persistent silence reproduced. Listening is a separate user qualification, outside this implementation roadmap.
+- [x] Existing lobby Restart/Resume callback and topology checks passed. This does not establish new two-peer audio/gameplay acceptance.
+- [x] Record destination findings and evidence limits in [Audio Recovery After Reset](LIBRETRO_AUDIO_RESET_2026-10-18.md). Return the architectural distinction to the Framework; do not copy queue-specific priming or centralize this test diary there.
+
+Effort: High / M; initial estimate 1–2% account use. Observed account usage
+38% → 39% (rounded, shared account); reset 2026-10-24 22:40:57 Europe/Rome.

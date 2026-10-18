@@ -225,8 +225,8 @@ mod tests {
             let pose = mvd::sensor_pose(s.angles().unwrap());
             let neutral = tgpulse_core::model1io2::HmdPose::default();
             let delta = i32::from(pose.orientation[channel]) - i32::from(neutral.orientation[channel]);
-            // Roll wraps at the native +180-degree neutral offset.
-            if channel == 1 { assert!(delta < 0); }
+            // Negative SDL Roll is inverted; positive output wraps at +180°.
+            if channel == 1 { assert!(pose.orientation[1] < 0); }
             else { assert_eq!(delta > 0, positive); }
             s.stop();
             assert!(s.angles().is_none());

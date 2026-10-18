@@ -1,5 +1,37 @@
 # Reference adaptation workflow
 
+## Shared Libretro Framework Reference
+
+User-designated on 2026-10-12: use
+[Libretro Core Framework](/Users/andrea/dev/libretro-core-framework/FRAMEWORK.md)
+as the shared reference for present and future Libretro projects and for
+solutions transferred to or from this port. Its
+[source register](/Users/andrea/dev/libretro-core-framework/REFERENCE_SOURCES.md)
+records inspected revisions, local fingerprints and evidence limits.
+The initial review here used edition 0.1.1; inspect the current edition and
+the relevant source paths again before each adaptation.
+
+The Framework consolidates contracts, not a runtime dependency. SM2 remains
+the primary implementation reference, supplemented by this core and Supermodel
+according to capability and verified behavior. Explicit user decisions and
+this project's published compatibility rules take precedence. Distinguish
+shared/conditional contracts, observed differences, proposals and cases that
+are not applicable; do not equate Framework publication with port compliance.
+
+For incoming solutions, inspect the applicable Framework contract and current
+source implementation, record the smallest Model 1 adaptation and genuine
+conflicts in the sole roadmap, and retain the interchange provenance. For
+outgoing solutions, document source paths, native/frontend boundaries,
+compatibility impact, verification and limits for Framework review. A candidate
+does not authorize implementation in either repository. Messages to another
+chat require the user's authorization; documents do not grant it themselves.
+Keep the local backport and family registers in their existing separate roles.
+
+This adoption adds no automatic changes to code, option defaults, profiles,
+bindings or pending roadmap entries. Framework F09's global Controller Profile Type and the shared L3 Service /
+R3 Test order were subsequently authorized on 2026-10-12; the current contract
+is recorded below.
+
 ## Upstream Backport Register
 
 After each implementation phase and upstream comparison, update
@@ -8,6 +40,16 @@ reusable local fixes/helpers, source evidence, dependencies and adaptation
 limits. Record adoption or supersession against an explicit upstream revision.
 This register is separate from the sole implementation roadmap; proposing a
 candidate does not authorize changing, committing or publishing upstream.
+
+## Core Family Improvement Register
+
+After a Model 1 change that could benefit the planned Model 2-only or complete
+Libretro core, update [Core Family Improvements](FAMILY_CORE_IMPROVEMENTS.md).
+Record the actual source/evidence, target core, machine-specific adaptation
+and verification boundary. This tracks reuse within this repository; the
+upstream backport register above tracks possible standalone changes. Neither
+register replaces the sole implementation roadmap or authorizes a future core
+phase by itself.
 
 ## Apply this process to every phase
 
@@ -60,13 +102,16 @@ is shown only for cabinets that actually have it. Preserve the user's explicit
 removal of VF shoulder bindings. Frontend remapping owns extra physical input
 choices; the adapter must not add unsupported VF analog gameplay controls.
 
-Profiles must include both reference device variants per port: the complete
-`<Profile> + Test/Service Slots` on base RetroPad (the default), and `<Profile>`
-on subclass 0 with cabinet slots disabled. Inspect SM2 `configure_controllers`,
-`service_enabled`, `joypad_enabled` and Supermodel `set_controller_info` plus
-input polling together. Reduced profiles remove Test/Service descriptors and
-polling, while retaining all gameplay buttons, analog axes, MVD commands and
-rumble. Keep per-port selection independent and preserve SWA Pilot/Gunner names.
+Controller Profile Type is the first Input option, global across all ports:
+Normal / Normal + Test/Service (full default). Controls advertises only the
+current game-specific profile; None and physical remapping remain available.
+Normal removes Test/Service descriptors and polling, preserving gameplay,
+analog axes, MVD commands and rumble. L3 is Service and R3 is Test.
+Historical reduced subclass IDs remain accepted but follow the global choice;
+None remains disabled. Preserve SWA Pilot/Gunner names and native bit polarity.
+Modern display callbacks refresh Controls while paused; legacy frontends
+refresh on Resume. Profile changes do not reset the machine. Frontend
+publication occurs outside the core lock to allow callback re-entry.
 
 ## Audio option contract
 
@@ -74,7 +119,13 @@ Master Volume uses default 100%, standalone 0–800% range and reference-core
 10% steps. At the user's request, zero is labelled OFF. No Mute/Muted label or
 Auto value is added to Master.
 Per-source Gain uses global core keys shared by all Model 1 sets, with Auto
-as the default and the agreed Mute/Auto/0–100% selector. FM Auto uses 90%
+as the default and the agreed Auto/Mute/10–100% selector. Store Mute as
+the raw value `0` in every core. The Model 1 adapter temporarily registers
+old `mute`/`Mute` values when an active Core Options file still contains one:
+they continue to mean zero output and remain unchanged until the user selects
+a canonical value. After all old values are replaced, the next load removes
+the legacy menu aliases. Do not
+rewrite frontend-owned options on read. FM Auto uses 90%
 in Libretro; its standalone reference level remains 30%. Follow SM2 and
 Supermodel's global audio option scope. Old set-qualified Gain keys are ignored.
 Filter registered Gain keys against the loaded machine's `SoundSystem::sources()`;
@@ -88,6 +139,16 @@ declared audio sources through this same frontend rule.
 Order the modern numeric selector ascending and use identical load-time/live parsing.
 Verify live PCM changes from the same restored machine state before claiming
 progressive gain; game progression must not alter the reference segment.
+
+RetroArch 1.22.2 rejects an unregistered textual Gain and saves Auto in its
+place. Isolated macOS RetroArch tests with a deliberately invalid ROM archive
+verified that both global and game-specific `.opt` files retain old `Mute`
+and `mute` values with the compatibility definitions, and that `0`, Auto
+and unrelated Master Volume remain unchanged. After replacing the test values
+with `0`, both file scopes retained `0` on reload and received the canonical
+menu definitions. The invalid ROM prevents an audio-output claim from these
+frontend tests; adapter tests cover the effective zero Gain. RetroArch may
+still flush an options file during its ordinary load/unload lifecycle.
 
 For NetMerc donor audio, reuse the upstream strict PCM loader and atomic bank
 application. Game donor ZIPs are searched only beside `netmerc.zip`; an alternate
@@ -642,3 +703,56 @@ authoritative operator role and before the next emulated frame. Keep Save RAM
 and operator role persistence across either transition. Treat a temporary
 packet-count difference while peers resume at different times as pending
 setup; retain the game/set identity check.
+
+## LCF Option Wording Adaptation — 2026-10-12
+
+Reviewed Framework edition 0.1.3 and current SM2 Core Option definitions.
+Common description clauses are reused for NVRAM authority/reset, initial-save
+precedence, ANS lifecycle, timing metrics, source Gains and driving ranges.
+Model 1 cadence, monitor behavior, board applicability and source Auto levels
+remain explicit differences; current defaults and saved tokens are unchanged.
+Source Gain labels omit the Absolute suffix in modern and legacy registration.
+Aspect help distinguishes presentation from the separate Widescreen Hack.
+Steering Response and Gamepad Rumble already retain the applicable common
+immediate-effect wording and their Model 1 scope; no new effects are introduced.
+The initial-setup resource contract does not inherit SM2 standalone-file or
+parent-sample lookup rules. Overlay help does not claim SM2 internal-resolution
+behavior for this renderer. Native timing remains the delivered default pending
+the separately recorded alignment in phase 3.12.
+
+Launcher development belongs to a separate multi-core project. The approved
+SM2-style NVRAM master-switch visibility remains roadmap work in phase 3.11;
+this wording update does not implement it. Published values and old Gain aliases
+retain the existing compatibility contract.
+
+Verification: 88 adapter tests pass. The shared Makefile produces a macOS ARM64
+release passing Model 1 scope, 25 ABI exports and empty lifecycle gates. Public
+core/info are installed with backup and verified hashes; core SHA-256:
+`9d2e5d3d73276bf0b9cc37ea74c9da5d6f9cb7ecffb45f21a550cf610137ecb8`.
+No new interactive menu/gameplay result, commit, push or release is claimed.
+
+## Authorized LCF Implementation — 2026-10-12
+
+LCF F09 is adopted: the global profile selector and L3 Service / R3 Test order
+supersede historical per-port variants and opposite slot assignments. Test and
+Service are now aligned in descriptors and polling; remaps are never rewritten.
+F06 master NVRAM visibility follows SM2: hide without reviewed loaded-set fields.
+F07 A/V Timing defaults to `60hz`, preserving explicit saved `native`. F14 ANS
+uses canonical decimal IDs/`relay` with read compatibility for published names.
+F11 synthetic cornering uses the frontend analog callback and 5% onset/rescaling;
+native emulated steering and standalone cornering policy remain unchanged.
+The version exception and exact source-coverage boundary are documented in
+LIBRETRO_RELEASE.md. These current contracts supersede the earlier pending
+wording in the dated 2026-10-12 description-only note.
+
+Verification uses the existing adapter suite and an isolated ABI host extended
+by `tools/test_libretro_lcf_options.py`, plus the existing Linked Restart/Resume
+probe and bounded RetroArch runner. Keep callback-level paused refresh separate
+from actual visible Controls-menu acceptance; keep physical pad/rumble tests
+outside this source implementation claim.
+
+E6 follow-up on 2026-10-13: actual visible Controls metadata refresh passes in
+VR / macOS RetroArch 1.22.2 RGUI for Normal and Normal + Test/Service while
+paused, without Resume/Restart. The isolated session exits normally and leaves
+no RetroArch process. See LIBRETRO_LCF_PROFILE_UI_2026-10-13.md; this closes the
+previously pending visual check without extending physical-device claims.

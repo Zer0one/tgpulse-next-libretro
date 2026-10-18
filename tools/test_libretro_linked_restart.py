@@ -37,8 +37,8 @@ def main():
     options = {b'tgpulse_next_renderer': b'software',
                b'tgpulse_next_initial_nvram_setup': b'enabled',
                b'tgpulse_next_nvram_settings': b'enabled',
-               b'tgpulse_next_automatic_network_vr': b'red',
-               b'tgpulse_next_linked_cabinets_vr': b'disabled'}
+               b'tgpulse_next_automatic_network_vr': b'0',
+               b'tgpulse_next_linked_cabinets_vr': b'-1'}
     changed = [False]
     packets = []
     callbacks = []
@@ -54,6 +54,7 @@ def main():
     @ENV
     def environment(command, data):
         if command == 15:
+            changed[0] = False  # RetroArch consumes updates on option reads.
             variable = c.cast(data, c.POINTER(Variable)).contents
             variable.value = options.get(variable.key)
             return variable.value is not None
@@ -132,7 +133,7 @@ def main():
     assert core.retro_serialize_size() > 0
     saved()
     options[b'tgpulse_next_linked_cabinets_vr'] = b'2'
-    options[b'tgpulse_next_automatic_network_vr'] = b'pink'
+    options[b'tgpulse_next_automatic_network_vr'] = b'4'
     changed[0] = True
     core.retro_reset()
     assert core.retro_serialize_size() == 0, 'Restart did not fit COMM board'
@@ -162,21 +163,21 @@ def main():
     assert any(packet[:4] == b'TGMN' and struct.unpack_from('<H', packet, 6)[0] == 3
                for packet in packets), 'Cabinet total did not update in open lobby'
 
-    options[b'tgpulse_next_linked_cabinets_vr'] = b'disabled'
+    options[b'tgpulse_next_linked_cabinets_vr'] = b'-1'
     changed[0] = True
     core.retro_reset()
     assert core.retro_serialize_size() > 0, 'Restart did not remove COMM board'
     for _ in range(3):
         core.retro_run()
     offline = saved()
-    assert offline[65613] == 0 and offline[65635] == 0, \
-        'Active automation did not restore the reviewed offline role/color'
+    assert offline[65613] == 2 and offline[65635] == 5, \
+        'Disconnecting topology unexpectedly changed the independent role/color'
 
     # The user's actual sequence resumes content after changing both options;
     # it does not invoke RetroArch Restart between the menu and the next frame.
     packets.clear()
     options[b'tgpulse_next_linked_cabinets_vr'] = b'2'
-    options[b'tgpulse_next_automatic_network_vr'] = b'pink'
+    options[b'tgpulse_next_automatic_network_vr'] = b'4'
     changed[0] = True
     core.retro_run()
     assert core.retro_serialize_size() == 0, 'Resume did not fit COMM before frame one'
@@ -188,11 +189,11 @@ def main():
     receive(packet, len(early_hello), 1)
     core.retro_run()
 
-    options[b'tgpulse_next_linked_cabinets_vr'] = b'disabled'
+    options[b'tgpulse_next_linked_cabinets_vr'] = b'-1'
     changed[0] = True
     core.retro_run()
     assert core.retro_serialize_size() > 0, 'Resume did not remove COMM'
-    assert saved()[65613] == 0, 'Resume did not restore No Link'
+    assert saved()[65613] == 2, 'Topology disconnect changed the selected Slave role'
     core.retro_unload_game()
     core.retro_deinit()
     result = {'open_lobby_callbacks_preserved': True, 'restart_totals': [1, 2, 3, 1],
@@ -200,7 +201,7 @@ def main():
               'linked_slave_role_applied_before_first_frame': True,
               'resume_reconfigures_comm_before_first_frame': True,
               'staggered_lobby_join_recovers': True,
-              'offline_role_restored_by_automation': True}
+              'role_preserved_when_board_disconnected': True}
     (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result))
 

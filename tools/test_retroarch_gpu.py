@@ -26,6 +26,7 @@ def main():
     p.add_argument('--av-timing',choices=('native','60hz'),default='native')
     p.add_argument('--overlay',action='store_true')
     p.add_argument('--notifications',action='store_true',help='Enable frontend OSD for notification verification')
+    p.add_argument('--record-audio',action='store_true',help='Enable CoreAudio3 playback and record isolated WAV audio on macOS')
     p.add_argument('--diagnostic-display',choices=('off','overlay','overlay_half'),default='off')
     p.add_argument('--diagnostic-position',choices=('top_left','top_right','bottom_right','bottom_left'),default='top_right')
     p.add_argument('--diagnostic-opacity',type=int,choices=range(0,101,10),default=80)
@@ -36,8 +37,8 @@ def main():
     for axis in ('steering','accelerator','brake'):
         p.add_argument('--'+axis+'-range',type=int,choices=range(50,151,10),default=100)
     p.add_argument('--steering-response',choices=('linear','progressive','fbneo'),default='linear')
-    p.add_argument('--linked-cabinets',type=int,choices=range(1,10),default=1)
-    p.add_argument('--automatic-network',choices=('disabled','red','orange','skyblue','pink','black','green','yellow','blue','live','master','slave'),default='disabled',help='Network preset; Disabled preserves explicit NVRAM roles in isolated tests')
+    p.add_argument('--linked-cabinets',type=int,choices=range(-1,10),default=-1)
+    p.add_argument('--automatic-network',choices=('-1','0','1','2','3','4','5','6','7','8','r','l','s'),default='0',help='ANRS: -1 manual, 0 native standalone, 1..n identity, r special role')
     p.add_argument('--netplay-role',choices=('host','client'))
     p.add_argument('--netplay-host',default='127.0.0.1')
     p.add_argument('--netplay-port',type=int,default=55435)
@@ -82,10 +83,10 @@ def main():
         if a.rom.stem not in ('vr','vformula','wingwar','wingwaru','wingwarj','wingwar360'):p.error('Set has no native M1COMM board')
         if a.rom.stem.startswith('wingwar') and a.linked_cabinets!=2:p.error('Wing War supports two cabinets')
     if not 1<=a.netplay_port<=65535:p.error('Invalid Netplay port')
-    with opts.open('a') as stream:stream.write(f'tgpulse_next_linked_cabinets_{a.rom.stem} = "'+(str(a.linked_cabinets) if a.linked_cabinets>1 else 'disabled')+'"\n')
+    with opts.open('a') as stream:stream.write(f'tgpulse_next_linked_cabinets_{a.rom.stem} = "'+str(a.linked_cabinets)+'"\n')
     if a.rom.stem in ('vr','vformula','wingwar','wingwaru','wingwarj','wingwar360'):
-        allowed=('master','slave') if a.rom.stem.startswith('wingwar') else ('red','orange','skyblue','pink','black','green','yellow','blue','live')
-        if a.automatic_network!='disabled' and a.automatic_network not in allowed:p.error('Preset is not available for this game')
+        allowed=('-1','0','1','2') if a.rom.stem.startswith('wingwar') else ('-1','0','1','2','3','4','5','6','7','8','r','l','s')
+        if a.automatic_network not in allowed:p.error('Role is not available for this game')
         with opts.open('a') as stream:stream.write(f'tgpulse_next_automatic_network_{a.rom.stem} = "{a.automatic_network}"\n')
     selected_nvram={}
 
@@ -96,7 +97,7 @@ def main():
     with opts.open('a') as stream:
         stream.write(f'tgpulse_next_initial_nvram_setup = "{a.initial_nvram}"\ntgpulse_next_nvram_settings = "{a.nvram_settings}"\n')
         for key,value in selected_nvram.items():stream.write(f'{key} = "{value}"\n')
-    values={'video_driver':a.driver,'video_threaded':'false','video_fullscreen':'false','video_windowed_fullscreen':'false','video_scale':'1','video_gpu_screenshot':'true','video_font_enable':'false','video_vsync':'false','audio_enable':'false','pause_nonactive':'false','savestate_auto_save':'false','savestate_auto_load':'false','config_save_on_exit':'false','content_history_enable':'false','auto_overrides_enable':'false','auto_remaps_enable':'false','video_shader_enable':'false','core_options_path':opts,'system_directory':out/'system','savefile_directory':out/'saves','savestate_directory':out/'states','screenshot_directory':out/'screenshots','playlist_directory':out/'playlists','rgui_config_directory':out/'config'}
+    values={'global_core_options':'true','video_driver':a.driver,'video_threaded':'false','video_fullscreen':'false','video_windowed_fullscreen':'false','video_scale':'1','video_gpu_screenshot':'true','video_font_enable':'false','video_vsync':'false','audio_enable':'false','pause_nonactive':'false','savestate_auto_save':'false','savestate_auto_load':'false','config_save_on_exit':'false','content_history_enable':'false','auto_overrides_enable':'false','auto_remaps_enable':'false','video_shader_enable':'false','core_options_path':opts,'system_directory':out/'system','savefile_directory':out/'saves','savestate_directory':out/'states','screenshot_directory':out/'screenshots','playlist_directory':out/'playlists','rgui_config_directory':out/'config'}
     if a.netplay_role:
         values.update(netplay_ip_port=str(a.netplay_port),netplay_max_connections=str(a.linked_cabinets),netplay_public_announce='false',netplay_use_mitm_server='false',netplay_nat_traversal='false',netplay_check_frames='0',netplay_nickname=out.name)
     if a.vsync:
@@ -106,6 +107,9 @@ def main():
     # RGUI needs no external Ozone textures in this isolated launch.
     values.update(menu_driver='rgui',menu_show_start_screen='false',menu_enable_widgets='false',
                   bundle_assets_extract_enable='false',audio_driver='null')
+    if a.record_audio:
+        values.update(audio_enable='true',audio_driver='coreaudio3',audio_sync='true',
+                      audio_latency='64',audio_out_rate='48000',record_driver='wav')
     if a.notifications:
         values.update(video_font_enable='true',video_font_size='22')
     if any(any(c in str(v) for c in ('"','\n','\r')) for v in values.values()):raise ValueError('Unsupported configuration value')
@@ -118,6 +122,7 @@ def main():
     shot=out/'frame.png'
     cmd=[str(a.retroarch.resolve()),'-v','-c',str(config),'-L',str(a.core.resolve()),str(a.rom.resolve()),'--max-frames',str(a.frames),'--max-frames-ss','--max-frames-ss-path',str(shot)]
     if a.replay:cmd.extend(['-P',str(a.replay.resolve())])
+    if a.record_audio:cmd.extend(['-r',str(out/'audio.wav')])
     if a.netplay_role:
         cmd[1:1]=['-H'] if a.netplay_role=='host' else ['-C',a.netplay_host]
     (out/'command.json').write_text(json.dumps(cmd,indent=2)+'\n');start=time.monotonic()

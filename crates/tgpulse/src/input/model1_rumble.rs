@@ -31,6 +31,18 @@ impl Model1PadRumble {
     /// Return low/high motor levels. Other/handshake bytes do not replace the
     /// current effect; the original board holds it until a new command arrives.
     pub fn frame(&mut self, raw: u8, steer: u8) -> (f32, f32) {
+        let deflection = ((f32::from(steer) - STEER_CENTRE).abs() / STEER_TRAVEL).min(1.0);
+        self.frame_cornering(raw, ((deflection - CORNER_DEADZONE) / (1.0 - CORNER_DEADZONE)).clamp(0.0, 1.0))
+    }
+
+    /// Libretro-only synthetic effect: frontend-processed travel, 5% onset.
+    /// The standalone's native-ADC policy above remains unchanged.
+    pub fn frame_frontend(&mut self, raw: u8, steering: f32) -> (f32, f32) {
+        let travel = if steering.is_finite() { steering.abs().min(1.0) } else { 0.0 };
+        self.frame_cornering(raw, ((travel - 0.05) / 0.95).clamp(0.0, 1.0))
+    }
+
+    fn frame_cornering(&mut self, raw: u8, corner_travel: f32) -> (f32, f32) {
         let incoming = decode(raw);
         if incoming.effect != DriveEffect::Other {
             self.board_active = true;
@@ -58,12 +70,10 @@ impl Model1PadRumble {
         // The wheel's centring load has no literal pad equivalent. Following
         // SM2-Emu's pad approximation, a subtler buzz follows steering
         // deflection only under centring/friction. Release stays silent.
-        let deflection = ((f32::from(steer) - STEER_CENTRE).abs() / STEER_TRAVEL).min(1.0);
         let cornering = if self.current.is_some_and(|command| {
             matches!(command.effect, DriveEffect::Clutch | DriveEffect::Center)
         }) {
-            ((deflection - CORNER_DEADZONE) / (1.0 - CORNER_DEADZONE)).clamp(0.0, 1.0)
-                * PAD_CEILING
+            corner_travel * PAD_CEILING
                 * 0.4
         } else {
             0.0
@@ -99,6 +109,26 @@ impl Model1PadRumble {
 #[cfg(test)]
 mod tests {
     use super::{Model1PadRumble, BURST_FRAMES};
+
+    #[test]
+    fn frontend_cornering_preserves_native_effects_and_peak_with_five_percent_onset() {
+        let mut pad = Model1PadRumble::default();
+        assert_eq!(pad.frame_frontend(0x00, 1.0), (0.0, 0.0));
+        for travel in [0.0, 0.04, 0.05] { assert_eq!(pad.frame_frontend(0x3a, travel), (0.0, 0.0)); }
+        let small = pad.frame_frontend(0x3a, 0.06);
+        assert!(small.0 > 0.0);
+        assert_eq!(small, pad.frame_frontend(0x3a, -0.06));
+        let peak = pad.frame_frontend(0x3a, 1.0);
+        assert_eq!(peak, pad.frame_frontend(0x3a, -1.0));
+        assert!((peak.0 - 0.24).abs() < 1e-6);
+        assert_eq!(peak.1, peak.0 / 2.0);
+        assert_eq!(pad.frame_frontend(0x10, 1.0), (0.0, 0.0));
+        let mut native = Model1PadRumble::default();
+        let mut frontend = Model1PadRumble::default();
+        for command in [0x40, 0x48, 0x50, 0x5f, 0x6f, 0x00, 0x10] {
+            assert_eq!(native.frame(command, 0x80), frontend.frame_frontend(command, 0.0));
+        }
+    }
 
     #[test]
     fn standard_cabinet_handshake_never_synthesizes_rumble() {

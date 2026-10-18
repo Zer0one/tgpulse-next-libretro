@@ -119,23 +119,22 @@ def main():
                 host.load(args.rom_dir/(name+'.zip'))
                 assert len(host.profile_types)==2
                 for variants in host.profile_types:
-                    assert len(variants)==2 and [v[1] for v in variants]==[1,257]
-                    assert variants[0][0]==variants[1][0]+' + Test/Service Slots'
+                    assert len(variants)==1 and variants[0][1]==1
+                    assert variants[0][0].endswith(' + Test/Service Slots')
                 original=list(host.descriptors)
                 for port in range(2):
                     host.lib.retro_set_controller_port_device(port,257)
-                    assert host.descriptors==[d for d in original if not (d[0]==port and d[1]==1 and d[3] in (14,15))], name
+                    assert host.descriptors==original, name
                     host.lib.retro_set_controller_port_device(port,0)
                     assert not any(d[0]==port for d in host.descriptors), name
                     host.lib.retro_set_controller_port_device(port,1)
                     assert host.descriptors==original, name
                 host.lib.retro_unload_game()
-            checks.append('Ten-set ABI: full/reduced names, IDs and per-port descriptor transitions')
+            checks.append('Ten-set ABI: global profile names, historical IDs and per-port None transitions')
         host.load(args.rom)
         assert host.profiles == ['Special: Sega NetMerc + Test/Service Slots'] * 2
-        assert host.profile_types == [[('Special: Sega NetMerc + Test/Service Slots',1),
-                                       ('Special: Sega NetMerc',257)]] * 2
-        assert [d[4] for d in host.descriptors if d[0] == 1] == ['Test', 'Service']
+        assert host.profile_types == [[('Special: Sega NetMerc + Test/Service Slots',1)]] * 2
+        assert [d[4] for d in host.descriptors if d[0] == 1] == ['Service', 'Test']
         assert all(host.displays[k] for k in host.displays if 'netmerc_mvd_' in k)
         for button, label in ((0, 'Trigger Button'), (12, 'Trigger Button'), (13, 'Trigger Button'),
                               (8, 'Thumb Button'), (10, 'Thumb Button'), (11, 'Thumb Button'),
@@ -151,7 +150,15 @@ def main():
             assert not any(d[0]==port for d in host.descriptors)
             host.lib.retro_set_controller_port_device(port,1)
             assert host.descriptors==original
-        checks.append('Per-port full/reduced/None descriptor transitions preserve gameplay aliases')
+        host.values[b'tgpulse_next_controller_profile_type'] = b'normal'
+        host.changed = True
+        host.run(1)
+        assert host.descriptors == [d for d in original if not (d[1]==1 and d[3] in (14,15))]
+        host.values[b'tgpulse_next_controller_profile_type'] = b'test_service'
+        host.changed = True
+        host.run(1)
+        assert host.descriptors == original
+        checks.append('Global Normal/full and per-port historical-ID/None transitions preserve gameplay aliases')
         host.run(60)
         holder = [(text, frames) for text, frames in zip(host.messages, host.message_frames)
                   if text.startswith('MVD Holder: ')]

@@ -17,6 +17,7 @@ mod nvram;
 mod persistence;
 mod steering_response;
 mod timing_overlay;
+mod menu_wording;
 // This frontend-only pad policy is shared with the standalone; the emulated
 // drive command decoder remains in tgpulse-core.
 #[path = "../../tgpulse/src/input/model1_rumble.rs"]
@@ -69,6 +70,7 @@ struct Settings {
     mvd: mvd::Settings,
     automatic_nvram: bool,
     nvram_settings: bool,
+    profile_full: bool,
 }
 
 impl Default for Settings {
@@ -84,7 +86,7 @@ impl Default for Settings {
             },
             audio_mutes: config.audio_mutes,
             apply_known_rom_repairs: true,
-            fast_60hz: false,
+            fast_60hz: true,
             aspect_ratio: AspectRatio::Auto,
             rumble: true,
             overlay_font: 0,
@@ -94,6 +96,7 @@ impl Default for Settings {
             mvd: mvd::Settings::default(),
             automatic_nvram: true,
             nvram_settings: false,
+            profile_full: true,
         }
     }
 }
@@ -116,6 +119,8 @@ struct Core {
     save_ram: Box<[u8]>,
     save_imported: bool,
     nvram_display_enabled: bool,
+    network_automation_active: bool,
+    options_pending: bool,
 }
 
 struct Game {
@@ -137,6 +142,7 @@ struct Game {
     nvram_pending: bool,
     network_pending: bool,
     nvram_wait_frames: u32,
+    fresh_machine: bool,
     pixels: Vec<u32>,
     tiles: tilemap::Model1TileCache,
     foreground: Vec<u32>,
@@ -199,9 +205,9 @@ impl PadRumble {
         }
     }
 
-    fn frame(&mut self, command: u8, steer: u8) {
+    fn frame(&mut self, command: u8, steer: f32) {
         if self.set_state.is_none() { return; }
-        let (strong, weak) = self.policy.frame(command, steer);
+        let (strong, weak) = self.policy.frame_frontend(command, steer);
         self.apply(strong, weak);
     }
 
@@ -234,7 +240,17 @@ fn joypad_enabled(device: u32) -> bool {
 }
 fn cabinet_button_enabled(device: u32, id: u32) -> bool {
     joypad_enabled(device)
-        && (device == ffi::DEVICE_JOYPAD || !matches!(id, ffi::JOY_L3 | ffi::JOY_R3))
+        && (device == ffi::DEVICE_JOYPAD || !matches!(id, ffi::JOY_R3 | ffi::JOY_L3))
+}
+
+fn profile_full(environment: ffi::Environment) -> bool {
+    option_value(environment, c"tgpulse_next_controller_profile_type")
+        .is_none_or(|value| value != "normal")
+}
+fn profile_devices(devices: [u32; 2], full: bool) -> [u32; 2] {
+    devices.map(|device| if joypad_enabled(device) {
+        if full { ffi::DEVICE_JOYPAD } else { NO_SERVICE_DEVICE }
+    } else { ffi::DEVICE_NONE })
 }
 
 // Pointers refer only to static C strings or fields inside this boxed object;
@@ -274,15 +290,21 @@ impl ControllerStorage {
         });
         storage.ports[0] = ffi::ControllerInfo {
             types: storage.types[0].as_ptr(),
-            num_types: 2,
+            num_types: 1,
         };
         storage.ports[1] = ffi::ControllerInfo {
             types: storage.types[1].as_ptr(),
-            num_types: 2,
+            num_types: 1,
         };
         storage
     }
 
+    fn configure(&mut self, full: bool) {
+        for port in 0..2 {
+            self.types[port][0].desc = if full { self._full_names[port].as_ptr() }
+                else { self.types[port][1].desc };
+        }
+    }
     fn publish(&mut self, environment: ffi::Environment) {
         unsafe { environment(ffi::SET_CONTROLLER_INFO, self.ports.as_mut_ptr().cast()) };
     }
@@ -522,11 +544,12 @@ fn apply_driving_tuning(
 }
 
 fn publish_nvram_option_visibility(environment: ffi::Environment, set: &str, enabled: bool) {
+    let automated = automatic_network::read(environment, set).is_some();
     for (i, (game, linked_key, _)) in netpacket::GAMES.into_iter().enumerate() {
         for key in [linked_key, automatic_network::KEYS[i]] {
             let mut display = ffi::OptionDisplay {
                 key: key.as_ptr(),
-                visible: game == set && (key == linked_key || enabled),
+                visible: game == set,
             };
             unsafe {
                 environment(
@@ -537,11 +560,17 @@ fn publish_nvram_option_visibility(environment: ffi::Environment, set: &str, ena
         }
     }
 
-    for (key, visible) in std::iter::once((c"tgpulse_next_nvram_settings", true))
+    let unsupported = !netpacket::GAMES.iter().any(|(game,_,_)| *game == set);
+    for key in [automatic_network::UNSUPPORTED_LINK, automatic_network::UNSUPPORTED_ROLE] {
+        let mut display = ffi::OptionDisplay { key:key.as_ptr(), visible:unsupported };
+        unsafe { environment(ffi::SET_CORE_OPTIONS_DISPLAY, (&mut display as *mut ffi::OptionDisplay).cast()); }
+    }
+    for (key, visible) in std::iter::once((c"tgpulse_next_nvram_settings", nvram::supported(set)))
         .chain(
             nvram::FIELDS
                 .iter()
-                .map(|f| (f.key, f.set == set && enabled)),
+                .map(|f| (f.key, f.set == set && enabled
+                    && !(automated && automatic_network::manages(f)))),
         )
     {
         let mut display = ffi::OptionDisplay {
@@ -557,7 +586,38 @@ fn publish_nvram_option_visibility(environment: ffi::Environment, set: &str, ena
     }
 }
 
+fn refresh_controller_profile() -> bool {
+    let publication = with_core(|core| {
+        retain_option_update(core);
+        let env = core.environment?;
+        let full = profile_full(env);
+        if core.settings.profile_full == full { return None; }
+        core.settings.profile_full = full;
+        let devices = profile_devices(core.devices, full);
+        let game = core.game.as_mut()?;
+        game.controllers.configure(full);
+        Some((env, game.profile, devices, game.controllers.ports.as_mut_ptr() as usize))
+    });
+    let Some((env, profile, devices, info)) = publication else { return false; };
+    // Frontend publication can re-enter the adapter: never hold CORE here.
+    unsafe { env(ffi::SET_CONTROLLER_INFO, (info as *mut ffi::ControllerInfo).cast()); }
+    register_descriptors(env, profile, devices);
+    true
+}
+
+fn retain_option_update(core: &mut Core) {
+    // RetroArch GET_VARIABLE clears its global update flag. Capture it before
+    // profile/visibility reads, including callbacks while the menu is paused.
+    if let Some(env) = core.environment {
+        let mut changed = false;
+        if unsafe { env(ffi::GET_VARIABLE_UPDATE, (&mut changed as *mut bool).cast()) } {
+            core.options_pending |= changed;
+        }
+    }
+}
+
 unsafe extern "C" fn update_nvram_option_display() -> bool {
+    let profiles_changed = refresh_controller_profile();
     with_core(|core| {
         let Some(env) = core.environment else {
             return false;
@@ -568,7 +628,10 @@ unsafe extern "C" fn update_nvram_option_display() -> bool {
         publish_nvram_option_visibility(env, set, enabled);
         let sources = core.game.as_ref().map_or(&[][..], |game| game.machine.sound.sources());
         publish_global_option_visibility(env, sources);
-        let changed = core.nvram_display_enabled != enabled;
+        let network_enabled = automatic_network::read(env, set).is_some();
+        let changed = profiles_changed || core.nvram_display_enabled != enabled
+            || core.network_automation_active != network_enabled;
+        core.network_automation_active = network_enabled;
         core.nvram_display_enabled = enabled;
         changed
     })
@@ -581,7 +644,7 @@ fn publish_global_option_visibility(environment: ffi::Environment, sources: &[Au
         if definition.key.is_null() { continue; }
         let key = unsafe { CStr::from_ptr(definition.key) };
         let bytes = key.to_bytes();
-        if (bytes.starts_with(b"tgpulse_next_nvram_") && key != c"tgpulse_next_nvram_settings")
+        if bytes.starts_with(b"tgpulse_next_nvram_")
             || bytes.starts_with(b"tgpulse_next_linked_cabinets_")
             || bytes.starts_with(b"tgpulse_next_automatic_network_") { continue; }
         let visible = match AUDIO_GAIN_KEYS.iter().position(|gain| *gain == key) {
@@ -622,7 +685,8 @@ fn update_settings(core: &mut Core) {
     core.settings.apply_known_rom_repairs =
         option_value(env, c"tgpulse_next_rom_repairs").is_none_or(|value| value != "disabled");
     core.settings.fast_60hz =
-        option_value(env, c"tgpulse_next_av_timing").is_some_and(|value| value == "60hz");
+        option_value(env, c"tgpulse_next_av_timing").is_none_or(|value| value != "native");
+    core.settings.profile_full = profile_full(env);
     core.settings.aspect_ratio = aspect_ratio_option(env);
     core.settings.rumble =
         option_value(env, c"tgpulse_next_gamepad_rumble").is_none_or(|value| value != "disabled");
@@ -899,9 +963,8 @@ const AUDIO_GAIN_SOURCES: [AudioSource; 4] = [
 ];
 
 const GAIN_VALUES: &[(&CStr, &CStr)] = &[
-    (c"mute", c"Mute"),
     (c"auto", c"Auto"),
-    (c"0", c"0%"),
+    (c"0", c"Mute"),
     (c"10", c"10%"),
     (c"20", c"20%"),
     (c"30", c"30%"),
@@ -929,6 +992,7 @@ fn option_definition(
     values: &[(&'static CStr, &'static CStr)],
     default: &'static CStr,
 ) -> ffi::OptionDefinition {
+    let (label, info, category) = menu_wording::find(key).unwrap_or((label, info, category));
     let mut options = [ffi::OptionValue {
         value: ptr::null(),
         label: ptr::null(),
@@ -988,17 +1052,18 @@ fn master_volume_legacy() -> &'static CStr {
 }
 
 // SM2/Supermodel: System, Video, Audio, Input; related controls stay adjacent.
-fn menu_order(key: *const c_char) -> (u8, u8) {
+fn functional_menu_order(key: *const c_char) -> (u8, u8) {
     if key.is_null() { return (255, 255); }
     let key = unsafe { CStr::from_ptr(key) }.to_bytes();
     for (i, (_, linked_key, _)) in netpacket::GAMES.iter().enumerate() {
-        if key == linked_key.to_bytes() { return (0, 2 + i as u8 * 2); }
-        if key == automatic_network::KEYS[i].to_bytes() { return (0, 3 + i as u8 * 2); }
+        if key == linked_key.to_bytes() { return (0, 4 + i as u8 * 2); }
+        if key == automatic_network::KEYS[i].to_bytes() { return (0, 5 + i as u8 * 2); }
     }
     let key = key.strip_prefix(b"tgpulse_next_").unwrap_or(key);
     match key {
         b"rom_repairs" => (0, 0),
         b"initial_nvram_setup" => (0, 1),
+        b"automatic_network_unsupported" => (0, 3),
         _ if key.starts_with(b"linked_cabinets_") => (0, 2),
         b"nvram_settings" => (0, 20),
         _ if key.starts_with(b"nvram_") => (0, 21),
@@ -1019,19 +1084,43 @@ fn menu_order(key: *const c_char) -> (u8, u8) {
         b"ym3438_gain" => (2, 3),
         b"dsb_gain" => (2, 4),
         b"netmerc_audio_donor" => (2, 5),
-        b"gamepad_rumble" => (3, 0),
-        b"steering_response" => (3, 1),
-        b"steering_output_range" => (3, 2),
-        b"accelerator_output_range" => (3, 3),
-        b"brake_output_range" => (3, 4),
-        b"netmerc_mvd_input" => (3, 5),
-        b"netmerc_mvd_horizontal_range" => (3, 6),
-        b"netmerc_mvd_vertical_range" => (3, 7),
-        b"netmerc_mvd_gravity_stabilization" => (3, 8),
-        b"netmerc_mvd_drift_compensation" => (3, 9),
-        b"netmerc_mvd_sensor_diagnostics" => (3, 10),
+        b"controller_profile_type" => (3, 0),
+        b"gamepad_rumble" => (3, 1),
+        b"steering_response" => (3, 2),
+        b"steering_output_range" => (3, 3),
+        b"accelerator_output_range" => (3, 4),
+        b"brake_output_range" => (3, 5),
+        b"netmerc_mvd_input" => (3, 6),
+        b"netmerc_mvd_horizontal_range" => (3, 7),
+        b"netmerc_mvd_vertical_range" => (3, 8),
+        b"netmerc_mvd_gravity_stabilization" => (3, 9),
+        b"netmerc_mvd_drift_compensation" => (3, 10),
+        b"netmerc_mvd_sensor_diagnostics" => (3, 11),
         _ => (254, 0),
     }
+}
+
+fn menu_order(key: *const c_char) -> (u8, u8, &'static [u8], u8) {
+    let (category, rank) = functional_menu_order(key);
+    // F04: keep System/native operator groups intact. In other categories,
+    // reviewed game-prefixed labels follow globals, ordered by the full label.
+    if category != 0 && !key.is_null() {
+        if let Some((label, _, _)) = menu_wording::find(unsafe { CStr::from_ptr(key) }) {
+            if label.to_bytes().windows(2).any(|pair| pair == b": ") {
+                // Approved parent-first groups retain their member order.
+                // Alphabetical ordering applies to groups, not their members.
+                for members in [&mvd::KEYS[..], &diagnostic_overlay::KEYS[..]] {
+                    if let Some(index) = members.iter().position(|member|
+                        *member == unsafe { CStr::from_ptr(key) }) {
+                        let (parent, _, _) = menu_wording::find(members[0]).unwrap();
+                        return (category, 128, parent.to_bytes(), index as u8);
+                    }
+                }
+                return (category, 128, label.to_bytes(), 0);
+            }
+        }
+    }
+    (category, rank, &[], 0)
 }
 
 const MVD_RANGE_VALUES: &[(&CStr, &CStr)] = &[
@@ -1048,22 +1137,22 @@ fn options() -> &'static OptionStorage {
             ffi::OptionCategory {
                 key: c"system".as_ptr(),
                 desc: c"System".as_ptr(),
-                info: c"Model 1 ROM compatibility.".as_ptr(),
+                info: c"ROM handling, NVRAM, and linked-cabinet settings.".as_ptr(),
             },
             ffi::OptionCategory {
                 key: c"video".as_ptr(),
                 desc: c"Video".as_ptr(),
-                info: c"Model 1 image settings.".as_ptr(),
+                info: c"Renderer, image, aspect ratio, and timing settings.".as_ptr(),
             },
             ffi::OptionCategory {
                 key: c"audio".as_ptr(),
                 desc: c"Audio".as_ptr(),
-                info: c"Model 1 output level.".as_ptr(),
+                info: c"Output levels and audio source settings.".as_ptr(),
             },
             ffi::OptionCategory {
                 key: c"input".as_ptr(),
                 desc: c"Input".as_ptr(),
-                info: c"Model 1 cabinet feedback.".as_ptr(),
+                info: c"Controls, cabinet feedback, and sensor settings.".as_ptr(),
             },
             ffi::OptionCategory {
                 key: ptr::null(),
@@ -1091,15 +1180,15 @@ fn options() -> &'static OptionStorage {
             option_definition(
                 c"tgpulse_next_av_timing",
                 c"A/V Timing (Restart Required)",
-                c"Native follows the Model 1 clock. 60 Hz runs one new machine frame per callback, making game and sound about 4.3% faster. Audio is resampled to the normal output rate. Reload content after changing this option.",
+                c"60 Hz runs one new machine frame per callback, speeding gameplay and sound by about 4.3%. Generated audio is resampled to the board's reported output rate. Native follows the Model 1 hardware cadence of 57.524160 Hz. 60 Hz is the default. Reload content after changing this option.",
                 c"video",
-                &[(c"native", c"Native (57.524 Hz)"), (c"60hz", c"60 Hz (Faster Emulation)")],
-                c"native",
+                &[(c"60hz", c"60 Hz (Default)"), (c"native", c"57.524 Hz (Native Model 1)")],
+                c"60hz",
             ),
             option_definition(
                 c"tgpulse_next_aspect_ratio",
                 c"Aspect Ratio",
-                c"Auto follows Virtua Racing's saved 4:3 or 16:9 monitor setting; other Model 1 games default to 4:3. Explicit values override presentation aspect only. The 496x384 image is not widened. Changes take effect immediately.",
+                c"Automatic follows the original monitor configuration stored in NVRAM for Virtua Racing; other Model 1 games default to 4:3. The explicit values override the monitor setting for presentation only. This option does not expand the rendered view; Widescreen Hack controls expansion on supported renderers. Changes take effect immediately.",
                 c"video",
                 &[(c"auto", c"Auto"), (c"4_3", c"4:3"), (c"16_9", c"16:9")],
                 c"auto",
@@ -1114,22 +1203,22 @@ fn options() -> &'static OptionStorage {
             ),
             option_definition(
                 c"tgpulse_next_multipcm1_gain", c"MultiPCM 1 Gain",
-                c"Set the absolute output gain for MultiPCM 1. 50% is selected by Auto and matches the standalone reference mix. Changes take effect immediately without stopping the chip.",
+                c"Set this sound source's output level. Auto uses the standalone reference mix at 50%. Manual percentages replace Auto for this source. Mute silences only the output; the chip and timers keep running. Changes take effect immediately.",
                 c"audio", GAIN_VALUES, c"auto",
             ),
             option_definition(
                 c"tgpulse_next_multipcm2_gain", c"MultiPCM 2 Gain",
-                c"Set the absolute output gain for MultiPCM 2. 50% is selected by Auto and matches the standalone reference mix. Changes take effect immediately without stopping the chip.",
+                c"Set this sound source's output level. Auto uses the standalone reference mix at 50%. Manual percentages replace Auto for this source. Mute silences only the output; the chip and timers keep running. Changes take effect immediately.",
                 c"audio", GAIN_VALUES, c"auto",
             ),
             option_definition(
                 c"tgpulse_next_ym3438_gain", c"FM (YM3438) Gain",
-                c"Set the absolute FM output gain. Auto selects 90%; the standalone reference mix uses 30%. Changes take effect immediately without stopping the chip.",
+                c"Set this sound source's output level. Auto selects 90%; the standalone reference mix uses 30%. Manual percentages replace Auto for this source. Mute silences only the output; the chip and timers keep running. Changes take effect immediately.",
                 c"audio", GAIN_VALUES, c"auto",
             ),
             option_definition(
                 c"tgpulse_next_dsb_gain", c"DSB (MPEG) Gain",
-                c"Set the absolute output gain for a fitted DSB music board. 100% is selected by Auto and matches the standalone reference mix. Changes take effect immediately.",
+                c"Set this sound source's output level. Applied only to a fitted DSB music board. Auto uses the standalone reference mix at 100%. Manual percentages replace Auto for this source. Mute silences only the output; the chip and timers keep running. Changes take effect immediately.",
                 c"audio", GAIN_VALUES, c"auto",
             ),
             option_definition(
@@ -1144,7 +1233,7 @@ fn options() -> &'static OptionStorage {
             ),
             option_definition(
                 c"tgpulse_next_timing_overlay", c"Timing / FPS Overlay",
-                c"Show 61-frame averages for machine, video and audio work, total retro_run time, worst frame, actual frontend cadence and estimated processing capacity. Auto uses a 13 px font. Drawn into the game frame; adds rendering cost. Changes take effect immediately.",
+                c"Show a compact in-game panel with 61-frame averages for machine, video and audio work, total retro_run time, worst frame, actual frontend cadence and estimated processing capacity. Auto selects a 13 px native base font. The core draws the panel directly into the game frame, adding rendering cost. Changes take effect immediately.",
                 c"video",
                 &[(c"disabled", c"Off"), (c"auto", c"Auto"), (c"11", c"On (11 px)"), (c"12", c"On (12 px)"), (c"13", c"On (13 px)"), (c"14", c"On (14 px)")],
                 c"disabled",
@@ -1165,6 +1254,10 @@ fn options() -> &'static OptionStorage {
         ],
     };
     let end=storage.definitions.len()-1;
+    storage.definitions.insert(end, option_definition(c"tgpulse_next_controller_profile_type", c"Controller Profile Type",
+        c"Select the controller profile variant for all input ports. Normal omits Test/Service slots and does not read those inputs. Normal + Test/Service enables the supported Test/Service slots. The game-specific layout and gameplay bindings are retained; Controls remains available for remapping, not variant selection. Changes take effect when returning to the game, without resetting the machine.",
+        c"input", &[(c"normal", c"Normal"), (c"test_service", c"Normal + Test/Service")], c"test_service"));
+    let end=storage.definitions.len()-1;
     storage.definitions.splice(end..end,[
         option_definition(c"tgpulse_next_renderer",c"Renderer (Restart Required)",c"Select frontend-owned GPU rendering or Software. Auto follows supported frontend context preference.",c"video",&[(c"auto",c"Auto"),(c"vulkan",c"Vulkan"),(c"opengl",c"OpenGL / GLES"),(c"software",c"Software")],c"auto"),
         option_definition(c"tgpulse_next_widescreen_mode",c"Widescreen Hack (Restart Required)",c"Applies only to games without native widescreen support. Expand the 3D view while preserving or stretching 2D layers, or stretch the complete image. Requires a widescreen Aspect Ratio and hardware rendering. Native widescreen, including Service Menu settings, is preserved.",c"video",&[(c"expand_3d",c"Expand 3D View Only"),(c"expand_3d_2d",c"Expand 3D View + Stretch 2D"),(c"stretch",c"Stretch 3D and 2D View")],c"expand_3d"),
@@ -1176,9 +1269,9 @@ fn options() -> &'static OptionStorage {
         (c"140", c"140%"), (c"150", c"150%")];
     let end = storage.definitions.len() - 1;
     for (index, label, info) in [
-        (0, c"Driving Steering Output Range", c"Applied only to VR/VFormula. Scale steering around its native center. Below 100% reduces the emulated wheel range; above 100% reaches full lock with less stick travel. Changes take effect immediately."),
-        (1, c"Driving Accelerator Output Range", c"Applied only to VR/VFormula. Scale the accelerator from its native released position. Below 100% reduces maximum pedal output; above 100% reaches full output with less trigger travel. Changes take effect immediately."),
-        (2, c"Driving Brake Output Range", c"Applied only to VR/VFormula. Scale the brake from its native released position. Below 100% reduces maximum pedal output; above 100% reaches full output with less trigger travel. Changes take effect immediately."),
+        (0, c"Driving Steering Output Range", c"Applied only to VR/VFormula. Scale steering around its center. Values below 100% reduce the maximum emulated wheel range; values above 100% reach full lock with less physical stick travel. Changes take effect immediately."),
+        (1, c"Driving Accelerator Output Range", c"Applied only to VR/VFormula. Scale the accelerator from its released position. Values below 100% reduce the maximum emulated pedal output; values above 100% reach full output with less physical trigger travel. Changes take effect immediately."),
+        (2, c"Driving Brake Output Range", c"Applied only to VR/VFormula. Scale the brake from its released position. Values below 100% reduce the maximum emulated pedal output; values above 100% reach full output with less physical trigger travel. Changes take effect immediately."),
     ].into_iter().rev() {
         storage.definitions.insert(end, option_definition(DRIVING_RANGE_KEYS[index], label, info, c"input", &values, c"100"));
     }
@@ -1194,34 +1287,32 @@ fn options() -> &'static OptionStorage {
         option_definition(mvd::KEYS[3], c"Sega NetMerc MVD Gravity Stabilization", c"Applied only to Sega NetMerc sensor input. Use accelerometer gravity to stabilize pitch and roll; yaw remains gyroscope-based. Without an accelerometer, tracking uses the gyroscope alone. Changes take effect immediately.", c"input", &[(c"enabled", c"Enabled"), (c"disabled", c"Disabled")], c"enabled"),
         option_definition(mvd::KEYS[4], c"Sega NetMerc MVD Drift Compensation", c"Applied only to Sega NetMerc sensor input. Refine the calibrated gyroscope bias after three seconds of detected stillness. Default 50% uses gradual correction; higher percentages learn faster. Very slow turns may be mistaken for drift. Keeps the current view without automatic recentering. Off uses the original fixed calibration. Changes take effect immediately.", c"input", &[(c"off", c"Off"), (c"10", c"10%"), (c"20", c"20%"), (c"30", c"30%"), (c"40", c"40%"), (c"50", c"50%"), (c"60", c"60%"), (c"70", c"70%"), (c"80", c"80%"), (c"90", c"90%"), (c"100", c"100%")], c"50"),
         option_definition(mvd::KEYS[5], c"Sega NetMerc MVD Sensor Diagnostics", c"Record P1 motion callbacks, calibration, drift correction and orientation to a CSV in the frontend save directory under tgpulse-next/diagnostics. Applied only to Sega NetMerc while sensors are active. A notification shows the path. Disable to close the file; reset or state load closes it and starts a new file when sensors resume. A recording stops after 30 minutes; toggle Disabled then Enabled to start another. Default Disabled. Changes take effect immediately.", c"input", &[(c"disabled", c"Disabled"), (c"enabled", c"Enabled")], c"disabled"),
-        option_definition(c"tgpulse_next_initial_nvram_setup", c"Automatic Initial NVRAM Setup (Restart Required)", c"When no valid frontend save exists, initialize the loaded set from its validated complete sample before the first frame. Apply approved country, offline network and VR Special cabinet settings, or Sega NetMerc controller endpoint calibration; keep other native fields. Never replaces an existing valid save. Delete save data to regenerate.", c"system", &[(c"enabled",c"Enabled"),(c"disabled",c"Disabled")], c"enabled"),
-        option_definition(c"tgpulse_next_nvram_settings", c"NVRAM Settings", c"For games with reviewed operator fields, apply the displayed settings at startup and when Core Options change, overriding saved values for these fields. Disabled preserves service-menu settings. Applying changed values resets the machine.", c"system", &[(c"disabled",c"Disabled"),(c"enabled",c"Enabled")], c"disabled"),
+        option_definition(c"tgpulse_next_initial_nvram_setup", c"Automatic Initial NVRAM Setup (Restart Required)", c"When no valid frontend save exists, initialize supported sets from a validated game sample before the first emulated frame, then apply approved country, safe offline network and core defaults such as Virtua Racing's Special cabinet and Sega NetMerc controller endpoint calibration. Other native fields are preserved. Automatic setup never replaces existing valid saves; normal game writes still persist. Delete the game's save data to regenerate the initial setup. Reload content after changing this option.", c"system", &[(c"enabled",c"Enabled"),(c"disabled",c"Disabled")], c"enabled"),
+        option_definition(c"tgpulse_next_nvram_settings", c"NVRAM Settings", c"For games with reviewed operator fields, apply the displayed settings at startup and when Core Options change, overriding saved values for these fields. Disabled preserves Service Menu settings. Applying changed persisted values resets the machine automatically. Other fields and calibration are preserved.", c"system", &[(c"disabled",c"Disabled"),(c"enabled",c"Enabled")], c"disabled"),
     ];
     for field in nvram::FIELDS {
         let values: Vec<_> = field.values.iter().map(|v| (v.key, v.label)).collect();
         let network_field = [b"_link_id".as_slice(), b"_network", b"_car_color", b"_car_number"]
             .iter().any(|suffix| field.key.to_bytes().ends_with(suffix));
         let help = if network_field {
-            c"Reviewed operator setting for the loaded ROM set. With NVRAM Settings enabled, this displayed value overrides saved NVRAM. Active Automatic Network Settings sets and maintains the managed network values; disable that preset for manual control. Other fields are preserved. Changed persisted values reset the machine."
+            c"Reviewed operator setting for the loaded ROM set. With NVRAM Settings enabled, this value overrides saved NVRAM only while Auto Network Role Settings is Disabled. Active role automation has priority and hides the managed native fields. Other fields are preserved. Changed persisted values reset the machine."
         } else {
             c"Reviewed operator setting for the loaded ROM set. Applied only while NVRAM Settings is enabled. Other EEPROM fields and calibration are preserved. A changed persisted value resets the machine."
         };
         definitions.push(option_definition(field.key, field.label, help, c"system", &values, field.values[field.default].key));
     }
     definitions.push(option_definition(c"tgpulse_next_steering_response", c"Driving Steering Response", c"Applied only to VR/VFormula. Select the steering response curve; Progressive and FBNeo Logarithmic reduce sensitivity around the center while retaining the available output range. Changes take effect immediately.", c"input", &[(c"linear",c"Linear"),(c"progressive",c"Progressive (Fine Center)"),(c"fbneo",c"FBNeo Logarithmic (Fine Center)")], c"linear"));
+    for key in [automatic_network::UNSUPPORTED_LINK, automatic_network::UNSUPPORTED_ROLE] {
+        let label = if key == automatic_network::UNSUPPORTED_LINK { c"Linked Cabinets" }
+            else { c"Auto Network Role Settings" };
+        definitions.push(option_definition(key,label,c"Networking is not supported by this game.",c"system",&[(c"Not Supported",c"Not Supported")],c"Not Supported"));
+    }
     for (i, (set,key,max)) in netpacket::GAMES.into_iter().enumerate() {
-        let mut values=vec![(c"disabled",c"Disabled"),(c"2",c"2 Cabinets")];
+        let mut values=vec![(c"-1",c"Disabled"),(c"2",c"2 Cabinets")];
         if max>2 {values.extend([(c"3",c"3 Cabinets"),(c"4",c"4 Cabinets"),(c"5",c"5 Cabinets"),(c"6",c"6 Cabinets"),(c"7",c"7 Cabinets"),(c"8",c"8 Cabinets"),(c"9",c"9 Cabinets")]);}
-        let info = if max == 2 {
-            c"Select the total number of linked cabinets. Requires Netpacket support. Changes take effect when returning to the game. Save States are unavailable while the COMM board is fitted."
-        } else {
-            c"Select the total number of linked cabinets, including any LIVE relay. Requires Netpacket support. Changes take effect when returning to the game. Save States are unavailable while the COMM board is fitted."
-        };
-        definitions.push(option_definition(key,c"Linked Cabinets",info,c"system",&values,c"disabled"));
-        let presets = automatic_network::values(set);
-        definitions.push(option_definition(automatic_network::KEYS[i], c"Automatic Network Settings",
-            c"Available only while NVRAM Settings is enabled. An active preset sets and maintains the corresponding NVRAM selectors; Red is Master for VR/VFormula, other colors are Slave, and Live uses the default Red identity. Wing War uses Master/Slave. Linked Cabinets OFF selects offline defaults. Disabled never changes the selectors. Changes apply when returning to the game; changed persisted values reset the machine automatically. Frontend host/client does not select the native role.",
-            c"system", presets, presets[0].0));
+        values.extend([(c"0",c"Disabled (Alias)"),(c"1",c"Disabled (Alias)")]);
+        definitions.push(option_definition(key,c"Linked Cabinets",automatic_network::LINK_HELP,c"system",&values,c"-1"));
+        definitions.push(option_definition(automatic_network::KEYS[i],c"Auto Network Role Settings",automatic_network::ROLE_HELP,c"system",automatic_network::values(set),c"0"));
     }
     storage.definitions.splice(end..end, definitions);
     // Stable order keeps per-set NVRAM fields and linked-cabinet entries together.
@@ -1240,18 +1331,49 @@ fn register_options(environment: ffi::Environment) {
     };
     if supported && version >= 2 {
         let storage = options();
+        // Read old textual mutes before publishing the canonical selector:
+        // RetroArch otherwise rejects an unregistered .opt value as Auto.
+        // Keep the aliases only while a saved value still uses them. Merely
+        // reading an old setting must not rewrite the frontend-owned file.
+        let mut compatible = storage.definitions.clone();
+        for definition in compatible.iter_mut().filter(|definition| {
+            !definition.key.is_null() && AUDIO_GAIN_KEYS.iter().any(|key| {
+                (unsafe { CStr::from_ptr(definition.key) }) == *key
+            })
+        }) {
+            let end = definition.values.iter().position(|value| value.value.is_null()).unwrap();
+            definition.values[end] = ffi::OptionValue {
+                value: c"mute".as_ptr(),
+                label: c"Mute (Legacy)".as_ptr(),
+            };
+            definition.values[end + 1] = ffi::OptionValue {
+                value: c"Mute".as_ptr(),
+                label: c"Mute (Legacy)".as_ptr(),
+            };
+        }
+        let mut data = ffi::OptionsV2 {
+            categories: storage.categories.as_ptr(),
+            definitions: compatible.as_ptr(),
+        };
+        unsafe { environment(ffi::SET_CORE_OPTIONS_V2, (&mut data as *mut ffi::OptionsV2).cast()); }
+        if AUDIO_GAIN_KEYS.iter().any(|key| {
+            matches!(option_value(environment, key).as_deref(), Some("Mute" | "mute"))
+        }) {
+            return;
+        }
         let mut data = ffi::OptionsV2 {
             categories: storage.categories.as_ptr(),
             definitions: storage.definitions.as_ptr(),
         };
-        if unsafe {
+        // The return value reports category support, not registration
+        // success. Version 2 frontends still accept uncategorized options.
+        unsafe {
             environment(
                 ffi::SET_CORE_OPTIONS_V2,
                 (&mut data as *mut ffi::OptionsV2).cast(),
-            )
-        } {
-            return;
+            );
         }
+        return;
     }
     let mut legacy = vec![
         ffi::Variable {
@@ -1264,7 +1386,7 @@ fn register_options(environment: ffi::Environment) {
         },
         ffi::Variable {
             key: c"tgpulse_next_av_timing".as_ptr(),
-            value: c"A/V Timing (Restart Required); native|60hz".as_ptr(),
+            value: c"A/V Timing (Restart Required); 60hz|native".as_ptr(),
         },
         ffi::Variable {
             key: c"tgpulse_next_aspect_ratio".as_ptr(),
@@ -1288,6 +1410,10 @@ fn register_options(environment: ffi::Environment) {
         },
     ];
     let terminator = legacy.pop().unwrap();
+    legacy.push(ffi::Variable {
+        key: c"tgpulse_next_controller_profile_type".as_ptr(),
+        value: c"Controller Profile Type; test_service|normal".as_ptr(),
+    });
     legacy.push(ffi::Variable {
         key: AUDIO_DONOR_KEY.as_ptr(),
         value: c"Sega NetMerc Audio Donor (Restart Required); vf|vr|swa|wingwar|off".as_ptr(),
@@ -1347,28 +1473,23 @@ fn register_options(environment: ffi::Environment) {
     ]) {
         legacy.push(ffi::Variable { key: key.as_ptr(), value: value.as_ptr() });
     }
-    for (i, (set, key, max)) in netpacket::GAMES.into_iter().enumerate() {
-        let value = if max == 2 {
-            c"Linked Cabinets; disabled|2"
-        } else {
-            c"Linked Cabinets; disabled|2|3|4|5|6|7|8|9"
-        };
-        legacy.push(ffi::Variable {
-            key: key.as_ptr(),
-            value: value.as_ptr(),
-        });
-        let value = if set.starts_with("wingwar") {
-            c"Automatic Network Settings; master|slave|disabled"
-        } else {
-            c"Automatic Network Settings; red|orange|skyblue|pink|black|green|yellow|blue|live|disabled"
-        };
-        legacy.push(ffi::Variable { key: automatic_network::KEYS[i].as_ptr(), value: value.as_ptr() });
+    let mut network_legacy = Vec::new();
+    for (i, (set,key,max)) in netpacket::GAMES.into_iter().enumerate() {
+        let suffix=if max==2 {"-1|2|0|1"} else {"-1|2|3|4|5|6|7|8|9|0|1"};
+        network_legacy.push(CString::new(format!("Linked Cabinets; {suffix}")).unwrap());
+        legacy.push(ffi::Variable{key:key.as_ptr(),value:network_legacy.last().unwrap().as_ptr()});
+        let choices=std::iter::once("0").chain(automatic_network::values(set).iter()
+            .filter(|(key,_)| *key!=c"0").map(|(key,_)|key.to_str().unwrap())).collect::<Vec<_>>().join("|");
+        network_legacy.push(CString::new(format!("Auto Network Role Settings; {choices}")).unwrap());
+        legacy.push(ffi::Variable{key:automatic_network::KEYS[i].as_ptr(),value:network_legacy.last().unwrap().as_ptr()});
     }
+    legacy.push(ffi::Variable{key:automatic_network::UNSUPPORTED_LINK.as_ptr(),value:c"Linked Cabinets; Not Supported".as_ptr()});
+    legacy.push(ffi::Variable{key:automatic_network::UNSUPPORTED_ROLE.as_ptr(),value:c"Auto Network Role Settings; Not Supported".as_ptr()});
     for (key, value) in AUDIO_GAIN_KEYS.into_iter().zip([
-        c"MultiPCM 1 Gain; auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        c"MultiPCM 2 Gain; auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        c"FM (YM3438) Gain; auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
-        c"DSB (MPEG) Gain; auto|0|10|20|30|40|50|60|70|80|90|100|Mute",
+        c"MultiPCM 1 Gain; auto|0|10|20|30|40|50|60|70|80|90|100|mute|Mute",
+        c"MultiPCM 2 Gain; auto|0|10|20|30|40|50|60|70|80|90|100|mute|Mute",
+        c"FM (YM3438) Gain; auto|0|10|20|30|40|50|60|70|80|90|100|mute|Mute",
+        c"DSB (MPEG) Gain; auto|0|10|20|30|40|50|60|70|80|90|100|mute|Mute",
     ]) {
         legacy.push(ffi::Variable {
             key: key.as_ptr(),
@@ -1412,6 +1533,20 @@ fn register_options(environment: ffi::Environment) {
             value: value.as_ptr(),
         });
     }
+    // Legacy frontends expose labels only. Preserve the complete raw value
+    // suffix, including its default-first ordering, while sharing V2 wording.
+    let mut reviewed_labels = Vec::new();
+    for variable in &mut legacy {
+        let key = unsafe { CStr::from_ptr(variable.key) };
+        if let Some((label, _, _)) = menu_wording::find(key) {
+            let original = unsafe { CStr::from_ptr(variable.value) }.to_bytes();
+            let separator = original.iter().position(|&byte| byte == b';').unwrap();
+            let mut text = label.to_bytes().to_vec();
+            text.extend_from_slice(&original[separator..]);
+            reviewed_labels.push(CString::new(text).unwrap());
+            variable.value = reviewed_labels.last().unwrap().as_ptr();
+        }
+    }
     legacy.push(terminator);
     legacy.sort_by_key(|variable| menu_order(variable.key));
     unsafe { environment(ffi::SET_VARIABLES, legacy.as_mut_ptr().cast()) };
@@ -1423,15 +1558,15 @@ fn descriptors(profile: Profile) -> Vec<Descriptor> {
     use ffi::*;
     let mut entries = vec![
         (0, DEVICE_JOYPAD, 0, JOY_SELECT, c"Coin"),
-        (0, DEVICE_JOYPAD, 0, JOY_L3, c"Test"),
-        (0, DEVICE_JOYPAD, 0, JOY_R3, c"Service"),
+        (0, DEVICE_JOYPAD, 0, JOY_L3, c"Service"),
+        (0, DEVICE_JOYPAD, 0, JOY_R3, c"Test"),
     ];
     if profile != Profile::NetMerc {
         entries.push((0, DEVICE_JOYPAD, 0, JOY_START, c"Start"));
     }
     entries.extend([
-        (1, DEVICE_JOYPAD, 0, JOY_L3, c"Test"),
-        (1, DEVICE_JOYPAD, 0, JOY_R3, c"Service"),
+        (1, DEVICE_JOYPAD, 0, JOY_L3, c"Service"),
+        (1, DEVICE_JOYPAD, 0, JOY_R3, c"Test"),
     ]);
     if !matches!(profile, Profile::WingWar | Profile::NetMerc) {
         entries.push((1, DEVICE_JOYPAD, 0, JOY_SELECT, c"Coin"));
@@ -1650,8 +1785,8 @@ fn vr_inputs(
     VrCabinet {
         coin1: button(ffi::JOY_SELECT),
         coin2: p2(ffi::JOY_SELECT),
-        test: button(ffi::JOY_L3) || p2(ffi::JOY_L3),
-        service: button(ffi::JOY_R3) || p2(ffi::JOY_R3),
+        test: button(ffi::JOY_R3) || p2(ffi::JOY_R3),
+        service: button(ffi::JOY_L3) || p2(ffi::JOY_L3),
         start: button(ffi::JOY_START),
         views: [
             button(ffi::JOY_DOWN),
@@ -1725,10 +1860,10 @@ fn vf_inputs(input: Option<ffi::InputState>, devices: [u32; 2]) -> Inputs {
     };
     VfCabinet {
         players: [player(0), player(1)],
-        test: (devices[0] == ffi::DEVICE_JOYPAD && button(input, 0, ffi::JOY_L3))
-            || (devices[1] == ffi::DEVICE_JOYPAD && button(input, 1, ffi::JOY_L3)),
-        service: (devices[0] == ffi::DEVICE_JOYPAD && button(input, 0, ffi::JOY_R3))
+        test: (devices[0] == ffi::DEVICE_JOYPAD && button(input, 0, ffi::JOY_R3))
             || (devices[1] == ffi::DEVICE_JOYPAD && button(input, 1, ffi::JOY_R3)),
+        service: (devices[0] == ffi::DEVICE_JOYPAD && button(input, 0, ffi::JOY_L3))
+            || (devices[1] == ffi::DEVICE_JOYPAD && button(input, 1, ffi::JOY_L3)),
     }
     .into_native()
 }
@@ -1785,8 +1920,8 @@ fn flight_inputs(profile: Profile, input: Option<ffi::InputState>, devices: [u32
         kind,
         coin1: b(0, ffi::JOY_SELECT),
         coin2: b(1, ffi::JOY_SELECT),
-        test: b(0, ffi::JOY_L3) || b(1, ffi::JOY_L3),
-        service: b(0, ffi::JOY_R3) || b(1, ffi::JOY_R3),
+        test: b(0, ffi::JOY_R3) || b(1, ffi::JOY_R3),
+        service: b(0, ffi::JOY_L3) || b(1, ffi::JOY_L3),
         start: b(0, ffi::JOY_START),
         weapons: if profile == Profile::NetMerc {
             [b(0, ffi::JOY_B) || t(ffi::JOY_L2) > 0.5 || t(ffi::JOY_R2) > 0.5,
@@ -1840,16 +1975,31 @@ fn mvd_input(input: Option<ffi::InputState>, device: u32, settings: mvd::Setting
 }
 
 
+fn parsed_linked_cabinets(value: &str, max: u16) -> Option<u16> {
+    match value {
+        "-1" | "0" | "1" => Some(1),
+        _ => value.parse::<u16>().ok().filter(|total| (2..=max).contains(total)
+            && total.to_string() == value),
+    }
+}
 fn selected_linked_cabinets(environment: ffi::Environment, set: &str) -> u16 {
-    netpacket::GAMES
-        .iter()
-        .find(|(game, _, _)| *game == set)
-        .and_then(|(_, key, max)| {
-            option_value(environment, key)
-                .and_then(|value| value.parse::<u16>().ok())
-                .filter(|total| (2..=*max).contains(total))
-        })
-        .unwrap_or(1)
+    netpacket::GAMES.iter().find(|(game,_,_)| *game==set)
+        .and_then(|(_,key,max)| option_value(environment,key)
+            .and_then(|value|parsed_linked_cabinets(&value,*max))).unwrap_or(1)
+}
+fn validate_network_settings(environment: ffi::Environment, set: &str) {
+    if let Some((i,(_,key,max)))=netpacket::GAMES.iter().enumerate().find(|(_, (game,_,_))| *game==set) {
+        if let Some(value)=option_value(environment,key) {
+            if parsed_linked_cabinets(&value,*max).is_none() {
+                notify(Some(environment),"Invalid Linked Cabinets value; using Disabled (-1)");
+            }
+        }
+        if let Some(value)=option_value(environment,automatic_network::KEYS[i]) {
+            if automatic_network::parse(set,&value).is_err() {
+                notify(Some(environment),"Invalid Auto Network Role Settings value; using native Standalone (0)");
+            }
+        }
+    }
 }
 
 fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String> {
@@ -1909,6 +2059,7 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
         system: System::Model1,
         ..Config::default()
     };
+    validate_network_settings(environment, &definition.name);
     let linked = selected_linked_cabinets(environment, &definition.name);
     netpacket::configure(&definition.name, linked);
     if linked > 1 {
@@ -1923,19 +2074,21 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
         Model1System::with_config(&roms, config.clone()).map_err(|error| error.to_string())?,
     );
     machine.sound.set_gains(core.settings.audio_gains);
-    let initial_state = if linked > 1 {
+    let initial_state = if machine.comm.is_some() {
         Vec::new()
     } else {
         machine.save_state()?
     };
-    let linked_reset = if linked > 1 {
+    let linked_reset = if machine.comm.is_some() {
         Some((roms, config))
     } else {
         None
     };
     let mut controllers = ControllerStorage::new(profile);
+    controllers.configure(core.settings.profile_full);
     controllers.publish(environment);
-    register_descriptors(environment, profile, core.devices);
+    register_descriptors(environment, profile, profile_devices(core.devices, core.settings.profile_full));
+    core.network_automation_active = automatic_network::read(environment,&definition.name).is_some();
     publish_nvram_option_visibility(environment, &definition.name, core.settings.nvram_settings);
     let game = Game {
         graphics,
@@ -1956,6 +2109,7 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
         nvram_pending: core.settings.nvram_settings,
         network_pending: true,
         nvram_wait_frames: 0,
+        fresh_machine: true,
         pixels: vec![0; WIDTH * HEIGHT],
         tiles: tilemap::Model1TileCache::default(),
         foreground: vec![0; WIDTH * HEIGHT],
@@ -2039,7 +2193,8 @@ fn resample_stereo_60hz(input: &[i16], output: &mut Vec<i16>, remainder: &mut u6
 fn reconfigure_linked(game: &mut Game, environment: ffi::Environment,
     settings: &Settings) -> Result<bool, String> {
     let linked = selected_linked_cabinets(environment, &game.set_name);
-    if linked == game.loaded_linked_cabinets { return Ok(false); }
+    let present = linked > 1;
+    if linked == game.loaded_linked_cabinets && present == game.machine.comm.is_some() { return Ok(false); }
     let (backup, eeprom) = game.machine.nvram_blocks();
 
     // A topology change is rare. Reload resources here so standalone play
@@ -2051,7 +2206,7 @@ fn reconfigure_linked(game: &mut Game, environment: ffi::Environment,
     let config = Config {
         rom_path: game.rom_path.clone(),
         system: System::Model1,
-        cabinet: if linked > 1 { tgpulse_core::config::Cabinet::Twin }
+        cabinet: if present { tgpulse_core::config::Cabinet::Twin }
             else { tgpulse_core::config::Cabinet::Single },
         smooth_shadows: settings.smooth_shadows,
         netmerc_city_workaround: settings.netmerc_city_workaround,
@@ -2063,13 +2218,15 @@ fn reconfigure_linked(game: &mut Game, environment: ffi::Environment,
     let mut machine = Box::new(Model1System::with_config(&roms, config.clone())
         .map_err(|error| error.to_string())?);
     machine.sound.set_gains(settings.audio_gains);
-    let initial_state = if linked > 1 { Vec::new() } else { machine.save_state()? };
+    let initial_state = if machine.comm.is_some() { Vec::new() } else { machine.save_state()? };
 
     netpacket::reconfigure_total(linked);
     game.machine = machine;
     game.machine.set_nvram_blocks(&backup, &eeprom);
     game.initial_state = initial_state;
-    game.linked_reset = (linked > 1).then_some((roms, config));
+    game.linked_reset = present.then_some((roms, config));
+    game.fresh_machine = true;
+    eprintln!("[TGPulse-Next Libretro] [Network] Automatic topology reset");
     game.loaded_linked_cabinets = linked;
     game.audio_notice = audio_notice;
     game.link_status = None;
@@ -2079,6 +2236,8 @@ fn reconfigure_linked(game: &mut Game, environment: ffi::Environment,
 }
 
 fn reset_machine(game: &mut Game) -> Result<(), String> {
+    game.fresh_machine = true;
+    eprintln!("[TGPulse-Next Libretro] [Network] Machine reset");
     game.mvd_sensors.stop();
     game.mvd_commands.resync();
     if let Some((roms, config)) = &game.linked_reset {
@@ -2151,26 +2310,20 @@ fn import_save_ram(core: &mut Core) {
 }
 
 fn apply_pending_nvram(game: &mut Game, environment: Option<ffi::Environment>, enabled: bool,
-    network_publications: &mut Vec<(String, Vec<Option<usize>>)>) {
+    publications: &mut Vec<(String,Vec<Option<usize>>)>) {
     if !game.nvram_pending && !game.network_pending { return; }
     let Some(env) = environment else { return; };
-    if !enabled {
-        game.nvram_pending = false;
-        game.network_pending = false;
-        return;
+    let network_choices = automatic_network::read(env,&game.set_name)
+        .map(|preset|automatic_network::choices(&game.set_name,preset));
+    if !enabled && network_choices.is_none() {
+        game.nvram_pending=false; game.network_pending=false; return;
     }
-    let network = automatic_network::read(env, &game.set_name);
-    game.network_pending = false;
-    let network_choices = network.map(|preset| automatic_network::choices(&game.set_name, preset));
-    if let Some(selected) = &network_choices {
-        if automatic_network::needs_publish(env, &game.set_name, &selected) {
-            network_publications.push((game.set_name.clone(), selected.clone()));
-            // Apply the preset's authoritative selector values before the
-            // next emulated frame; publish them after CORE unlocks.
-            game.nvram_pending = true;
+    game.network_pending=false;
+    if let Some(choices)=&network_choices {
+        if automatic_network::needs_publish(env,&game.set_name,choices) {
+            publications.push((game.set_name.clone(),choices.clone()));
         }
     }
-    if !game.nvram_pending { return; }
     let fields: Vec<_> = nvram::FIELDS
         .iter()
         .filter(|f| f.set == game.set_name)
@@ -2194,9 +2347,14 @@ fn apply_pending_nvram(game: &mut Game, environment: Option<ffi::Environment>, e
         }
     }
     let (mut backup, mut eeprom) = game.machine.nvram_blocks();
-    let result = nvram::apply_settings(&game.set_name, &mut backup, &mut eeprom, &choices);
+    let result = if enabled {
+        nvram::apply_settings(&game.set_name, &mut backup, &mut eeprom, &choices)
+    } else {
+        nvram::apply_selected(&game.set_name,&mut eeprom,network_choices.as_ref().unwrap())
+    };
     match result {
         nvram::Apply::NotReady => {
+            game.nvram_pending = true;
             game.nvram_wait_frames += 1;
             if game.nvram_wait_frames >= 1200 {
                 game.nvram_pending = false;
@@ -2212,7 +2370,7 @@ fn apply_pending_nvram(game: &mut Game, environment: Option<ffi::Environment>, e
             game.nvram_pending = false;
             // The reference ports reset after persisted changes so firmware
             // reloads its settings. Preserve backup, unrelated fields and calibration.
-            if let Err(error) = reset_machine(game) {
+            if let Err(error) = if game.fresh_machine { Ok(()) } else { reset_machine(game) } {
                 notify(
                     environment,
                     &format!("NVRAM settings reset failed: {error}"),
@@ -2252,7 +2410,10 @@ pub extern "C" fn retro_api_version() -> u32 {
 
 #[no_mangle]
 pub extern "C" fn retro_set_environment(callback: Option<ffi::Environment>) {
-    with_core(|core| core.environment = callback);
+    with_core(|core| {
+        core.environment = callback;
+        core.options_pending = false;
+    });
     if let Some(environment) = callback {
         register_options(environment);
         netpacket::register(environment);
@@ -2392,8 +2553,7 @@ pub extern "C" fn retro_set_controller_port_device(port: u32, device: u32) {
                 }
             }
             if let (Some(game), Some(environment)) = (core.game.as_mut(), core.environment) {
-                game.controllers.publish(environment);
-                register_descriptors(environment, game.profile, core.devices);
+                register_descriptors(environment, game.profile, profile_devices(core.devices, core.settings.profile_full));
             }
         }
     });
@@ -2402,6 +2562,7 @@ pub extern "C" fn retro_set_controller_port_device(port: u32, device: u32) {
 #[no_mangle]
 pub extern "C" fn retro_reset() {
     with_core(|core| {
+        retain_option_update(core);
         import_save_ram(core);
         core.settings.nvram_settings = core.environment
             .and_then(|environment| option_value(environment, c"tgpulse_next_nvram_settings"))
@@ -2498,20 +2659,18 @@ pub extern "C" fn retro_unload_game() {
 
 #[no_mangle]
 pub extern "C" fn retro_run() {
-    let mut network_publications = Vec::new();
-    let mut publish_environment = None;
+    refresh_controller_profile();
+    let mut network_publications=Vec::new();
+    let mut publish_environment=None;
     with_core(|core| {
-        publish_environment = core.environment;
+        publish_environment=core.environment;
         let run_start = (core.settings.overlay_font > 0).then(Instant::now);
         import_save_ram(core);
         let Some(game) = core.game.as_mut() else {
             return;
         };
         if let Some(env) = core.environment {
-            let mut changed = false;
-            if unsafe { env(ffi::GET_VARIABLE_UPDATE, (&mut changed as *mut bool).cast()) }
-                && changed
-            {
+            if std::mem::take(&mut core.options_pending) {
                 core.settings.volume = option_value(env, c"tgpulse_next_volume")
                     .and_then(|value| value.parse::<u32>().ok())
                     .filter(|value| *value <= 800)
@@ -2530,6 +2689,8 @@ pub extern "C" fn retro_run() {
                 game.nvram_pending = core.settings.nvram_settings;
                 game.network_pending = true;
                 game.nvram_wait_frames = 0;
+                validate_network_settings(env,&game.set_name);
+                core.network_automation_active = automatic_network::read(env,&game.set_name).is_some();
                 publish_nvram_option_visibility(env, &game.set_name, core.settings.nvram_settings);
                 core.settings.rumble = option_value(env, c"tgpulse_next_gamepad_rumble")
                     .is_none_or(|value| value != "disabled");
@@ -2557,8 +2718,8 @@ pub extern "C" fn retro_run() {
             config.audio_gains = core.settings.audio_gains;
             config.audio_mutes = core.settings.audio_mutes;
         }
-        apply_pending_nvram(game, core.environment, core.settings.nvram_settings,
-            &mut network_publications);
+        apply_pending_nvram(game, core.environment, core.settings.nvram_settings, &mut network_publications);
+        game.fresh_machine = false;
         if let Some(poll) = core.input_poll {
             unsafe { poll() };
         }
@@ -2570,7 +2731,7 @@ pub extern "C" fn retro_run() {
                         &mut game.accelerator,
                         &mut game.brake,
                         core.input_state,
-                        core.devices,
+                        profile_devices(core.devices, core.settings.profile_full),
                     ),
                     core.settings.driving_ranges,
                     core.settings.steering_response,
@@ -2639,7 +2800,10 @@ pub extern "C" fn retro_run() {
             if let Some(on) = motor {
                 game.rumble.netmerc(on);
             } else if tgpulse_core::model1_drive::DriveFamily::for_set(&game.set_name).is_some() {
-                game.rumble.frame(game.machine.drive_cmd, game.machine.inputs.steer);
+                let steer = core.input_state.filter(|_| joypad_enabled(core.devices[0]))
+                    .map_or(0, |input| unsafe { input(0, ffi::DEVICE_ANALOG, ffi::ANALOG_LEFT, ffi::ANALOG_X) });
+                let travel = (f32::from(steer) / 32767.0).clamp(-1.0, 1.0);
+                game.rumble.frame(game.machine.drive_cmd, travel);
             }
         }
         if let Some(environment) = core.environment {
@@ -2649,8 +2813,7 @@ pub extern "C" fn retro_run() {
             config.audio_gains = core.settings.audio_gains;
             config.audio_mutes = core.settings.audio_mutes;
         }
-        apply_pending_nvram(game, core.environment, core.settings.nvram_settings,
-            &mut network_publications);
+        apply_pending_nvram(game, core.environment, core.settings.nvram_settings, &mut network_publications);
         let machine_end = run_start.map(|_| Instant::now());
         if game.hardware {
             let width = render_width(game, core.settings.aspect_ratio);
@@ -2791,18 +2954,13 @@ pub extern "C" fn retro_run() {
             }
         }
     });
-    if let Some(env) = publish_environment {
-        for (set, choices) in network_publications {
-            automatic_network::publish(env, &set, &choices);
-            // Some frontends do not report a variable-update edge for a core
-            // initiated change. Recheck the displayed selectors next frame.
-            with_core(|core| {
-                if let Some(game) = core.game.as_mut() {
-                    if game.set_name == set { game.nvram_pending = true; }
-                }
-            });
+
+    if let Some(env)=publish_environment {
+        for (set,choices) in network_publications {
+            automatic_network::publish(env,&set,&choices);
         }
     }
+
 }
 
 #[no_mangle]
@@ -2944,7 +3102,7 @@ mod tests {
     fn frontend_rumble_uses_two_p1_motors_and_stops_them() {
         RUMBLE_CALLS.lock().unwrap().clear();
         let mut rumble = PadRumble::new(rumble_environment);
-        rumble.frame(0x5f, 0x80);
+        rumble.frame(0x5f, 0.0);
         rumble.stop();
         let calls = RUMBLE_CALLS.lock().unwrap();
         assert_eq!(calls.len(), 4);
@@ -2986,7 +3144,7 @@ mod tests {
         ]);
         RUMBLE_CALLS.lock().unwrap().clear();
         let mut unsupported = PadRumble::new(no_rumble_environment);
-        unsupported.frame(0x5f, 0x80);
+        unsupported.frame(0x5f, 0.0);
         unsupported.netmerc(true);
         unsupported.stop();
         assert!(RUMBLE_CALLS.lock().unwrap().is_empty());
@@ -3001,6 +3159,23 @@ mod tests {
             }
             ffi::SET_CORE_OPTIONS_V2 => {
                 let options = unsafe { &*data.cast::<ffi::OptionsV2>() };
+                if options.definitions != self::options().definitions.as_ptr() {
+                    let definitions = unsafe {
+                        std::slice::from_raw_parts(options.definitions, self::options().definitions.len())
+                    };
+                    for key in AUDIO_GAIN_KEYS {
+                        let definition = definitions.iter().find(|definition| {
+                            !definition.key.is_null()
+                                && unsafe { CStr::from_ptr(definition.key) } == key
+                        }).unwrap();
+                        let values: Vec<_> = definition.values.iter()
+                            .take_while(|value| !value.value.is_null())
+                            .map(|value| unsafe { CStr::from_ptr(value.value) })
+                            .collect();
+                        assert!(values.ends_with(&[c"mute", c"Mute"]));
+                    }
+                    return true;
+                }
                 let find = |key: &CStr| self::options().definitions.iter()
                     .find(|d| !d.key.is_null() && unsafe { CStr::from_ptr(d.key) } == key).unwrap();
                 assert_eq!(options.definitions, self::options().definitions.as_ptr());
@@ -3020,7 +3195,7 @@ mod tests {
                     unsafe { CStr::from_ptr(third.key) },
                     c"tgpulse_next_av_timing"
                 );
-                assert_eq!(unsafe { CStr::from_ptr(third.default_value) }, c"native");
+                assert_eq!(unsafe { CStr::from_ptr(third.default_value) }, c"60hz");
                 let fourth = find(c"tgpulse_next_aspect_ratio");
                 assert_eq!(
                     unsafe { CStr::from_ptr(fourth.key) },
@@ -3040,17 +3215,18 @@ mod tests {
                     assert_eq!(unsafe { CStr::from_ptr(definition.default_value) }, default);
                     assert_eq!(
                         unsafe { CStr::from_ptr(definition.values[0].value) },
-                        c"mute"
+                        c"auto"
                     );
                     assert_eq!(
                         unsafe { CStr::from_ptr(definition.values[0].label) },
-                        c"Mute"
+                        c"Auto"
                     );
                     assert_eq!(
                         unsafe { CStr::from_ptr(definition.values[1].value) },
-                        c"auto"
+                        c"0"
                     );
-                    assert_eq!(unsafe { CStr::from_ptr(definition.values[2].value) }, c"0");
+                    assert_eq!(unsafe { CStr::from_ptr(definition.values[1].label) }, c"Mute");
+                    assert_eq!(unsafe { CStr::from_ptr(definition.values[2].value) }, c"10");
                 }
                 let source_keys: Vec<_> = self::options()
                     .definitions
@@ -3211,7 +3387,7 @@ mod tests {
             while !(*variables).key.is_null() {
                 if CStr::from_ptr((*variables).key) == AUDIO_DONOR_KEY {
                     assert_eq!(CStr::from_ptr((*variables).value),
-                               c"Sega NetMerc Audio Donor (Restart Required); vf|vr|swa|wingwar|off");
+                               c"Sega NetMerc: Audio Donor (Restart Required); vf|vr|swa|wingwar|off");
                     return true;
                 }
                 variables = variables.add(1);
@@ -3223,6 +3399,9 @@ mod tests {
 
     #[test]
     fn source_audio_options_use_fm_auto_default_and_read_changes() {
+        let visible_values: Vec<_> = GAIN_VALUES.iter().map(|(key, _)| key.to_str().unwrap()).collect();
+        assert_eq!(visible_values, ["auto", "0", "10", "20", "30", "40", "50",
+                                    "60", "70", "80", "90", "100"]);
         let mut settings = Settings::default();
         let default_gains = AudioGains { ym3438: 90, ..AudioGains::REFERENCE };
         assert_eq!(settings.audio_gains, default_gains);
@@ -3241,6 +3420,62 @@ mod tests {
         update_audio_settings(&mut settings, audio_environment);
         assert_eq!(settings.audio_gains.multipcm1, 70);
         assert_eq!(settings.audio_gains.multipcm2, 0);
+    }
+
+    #[test]
+    fn old_gain_mutes_remain_readable_without_an_eager_write() {
+        use std::sync::atomic::{AtomicU8, Ordering};
+        static MODE: AtomicU8 = AtomicU8::new(0);
+        static PASSES: Mutex<Vec<bool>> = Mutex::new(Vec::new());
+        unsafe extern "C" fn environment(command: u32, data: *mut c_void) -> bool {
+            match command {
+                ffi::GET_CORE_OPTIONS_VERSION => {
+                    unsafe { *data.cast::<u32>() = 2 };
+                    true
+                }
+                ffi::SET_CORE_OPTIONS_V2 => {
+                    let definitions = unsafe { &*data.cast::<ffi::OptionsV2>() }.definitions;
+                    let definitions = unsafe {
+                        std::slice::from_raw_parts(definitions, options().definitions.len())
+                    };
+                    let gain = definitions.iter().find(|definition| {
+                        !definition.key.is_null()
+                            && unsafe { CStr::from_ptr(definition.key) } == AUDIO_GAIN_KEYS[0]
+                    }).unwrap();
+                    let values: Vec<_> = gain.values.iter()
+                        .take_while(|value| !value.value.is_null())
+                        .map(|value| unsafe { CStr::from_ptr(value.value) })
+                        .collect();
+                    PASSES.lock().unwrap().push(values.ends_with(&[c"mute", c"Mute"]));
+                    true
+                }
+                ffi::GET_VARIABLE => {
+                    let variable = unsafe { &mut *data.cast::<ffi::Variable>() };
+                    variable.value = if unsafe { CStr::from_ptr(variable.key) } == AUDIO_GAIN_KEYS[0] {
+                        match MODE.load(Ordering::Relaxed) {
+                            1 => c"Mute".as_ptr(),
+                            2 => c"mute".as_ptr(),
+                            3 => c"auto".as_ptr(),
+                            _ => c"0".as_ptr(),
+                        }
+                    } else { c"auto".as_ptr() };
+                    true
+                }
+                ffi::SET_VARIABLE => panic!("reading a saved Gain must not rewrite it"),
+                _ => false,
+            }
+        }
+        for (mode, expected) in [(1, [true].as_slice()),
+                                 (2, [true].as_slice()),
+                                 (0, [true, false].as_slice()),
+                                 (3, [true, false].as_slice())] {
+            MODE.store(mode, Ordering::Relaxed);
+            PASSES.lock().unwrap().clear();
+            register_options(environment);
+            assert_eq!(PASSES.lock().unwrap().as_slice(), expected);
+            assert_eq!(gain_option(environment, AUDIO_GAIN_KEYS[0], 50),
+                       if mode == 3 { 50 } else { 0 });
+        }
     }
 
     static AUDIO_VISIBILITY: Mutex<Vec<(String, bool)>> = Mutex::new(Vec::new());
@@ -3285,7 +3520,7 @@ mod tests {
             let mut found = false;
             while !(*variables).key.is_null() {
                 if CStr::from_ptr((*variables).key) == c"tgpulse_next_netmerc_city_workaround" {
-                    assert_eq!(CStr::from_ptr((*variables).value), c"Sega NetMerc City Workaround; enabled|disabled");
+                    assert_eq!(CStr::from_ptr((*variables).value), c"Sega NetMerc: City Workaround; enabled|disabled");
                     found = true;
                 }
                 variables = variables.add(1);
@@ -3319,11 +3554,11 @@ mod tests {
         for key in DRIVING_RANGE_KEYS.into_iter().chain(mvd::KEYS)
             .chain([c"tgpulse_next_netmerc_city_workaround", c"tgpulse_next_gamepad_rumble",
                     c"tgpulse_next_widescreen_mode", c"tgpulse_next_supersampling",
-                    c"tgpulse_next_volume", c"tgpulse_next_nvram_settings"]) {
+                    c"tgpulse_next_volume"]) {
             assert!(calls.iter().any(|(k, _)| k == key.to_str().unwrap()));
         }
         assert!(!calls.iter().any(|(k, _)| k.starts_with("tgpulse_next_linked_cabinets_")
-            || (k.starts_with("tgpulse_next_nvram_") && k != "tgpulse_next_nvram_settings")));
+            || k.starts_with("tgpulse_next_nvram_")));
     }
 
     #[test]
@@ -3334,7 +3569,7 @@ mod tests {
         assert!(Settings::default().smooth_shadows);
         assert_eq!(Settings::default().volume, 100);
         assert!(Settings::default().apply_known_rom_repairs);
-        assert!(!Settings::default().fast_60hz);
+        assert!(Settings::default().fast_60hz);
         assert!(Settings::default().rumble);
         assert_eq!(Settings::default().overlay_font, 0);
         assert!((60.0 / FPS - 1.0 - 0.04304).abs() < 0.00001);
@@ -3344,6 +3579,24 @@ mod tests {
             frontend_timing(DEFAULT_AUDIO_RATE, true).sample_rate,
             DEFAULT_AUDIO_RATE
         );
+    }
+
+    #[test]
+    fn explicit_native_timing_survives_the_new_sixty_hz_default() {
+        unsafe extern "C" fn native(command: u32, data: *mut c_void) -> bool {
+            if command != ffi::GET_VARIABLE { return false; }
+            let variable = unsafe { &mut *data.cast::<ffi::Variable>() };
+            if unsafe { CStr::from_ptr(variable.key) } != c"tgpulse_next_av_timing" { return false; }
+            variable.value = c"native".as_ptr();
+            true
+        }
+        let mut core = Core { environment: Some(native), ..Core::default() };
+        update_settings(&mut core);
+        assert!(!core.settings.fast_60hz);
+        assert_eq!(frontend_timing(DEFAULT_AUDIO_RATE, core.settings.fast_60hz).fps, FPS);
+        core.environment = Some(no_rumble_environment);
+        update_settings(&mut core);
+        assert!(core.settings.fast_60hz);
     }
 
     #[test]
@@ -3474,7 +3727,7 @@ mod tests {
         i16::from(
             port == 1
                 && device == ffi::DEVICE_JOYPAD
-                && matches!(id, ffi::JOY_SELECT | ffi::JOY_L3 | ffi::JOY_R3),
+                && matches!(id, ffi::JOY_SELECT | ffi::JOY_R3 | ffi::JOY_L3),
         )
     }
 
@@ -3572,7 +3825,7 @@ mod tests {
                 let mut variables = data.cast::<ffi::Variable>();
                 let mut fields = 0;
                 let mut gains = Vec::new();
-                let mut mvd_defaults = Vec::new();
+                let mut mvd_defaults = [None; 6];
                 while !unsafe { (*variables).key }.is_null() {
                     let variable = unsafe { &*variables };
                     let key = unsafe { CStr::from_ptr(variable.key) };
@@ -3584,9 +3837,9 @@ mod tests {
                             Some("auto")
                         );
                     }
-                    if mvd::KEYS.contains(&key) {
+                    if let Some(index) = mvd::KEYS.iter().position(|candidate| *candidate == key) {
                         let text = CStr::from_ptr(variable.value).to_str().unwrap();
-                        mvd_defaults.push(text.split("; ").nth(1).unwrap().split('|').next().unwrap());
+                        mvd_defaults[index] = text.split("; ").nth(1).unwrap().split('|').next();
                     }
                     if let Some(field) = nvram::FIELDS.iter().find(|f| f.key == key) {
                         let text = unsafe { CStr::from_ptr(variable.value) }.to_str().unwrap();
@@ -3600,7 +3853,7 @@ mod tests {
                 }
                 assert_eq!(fields, 43);
                 assert_eq!(gains, AUDIO_GAIN_KEYS);
-                assert_eq!(mvd_defaults, ["auto", "30", "20", "enabled", "50", "disabled"]);
+                assert_eq!(mvd_defaults, ["auto", "30", "20", "enabled", "50", "disabled"].map(Some));
                 return true;
             }
             false
@@ -3735,19 +3988,19 @@ mod tests {
     }
 
     #[test]
-    fn automatic_network_options_are_adjacent_and_default_to_master() {
+    fn automatic_network_options_are_adjacent_and_default_to_standalone() {
         let defs = &options().definitions;
         for (i, (set, key, _)) in netpacket::GAMES.iter().enumerate() {
             let linked = defs.iter().position(|d| !d.key.is_null() && unsafe { CStr::from_ptr(d.key) } == *key).unwrap();
             let automatic = &defs[linked + 1];
             assert_eq!(unsafe { CStr::from_ptr(automatic.key) }, automatic_network::KEYS[i]);
-            assert_eq!(unsafe { CStr::from_ptr(automatic.desc) }, c"Automatic Network Settings");
-            assert_eq!(unsafe { CStr::from_ptr(automatic.default_value) }, automatic_network::values(set)[0].0);
+            assert_eq!(unsafe { CStr::from_ptr(automatic.desc) }, c"Auto Network Role Settings");
+            assert_eq!(unsafe { CStr::from_ptr(automatic.default_value) }, c"0");
         }
     }
 
     #[test]
-    fn automatic_network_visibility_requires_nvram_settings() {
+    fn network_controls_ignore_nvram_gate_and_hide_managed_fields() {
         static VISIBILITY: Mutex<Vec<(String, bool)>> = Mutex::new(Vec::new());
         unsafe extern "C" fn display(command: u32, data: *mut c_void) -> bool {
             if command != ffi::SET_CORE_OPTIONS_DISPLAY { return false; }
@@ -3758,13 +4011,21 @@ mod tests {
             ));
             true
         }
+        for set in ["", "unsupported", "vr", "netmerc"] {
+            VISIBILITY.lock().unwrap().clear();
+            publish_nvram_option_visibility(display, set, false);
+            assert_eq!(VISIBILITY.lock().unwrap().iter().find(|(key, _)| key == "tgpulse_next_nvram_settings").unwrap().1,
+                nvram::supported(set));
+        }
         for enabled in [false, true] {
             VISIBILITY.lock().unwrap().clear();
             publish_nvram_option_visibility(display, "vr", enabled);
             let seen = VISIBILITY.lock().unwrap();
             let visible = |key: &str| seen.iter().find(|(name, _)| name == key).unwrap().1;
             assert!(visible("tgpulse_next_linked_cabinets_vr"));
-            assert_eq!(visible("tgpulse_next_automatic_network_vr"), enabled);
+            assert!(visible("tgpulse_next_automatic_network_vr"));
+            assert!(!visible("tgpulse_next_nvram_vr_link_id"));
+            assert!(!visible("tgpulse_next_nvram_vr_car_color"));
             assert!(!visible("tgpulse_next_automatic_network_vformula"));
         }
     }
@@ -3778,11 +4039,11 @@ mod tests {
                 .iter()
                 .find(|d| !d.key.is_null() && unsafe { CStr::from_ptr(d.key) } == key)
                 .unwrap();
-            assert_eq!(unsafe { CStr::from_ptr(d.default_value) }, c"disabled");
+            assert_eq!(unsafe { CStr::from_ptr(d.default_value) }, c"-1");
             assert_eq!(unsafe { CStr::from_ptr(d.category_key) }, c"system");
             assert_eq!(
                 d.values.iter().filter(|v| !v.value.is_null()).count(),
-                max as usize
+                max as usize + 2
             );
         }
         for set in ["vf", "swa", "swaj", "netmerc"] {
@@ -4230,6 +4491,32 @@ mod tests {
     }
 
     #[test]
+    fn global_profile_normalizes_legacy_ids_preserves_none_and_operator_polarity() {
+        use ffi::*;
+        for full in [false, true] {
+            let devices = profile_devices([NO_SERVICE_DEVICE, DEVICE_JOYPAD], full);
+            assert_eq!(devices, [if full { DEVICE_JOYPAD } else { NO_SERVICE_DEVICE }; 2]);
+            assert_eq!(profile_devices([DEVICE_NONE, 999], full), [DEVICE_NONE; 2]);
+            for profile in [Profile::VirtuaRacing, Profile::VirtuaFormula, Profile::VirtuaFighter,
+                Profile::WingWar, Profile::WingWar360, Profile::StarWarsArcade, Profile::NetMerc] {
+                let mut info = ControllerStorage::new(profile);
+                info.configure(full);
+                for port in 0..2 {
+                    assert_eq!(info.ports[port].num_types, 1);
+                    assert_eq!(info.types[port][0].id, DEVICE_JOYPAD);
+                    let label = unsafe { CStr::from_ptr(info.types[port][0].desc) }.to_str().unwrap();
+                    assert_eq!(label.ends_with(" + Test/Service Slots"), full);
+                }
+            }
+            for (source, bit) in [(port_button::<0, JOY_L3> as InputState, 0x08),
+                (port_button::<0, JOY_R3> as InputState, 0x04)] {
+                let input = vr_inputs(&mut 128, &mut 32, &mut 32, Some(source), devices);
+                assert_eq!(input.in0, if full { 0xff ^ bit } else { 0xff });
+            }
+        }
+    }
+
+    #[test]
     fn both_ports_keep_the_family_profile_and_operator_controls() {
         use ffi::*;
         for profile in [
@@ -4248,7 +4535,7 @@ mod tests {
                     info.ports[1].num_types,
                     info.ports[2].num_types
                 ),
-                (2, 2, 0)
+                (1, 1, 0)
             );
             if profile != Profile::StarWarsArcade {
                 assert_eq!(
@@ -4262,7 +4549,7 @@ mod tests {
                 assert_eq!(info.types[port][1].id, NO_SERVICE_DEVICE);
                 assert_eq!(unsafe { CStr::from_ptr(info.types[port][0].desc) }.to_str().unwrap(),
                     format!("{} + Test/Service Slots", unsafe { CStr::from_ptr(info.types[port][1].desc) }.to_str().unwrap()));
-                for (id, label) in [(JOY_L3, c"Test"), (JOY_R3, c"Service")] {
+                for (id, label) in [(JOY_R3, c"Test"), (JOY_L3, c"Service")] {
                     assert_eq!(
                         entries
                             .iter()
@@ -4330,8 +4617,8 @@ mod tests {
     #[test]
     fn controller_profiles_name_each_cabinet_port_and_disable_input() {
         let swa = ControllerStorage::new(Profile::StarWarsArcade);
-        assert_eq!(swa.ports[0].num_types, 2);
-        assert_eq!(swa.ports[1].num_types, 2);
+        assert_eq!(swa.ports[0].num_types, 1);
+        assert_eq!(swa.ports[1].num_types, 1);
         assert_eq!(swa.ports[2].num_types, 0);
         assert_eq!(
             unsafe { CStr::from_ptr(swa.types[0][1].desc) },
@@ -4346,7 +4633,7 @@ mod tests {
             unsafe { CStr::from_ptr(formula.types[0][1].desc) },
             c"Driving: Sequential + VR4"
         );
-        assert_eq!(formula.ports[1].num_types, 2);
+        assert_eq!(formula.ports[1].num_types, 1);
         let fighter = vf_inputs(Some(p2_only), [ffi::DEVICE_JOYPAD, ffi::DEVICE_NONE]);
         assert_eq!(fighter.in2, 0xff);
         assert_eq!(fighter.in0 & 0x22, 0x22);

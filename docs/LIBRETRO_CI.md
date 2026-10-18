@@ -51,8 +51,8 @@ recipe for local builds, GitHub release CI and Libretro GitLab jobs. It builds o
 `tgpulse_next_m1_libretro` filename. It accepts explicit Linux x86_64/ARM64,
 macOS Intel/Apple Silicon and Windows x86_64 target triples. Linux links the
 target's static C++ runtime and still uses system glibc/libgcc. The proposed
-Linux x86_64 `libretro-super` recipe invokes `platform=unix`; the
-source-side [`.gitlab-ci.yml`](../.gitlab-ci.yml) extends official Libretro
+`libretro-super` patch registers core metadata; the source-side
+[`.gitlab-ci.yml`](../.gitlab-ci.yml) extends official Libretro
 Rust templates for all five desktop targets. Both CI definitions call the
 same Makefile; neither contains an independent Cargo release command or
 platform linkage policy. Windows uses GNU/MinGW in both. GitHub additionally

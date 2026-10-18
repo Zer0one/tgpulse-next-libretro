@@ -20,9 +20,10 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('retroarch','core','rom','output'):p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--moltenvk',type=Path)
+    p.add_argument('--driver',choices=('gl','vulkan'),default='vulkan')
     p.add_argument('--cabinets',type=int,default=2,choices=range(2,10))
     p.add_argument('--live',action='store_true',help='Last VR/VFormula instance is a LIVE relay')
-    p.add_argument('--automatic-network',action='store_true',help='Select native roles with Automatic Network Settings instead of manual NVRAM selectors')
+    p.add_argument('--automatic-network',action='store_true',help='Select native roles with Auto Network Role Settings instead of manual NVRAM selectors')
     p.add_argument('--frames',type=int,default=2400)
     p.add_argument('--join-delay',type=float,default=0.5,help='Delay between starting host and client, in seconds')
     p.add_argument('--timeout',type=int,default=60)
@@ -35,7 +36,7 @@ def main():
     # Probe an available loopback port; no frontend or core socket is opened here.
     with socket.socket() as probe:probe.bind(('127.0.0.1',0));port=probe.getsockname()[1]
     processes=[];results=[]
-    base=[sys.executable,str(Path(__file__).with_name('test_retroarch_gpu.py')),'--retroarch',str(a.retroarch.resolve()),'--core',str(a.core.resolve()),'--rom',str(a.rom.resolve()),'--renderer','software','--driver','vulkan','--frames',str(a.frames),'--timeout',str(a.timeout),'--linked-cabinets',str(a.cabinets),'--netplay-port',str(port),'--nvram-settings','enabled']
+    base=[sys.executable,str(Path(__file__).with_name('test_retroarch_gpu.py')),'--retroarch',str(a.retroarch.resolve()),'--core',str(a.core.resolve()),'--rom',str(a.rom.resolve()),'--renderer','software','--driver',a.driver,'--frames',str(a.frames),'--timeout',str(a.timeout),'--linked-cabinets',str(a.cabinets),'--netplay-port',str(port),'--nvram-settings','enabled','--automatic-network','-1']
     if a.moltenvk:base+=['--moltenvk',str(a.moltenvk.resolve())]
     colors=['RED','BLUE','YELLOW','GREEN','BLACK','PINK','SKYBLUE','ORANGE']
     try:
@@ -45,7 +46,7 @@ def main():
             cmd=base+['--output',str(dest),'--netplay-role','host' if index==0 else 'client']
             if name in ('vr','vformula'):
                 if a.automatic_network:
-                    cmd+=['--automatic-network','live' if role=='LIVE' else colors[index].lower()]
+                    cmd+=['--automatic-network','r' if role=='LIVE' else str(index+1)]
                 else:
                     cmd+=['--nvram-setting',f'tgpulse_next_nvram_{name}_link_id={role}']
                 field='car_color' if name=='vr' else 'car_number'
@@ -54,7 +55,7 @@ def main():
                 if not a.automatic_network:
                     cmd+=['--nvram-setting',f'tgpulse_next_nvram_{name}_{field}={value}']
                 if name=='vr':cmd+=['--nvram-setting','tgpulse_next_nvram_vr_cabinet=SPECIAL']
-            elif a.automatic_network:cmd+=['--automatic-network',role.lower()]
+            elif a.automatic_network:cmd+=['--automatic-network','1' if role=='MASTER' else '2']
             else:cmd+=['--nvram-setting',f'tgpulse_next_nvram_{name}_network={role}']
             log=(out/f'{index}-launcher.log').open('wb')
             process=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)

@@ -1,5 +1,47 @@
 # U6 NetMerc Rumble — 2026-10-04
 
+## Perceived Variation Review — 2026-10-17
+
+The user reported that previously near-continuous cannon feedback now feels
+variable. Compared the installed core
+`cef4524b77c9f4d8a70a6e3abbc099759db6394cbd1399c4491c9fd277fdeba4`
+with the retained, hash-identified public 0.1.0.10 macOS ARM64 binary
+`a2b886ecb710f11783895721b3f8a5361bb1819c0e393ea14d577f60a9efab2a`.
+The user's exact last-played binary is unknown; the published artifact is an
+explicit comparison baseline, not an assumed last-used version.
+
+Source inspection: final `netmerc_motor()` port-D latch, 0.6/0.6 binary levels,
+P1 strong/weak callback delivery and lifecycle stops are unchanged relative to
+the published source. The newer frontend-axis rumble helper is used only for
+VR/VFormula and does not feed NetMerc. Current standalone also samples the
+final latch and uses the same binary-level helper. Local per-core rumble is
+Enabled; frontend Rumble Gain is 100 and joypad driver is SDL2. These settings
+do not establish the actual physical backend's behavior or a driver fault.
+
+Reused RumbleHost and existing native ROM/input/ABI helpers. The lifecycle
+runner passes toggle/device/restore/reset/unload checks. Its initial bounded
+sequence produced zero positive callbacks, so it was not positive feedback
+evidence. The subsequent matched trace extended firing after actual gameplay
+started, using explicit 60 Hz and fixed MVD settings with fresh isolated saves:
+
+- 3,336 frames per binary; no physical-controller or personal-save access.
+- Exactly identical callback transition sequences and final video hashes.
+- Both send only levels 0 and 39321 (60% of the 16-bit amplitude).
+- Both produce 840 positive callbacks, i.e. 420 frames on both P1 motors.
+- Motor On at frame 2642, Off at 3050 (408 frames); On at 3156, Off at 3168
+  (12 frames). Thus continuous and short feedback already coexist in the
+  published core for the same native gameplay sequence.
+- The focused synthetic final-latch test passes, including suppressing an
+  On/Off pulse that ends Off within one native slice.
+
+Evidence: `outputs/netmerc-rumble-review-20261017/` lifecycle.json,
+comparison.json, comparison-initial.json, unit.log and retained trace helper.
+No signal regression was found for this matched sequence. This does not prove
+physical feedback parity or explain every user session; device connection,
+frontend/backend delivery and actual native gameplay can still differ. No
+rumble policy, amplitude, configuration, source code, installed binary, version
+or publication was changed by this investigation.
+
 ## References And Approved Adaptation
 
 Rechecked the standalone `input/model1_rumble.rs`, `input.rs`, its NetMerc

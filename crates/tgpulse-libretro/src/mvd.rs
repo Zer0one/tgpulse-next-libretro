@@ -134,6 +134,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn sensor_roll_reverses_both_directions_without_changing_other_axes() {
+        let neutral = HmdPose::default();
+        assert_eq!(sensor_pose([0.0; 3]), neutral);
+        for (roll, expected) in [(30_f64.to_radians(), 21447), (-30_f64.to_radians(), -21447)] {
+            let input = [0.2, -0.3, roll];
+            let actual = sensor_pose(input);
+            let no_roll = sensor_pose([input[0], input[1], 0.0]);
+            assert_eq!(actual.orientation[1], expected);
+            assert_eq!(actual.orientation[0], no_roll.orientation[0]);
+            assert_eq!(actual.orientation[2], no_roll.orientation[2]);
+            assert_eq!(actual.position, neutral.position);
+        }
+    }
+
+    #[test]
     fn holder_notice_tracks_game_latch_without_repeating_held_or_restored_state() {
         let mut notice = HolderNotice::default();
         assert_eq!(notice.update(None), None);
@@ -230,7 +245,8 @@ mod tests {
     }
 }
 
-/// Upstream SDL orientation to native NetMerc angles, including neutral offsets.
+/// SDL orientation to native NetMerc angles, including neutral offsets.
+/// Roll polarity is inverted by the approved Libretro control adaptation.
 pub fn sensor_pose([pitch, yaw, roll]: [f64; 3]) -> HmdPose {
     let mut pose = HmdPose::default();
     let raw = |r: f64| (r.to_degrees().clamp(-90.0, 90.0) * 25736.0 / 180.0).round() as i32;
@@ -240,7 +256,7 @@ pub fn sensor_pose([pitch, yaw, roll]: [f64; 3]) -> HmdPose {
         angle as i16
     };
     pose.orientation[0] = wrap(i32::from(pose.orientation[0]) - raw(yaw));
-    pose.orientation[1] = wrap(i32::from(pose.orientation[1]) + raw(roll));
+    pose.orientation[1] = wrap(i32::from(pose.orientation[1]) - raw(roll));
     pose.orientation[2] = wrap(i32::from(pose.orientation[2]) - raw(pitch));
     pose
 }

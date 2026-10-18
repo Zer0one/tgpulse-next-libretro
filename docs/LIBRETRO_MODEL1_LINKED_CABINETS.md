@@ -16,99 +16,52 @@ Libretro replaces only the host transport: no addresses/ports are core options,
 no socket/thread/dependency is introduced, and the game still writes COMM roles.
 The standalone build and protocol are preserved.
 
-## Options and native roles
+## Current Options And Native Roles — Framework 0.1.21
 
-`Linked Cabinets` is registered with an independent key for
-each supported set, defaults Disabled and is visible only for the current set.
-A selection above Disabled fits the native COMM board and expects the selected
-number of RetroArch Netplay participants. Without a real Netpacket session,
-COMM stays disconnected; no local echo supplies a missing peer.
+This section supersedes earlier Network Board/ANS descriptions and tokens in
+historical evidence below. There are exactly two visible network controls for
+the current game. Unsupported games display **Not Supported** in both.
 
-| Sets | Selector | Operator roles |
+| Option | Values And Default | Authority |
 | --- | --- | --- |
-| `vr`, `vformula` | Disabled; 2–9 Cabinets | Exactly one MASTER, remaining playable cabinets SLAVE, at most one optional LIVE relay. At most eight playable cabinets; the total includes LIVE. Each playable cabinet needs a unique CAR COLOR / CAR NUMBER. |
-| `wingwar`, `wingwaru`, `wingwarj`, `wingwar360` | Disabled; 2 Cabinets | One MASTER and one SLAVE in NETWORK. |
+| Linked Cabinets | `-1` Disabled/default; `0`/`1` aliases; `2..9` VR/Formula, `2` Wing War | Disabled disconnects the board for every supported Model 1 set; other values fit COMM and select the total. Native role is never changed by topology. |
+| Auto Network Role Settings | `-1` Disabled; `0` native No Link / Stand Alone default; `1..n` playable roles/identities; `r` Live with `l`/`s` aliases where available | Independent of topology and NVRAM Settings. Active ANRS overrides and synchronizes the managed native fields, including while hidden. Disabled returns their last applied values to normal manual NVRAM management. |
 
-Eligibility reuses the native `present_for_set` contract. VF, SWA/SWAJ and
-NetMerc have no M1COMM option. The Wing War two-player limit also agrees with
-[SEGA's official product record](https://www.sega.jp/history/arcade/product/15974/).
-VR/VFormula's eight participant identities are documented by the independently
-acquired CAR COLOR / NUMBER settings and the native board's RAM/node bound.
-LIVE consumes a transport slot, forwards the ring, and has native ID 0 without
-increasing the playable participant count.
+No previous textual color/role/Disabled/relay tokens are supported. Observed
+invalid values fall back to the applicable default with a notification. The
+required numeric/special aliases are registered so frontends accept them.
 
-### Automatic Network Settings
+| Sets | Linked Totals | ANRS Labels And Native Mapping |
+| --- | --- | --- |
+| `vr` | 2–9 total; at most eight playable identities plus one optional Live relay | 0 No Link; 1 Red (Master); 2 Orange, 3 Skyblue, 4 Pink, 5 Black, 6 Green, 7 Yellow, 8 Blue (Slave); r Live. |
+| `vformula` | Same topology | 0 No Link; 1 No.1 (Red) (Master); 2 No.2 (Blue), 3 No.3 (Yellow), 4 No.4 (Green), 5 No.5 (Black), 6 No.6 (Pink), 7 No.7 (Skyblue), 8 No.8 (Orange) (Slave); r Live. |
+| `wingwar`, `wingwaru`, `wingwarj`, `wingwar360` | 2 | 0 Stand Alone; 1 Master; 2 Slave. |
+| `vf`, `swa`, `swaj`, `netmerc` | Not Supported | Not Supported. |
 
-Immediately below each loaded set's **Linked Cabinets** selector, choose
-**Automatic Network Settings**. VR/VFormula default to **Red (Master)**;
-Orange, Skyblue, Pink, Black, Green, Yellow and Blue select Slave and the matching
-reviewed car identity. **Live** selects the native relay role and resets
-car color/number to its reviewed Red default. Wing War variants default to Master and offer Slave.
+Totals follow native topologies: nine requires one Live relay; Live forwards
+traffic without a playable identity. Per-set keys retain independent saved
+choices. The frontend shows only the current game's pair, or the unsupported
+pair; ANRS is never gated by NVRAM Settings. Other operator fields retain their
+normal visibility and authority. Hidden managed selectors show the effective
+ANRS values, not stale earlier manual selections. On handover, NVRAM Settings
+must be enabled to apply subsequent manual Core Options; otherwise the native
+service-menu/save values remain under the game's management.
 
-- With NVRAM Settings enabled and Linked Cabinets enabled, set and maintain the
-  selected native role and identity through the corresponding NVRAM selectors.
-- With Linked Cabinets OFF and automation enabled, set only managed selectors
-  to reviewed defaults: No Link + Red/No.1 (Red), or Wing War Stand Alone.
-- NVRAM Settings is the master switch: when Disabled, automation is hidden and
-  does not write operator settings. When Enabled, its displayed selectors are
-  authoritative over saved NVRAM. An active network preset is authoritative
-  for its managed selectors, including after restart; disable the preset for
-  manual role/color control.
-- Disabled performs no automatic writes, including when Linked Cabinets goes
-  OFF. Disabling automation preserves values already applied.
-- Changed persisted values use the existing checksum/mirror and automatic
-  machine-reset path. Returning to the game applies a topology change before
-  the next emulated frame. Netplay host/client selection never determines
-  Master/Slave/Live.
+### Connect Two Cabinets
 
-The reviewed values and encodings are reused from `nvram_data.rs`; no campaign
-samples or upstream emulation components are changed. Color identities need
-only be unique among playable cabinets; they are not numbered Netplay slots.
+1. Use identical core builds and ROM set on both frontends, with separate saves.
+2. Set Linked Cabinets to 2 on both.
+3. Choose ANRS 1 (Master) on one and 2 (Slave / second identity) on the other.
+4. Open/join the RetroArch Netpacket lobby, then Resume. Effective topology and
+   settings changes apply with one automatic reset; unchanged Resume does not reset.
+5. Wait for the native game link. A frontend roster alone does not prove native
+   COMM or synchronized gameplay. Frontend host/client never assigns native roles.
 
-### Connect two cabinets
-
-1. Use the same exact ROM set and core build on both frontends. Keep each
-   frontend's saves and configuration separate.
-2. Select **2 Cabinets** on both.
-3. Choose Automatic Network Settings presets: Red (Master) and Orange (Slave)
-   for VR/VFormula, or Master and Slave for Wing War, with NVRAM Settings
-   enabled. For manual NVRAM/service configuration, set automation to Disabled
-   and use distinct playable identities. The Netplay host can be either native role; host does not
-   automatically mean MASTER.
-4. Return to each game to apply the options and automatic NVRAM reset. Host a
-   RetroArch Netplay session on one frontend and connect the other to it. A
-   lobby may also be open before selecting the cabinet count.
-5. Let the games perform their native COMM startup. A transport roster alone
-   is not proof that the game has established its link.
-
-For MASTER/SLAVE/LIVE, select **3 Cabinets** everywhere and set LINK ID = LIVE
-on the third VR/VFormula instance. Automatic Network Settings can select Master, Slave and Live independently
-on each instance while NVRAM Settings is enabled. Disable automation before applying custom NVRAM Settings
-or using saved service-menu values. No role is assigned by transport.
-
-Return to the game on each cabinet after changing topology or roles. The
-frontends may resume at different times; packets carrying the old cabinet
-count are ignored while the native ring forms.
-For standalone VR operation, set **Linked Cabinets = Disabled** and
-return to the game. With NVRAM Settings and Automatic Network Settings enabled,
-the latter selects **Link ID = No Link**. With automation Disabled, set this
-selector manually. Disabling the transport alone does not change the saved
-native role.
-A saved Slave role without a fitted COMM board produces the game's horizontal
-white-line screen with **CANCELLED**. This was reproduced on macOS/Vulkan on
-2026-10-06 using an isolated copy of the affected save: two 900-frame runs
-differed only in Link ID (Slave versus No Link). No Link restored the normal
-attract scene. Personal configuration and saves were preserved; evidence is
-`/private/tmp/tgpulse-vr-stripes-current/` and
-`/private/tmp/tgpulse-vr-stripes-no-link/`. The tested core SHA-256 is
-`2b87edabdd849c70445a764577d8f9985bf7751a86d93e89e453356a490c25eb`.
-
-Resume or Restart preserves backup RAM/EEPROM, rereads the selected cabinet total and
-recreates the native machine only when the total changes. It resets the
-transport handshake while keeping an open Netplay lobby's callbacks and host
-client slots. After a lost participant, Restart can clear the core's failed
-COMM state; a disconnected frontend still has to reconnect to the lobby.
-Start the host first, then join from the client.
+For offline gameplay choose Linked Cabinets Disabled and ANRS 0. The controls
+are independent: selecting Slave/Live while disconnected can produce the game's
+native missing-link behavior; the core does not silently convert that valid role.
+Save States return when COMM is disconnected. The previous separate Network
+Board control is removed. See [delivery evidence](NETWORK_TWO_OPTION_2026-10-17.md).
 
 ## Transport and persistence contract
 
@@ -130,8 +83,8 @@ and the native machine's save/load refusal remains intact. Cold reset uses the
 native constructor and retains immutable loaded ROM resources only for linked
 machines, preserving current audio gains and all NVRAM blocks. It does not
 remove COMM to bypass snapshot restrictions. Disabled mode retains the existing
-standalone Save State/reset path. A topology change reloads the Model 1 ZIP on
-Restart, so standalone play does not retain duplicate ROM resources.
+standalone Save State/reset path. A topology change reloads the Model 1 ZIP automatically on
+Resume, so standalone play does not retain duplicate ROM resources.
 
 ## Reusable verification
 
@@ -494,3 +447,27 @@ The verified core was installed locally with matching SHA-256
 `e1c33a2ab27f2001faddab1212c832cfc965ca6d9482a7e490f979253e12b720`.
 The matching `.info` SHA-256 is
 `e7ddd4c8355b22f2c6c2810c27443eae9b0b29a2984cc2f67ddd2912ba5cab00`.
+
+## Canonical ANS Tokens — 2026-10-12
+
+ANS now stores `0` Disabled, `1` Red/Master, `2` Orange/Slave, then
+`3` Skyblue, `4` Pink, `5` Black, `6` Green, `7` Yellow and `8` Blue for
+VR/VFormula, plus `relay` Live. Wing War offers `1` Master, `2` Slave and
+`0` Disabled. Effective default remains `1`; native NVRAM encodings and limits
+are unchanged. Values are identifiers in frontend configuration, not native
+Car Number bytes. Keep NVRAM Settings enabled for automation.
+
+Published color/role tokens remain readable with compatibility registration;
+new selections use canonical tokens. Old selections are not rewritten on read.
+Modern registration retires aliases on a later load once no saved value needs
+them; legacy frontend registration retains readable aliases. Native preset
+indices, managed-field publishing, integrity, unrelated fields and offline
+restoration are unchanged. Every canonical/published pair across all six sets
+passes mapping checks; registration passes both APIs. The existing bounded
+Restart/Resume ABI probe passes with the published `red` token, including lobby
+callback retention and offline restoration. This does not repeat or qualify
+physical multi-cabinet gameplay.
+
+Launcher development is owned by the separately planned multi-core project.
+The existing target verification runners accept canonical tokens; they remain
+isolated test tools rather than a new public launcher implementation.

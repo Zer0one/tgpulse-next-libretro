@@ -1,5 +1,5 @@
 //! Frontend-owned Model 1 ring; adapts SM2 Netpacket session/roster procedure.
-//! M1COMM owns protocol and roles. No sockets, local echo or synthetic success.
+//! M1COMM owns protocol and roles. No sockets or synthetic protocol success; local topology echoes complete wire frames.
 use crate::ffi;
 use std::collections::{BTreeSet, VecDeque};
 use std::sync::{Mutex, OnceLock};
@@ -248,6 +248,17 @@ fn send_hello() {
     }
 }
 pub fn pump(board: &mut CommBoard) -> Result<(), &'static str> {
+    // Explicit local transport: return complete wire frames, never tick or
+    // fabricate protocol state. Local echo is independent of frontend lobby IDs.
+    if session().lock().unwrap().total == 1 {
+        board.set_connected(true);
+        while board.receive_capacity() > 0 {
+            let Some(frame) = board.take_transmit() else { break; };
+            board.receive(&frame)?;
+        }
+        return Ok(());
+    }
+
     let poll = {
         let s = session().lock().unwrap();
         if s.active {
@@ -491,5 +502,24 @@ mod tests {
             boards[0].set_connected(false);
             assert_eq!(boards[0].shared_read(0), 0xff);
         }
+    }
+}
+
+#[cfg(test)]
+mod local_transport_tests {
+    use super::*;
+    #[test]
+    fn explicit_device_echo_not_offline_boot() {
+        unsafe extern "C" fn forbidden_send(_:i32,_:*const std::ffi::c_void,_:usize,_:u16){panic!("local echo called frontend send")}
+        unsafe extern "C" fn forbidden_poll(){panic!("local echo called frontend poll")}
+        configure("vr",1);
+        unsafe { start(5,Some(forbidden_send),Some(forbidden_poll)); }
+        let mut b=CommBoard::new();b.cn_write(1);b.shared_write(1,1);
+        for _ in 0..260 {pump(&mut b).unwrap();b.tick();pump(&mut b).unwrap();}
+        assert_eq!((b.shared_read(0),b.shared_read(2),b.shared_read(3)),(1,1,1));
+        b.shared_write(4,1);b.shared_write(0x10,0x79);
+        for _ in 0..3 {pump(&mut b).unwrap();b.tick();pump(&mut b).unwrap();}
+        assert_eq!(b.shared_read(0x10+0x1c4),0x79);
+        shutdown();
     }
 }
