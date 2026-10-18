@@ -512,3 +512,20 @@ the matching installed `.info` SHA-256 is
 Both match the downloaded package. The installer preserved the previous binary
 in a dated backup and left conflicting existing settings untouched. Download
 verification files are in `/private/tmp/tgpulse-release-0.1.0.10-verify/`.
+
+
+## Verified 0.1.0.11 Publication — 2026-10-18
+
+- Source/tag: `v0.1.0.11`, commit `6d9d1a10553d43fde10940e29c256a7babbad801`, on `main`.
+- Release: [0.1.0.11 Model 1 Preview](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.11), marked prerelease.
+- [CI run 39144532286](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/39144532286): Linux x86_64/ARM64, macOS Apple Silicon/Intel, Windows x86_64 GNU and publication all succeeded. Each target uses the single shared Makefile recipe and native machine/adapter/API/package gates.
+- Downloaded all five released ZIPs and SHA256SUMS. External and internal checksums, exact tagged source revision, version, metadata, Model 1 scope and complete license/file inventories passed. Linux/macOS packages contain 194 files each; Windows contains 202.
+- Local 0.1.0.11 build: 93 adapter tests and native artifact checks passed. The verified local build was installed with backup. Then the GitHub Apple Silicon package passed the same native ABI/dependency/lifecycle gate and replaced the local build under the public name, with backup and matching SHA-256.
+- Final installed GitHub core SHA-256: `a6af4cb07b3b50b099122ba5dcf9a40373a4dc6cfe92c04c9844293dc1ee3e61`; metadata: `409c40a74e4b9d13da97a87190162a4543c60a41cf535db8b845806704eb93fb`. Both match the downloaded release package. Names remain `TGPulse-Next-M1` / `Sega - Model 1 (TGPulse-Next)`.
+- Audio reset and network regression evidence from the preceding verified phase is retained; it was not rerun merely for this version increment. This publication does not claim new physical-controller, listening or cross-platform gameplay acceptance.
+- Removed the accidental `codex/model1-release-0.1.0.4` branch locally and remotely after confirming its content was on main. The checkout tracks `origin/main`. Recorded the user's main-only convention in AGENTS.md, REFERENCE_WORKFLOW.md and their expressly requested durable memory note. No new working/release branch was created.
+
+Ignored verification receipts: `outputs/release-0.1.0.11/verification.json`,
+`local-install.json`, `github-install.json`, local test/artifact logs and
+`github-artifact.log`. Account usage observed 39% → 42% (rounded and shared
+across concurrent work); reset 2026-10-24 22:40:57 Europe/Rome.
