@@ -1298,16 +1298,16 @@ fn options() -> &'static OptionStorage {
         option_definition(mvd::KEYS[4], c"Sega NetMerc MVD Drift Compensation", c"Applied only to Sega NetMerc sensor input. Refine the calibrated gyroscope bias after three seconds of detected stillness. Default 50% uses gradual correction; higher percentages learn faster. Very slow turns may be mistaken for drift. Keeps the current view without automatic recentering. Off uses the original fixed calibration. Changes take effect immediately.", c"input", &[(c"off", c"Off"), (c"10", c"10%"), (c"20", c"20%"), (c"30", c"30%"), (c"40", c"40%"), (c"50", c"50%"), (c"60", c"60%"), (c"70", c"70%"), (c"80", c"80%"), (c"90", c"90%"), (c"100", c"100%")], c"50"),
         option_definition(mvd::KEYS[5], c"Sega NetMerc MVD Sensor Diagnostics", c"Record P1 motion callbacks, calibration, drift correction and orientation to a CSV in the frontend save directory under tgpulse-next/diagnostics. Applied only to Sega NetMerc while sensors are active. A notification shows the path. Disable to close the file; reset or state load closes it and starts a new file when sensors resume. A recording stops after 30 minutes; toggle Disabled then Enabled to start another. Default Disabled. Changes take effect immediately.", c"input", &[(c"disabled", c"Disabled"), (c"enabled", c"Enabled")], c"disabled"),
         option_definition(c"tgpulse_next_initial_nvram_setup", c"Automatic Initial NVRAM Setup (Restart Required)", c"When no valid frontend save exists, initialize supported sets from a validated game sample before the first emulated frame, then apply approved country, safe offline network and core defaults such as Virtua Racing's Special cabinet and Sega NetMerc controller endpoint calibration. Other native fields are preserved. Automatic setup never replaces existing valid saves; normal game writes still persist. Delete the game's save data to regenerate the initial setup. Reload content after changing this option.", c"system", &[(c"enabled",c"Enabled"),(c"disabled",c"Disabled")], c"enabled"),
-        option_definition(c"tgpulse_next_nvram_settings", c"NVRAM Settings", c"For games with reviewed operator fields, apply the displayed settings at startup and when Core Options change, overriding saved values for these fields. Disabled preserves Service Menu settings. Applying changed persisted values resets the machine automatically. Other fields and calibration are preserved.", c"system", &[(c"disabled",c"Disabled"),(c"enabled",c"Enabled")], c"disabled"),
+        option_definition(c"tgpulse_next_nvram_settings", c"NVRAM Settings (Service Menu)", c"For games with reviewed operator fields, apply the displayed settings at startup and when Core Options change, overriding saved values for these fields. Disabled preserves Service Menu settings. Applying changed persisted values resets the machine automatically. Other fields and calibration are preserved.", c"system", &[(c"disabled",c"Disabled"),(c"enabled",c"Enabled")], c"disabled"),
     ];
     for field in nvram::FIELDS {
         let values: Vec<_> = field.values.iter().map(|v| (v.key, v.label)).collect();
         let network_field = [b"_link_id".as_slice(), b"_network", b"_car_color", b"_car_number"]
             .iter().any(|suffix| field.key.to_bytes().ends_with(suffix));
         let help = if network_field {
-            c"Reviewed operator setting for the loaded ROM set. With NVRAM Settings enabled, this value overrides saved NVRAM only while Auto Network Role Settings is Disabled. Active role automation has priority and hides the managed native fields. Other fields are preserved. Changed persisted values reset the machine."
+            c"Reviewed operator setting for the loaded ROM set. With NVRAM Settings (Service Menu) enabled, this value overrides saved NVRAM only while Auto Network Role Settings is Disabled. Active role automation has priority and hides the managed native fields. Other fields are preserved. Changed persisted values reset the machine."
         } else {
-            c"Reviewed operator setting for the loaded ROM set. Applied only while NVRAM Settings is enabled. Other EEPROM fields and calibration are preserved. A changed persisted value resets the machine."
+            c"Reviewed operator setting for the loaded ROM set. Applied only while NVRAM Settings (Service Menu) is enabled. Other EEPROM fields and calibration are preserved. A changed persisted value resets the machine."
         };
         definitions.push(option_definition(field.key, field.label, help, c"system", &values, field.values[field.default].key));
     }
@@ -1320,9 +1320,8 @@ fn options() -> &'static OptionStorage {
     for (i, (set,key,max)) in netpacket::GAMES.into_iter().enumerate() {
         let mut values=vec![(c"-1",c"1 Cabinet / Disabled"),(c"2",c"2 Cabinets")];
         if max>2 {values.extend([(c"3",c"3 Cabinets"),(c"4",c"4 Cabinets"),(c"5",c"5 Cabinets"),(c"6",c"6 Cabinets"),(c"7",c"7 Cabinets"),(c"8",c"8 Cabinets"),(c"9",c"9 Cabinets")]);}
-        values.extend([(c"0",c"1 Cabinet / Disabled (Alias)"),(c"1",c"1 Cabinet / Disabled (Alias)")]);
         definitions.push(option_definition(key,c"Linked Cabinets",automatic_network::LINK_HELP,c"system",&values,c"-1"));
-        definitions.push(option_definition(automatic_network::KEYS[i],c"Auto Network Role Settings",automatic_network::ROLE_HELP,c"system",automatic_network::values(set),c"0"));
+        definitions.push(option_definition(automatic_network::KEYS[i],c"Auto Network Role Settings",automatic_network::ROLE_HELP,c"system",automatic_network::values(set),c"-1"));
     }
     storage.definitions.splice(end..end, definitions);
     // Stable order keeps per-set NVRAM fields and linked-cabinet entries together.
@@ -1485,11 +1484,11 @@ fn register_options(environment: ffi::Environment) {
     }
     let mut network_legacy = Vec::new();
     for (i, (set,key,max)) in netpacket::GAMES.into_iter().enumerate() {
-        let suffix=if max==2 {"-1|2|0|1"} else {"-1|2|3|4|5|6|7|8|9|0|1"};
+        let suffix=if max==2 {"-1|2"} else {"-1|2|3|4|5|6|7|8|9"};
         network_legacy.push(CString::new(format!("Linked Cabinets; {suffix}")).unwrap());
         legacy.push(ffi::Variable{key:key.as_ptr(),value:network_legacy.last().unwrap().as_ptr()});
-        let choices=std::iter::once("0").chain(automatic_network::values(set).iter()
-            .filter(|(key,_)| *key!=c"0").map(|(key,_)|key.to_str().unwrap())).collect::<Vec<_>>().join("|");
+        let choices=std::iter::once("-1").chain(automatic_network::values(set).iter()
+            .filter(|(key,_)| *key!=c"-1").map(|(key,_)|key.to_str().unwrap())).collect::<Vec<_>>().join("|");
         network_legacy.push(CString::new(format!("Auto Network Role Settings; {choices}")).unwrap());
         legacy.push(ffi::Variable{key:automatic_network::KEYS[i].as_ptr(),value:network_legacy.last().unwrap().as_ptr()});
     }
@@ -1512,7 +1511,7 @@ fn register_options(environment: ffi::Environment) {
     });
     legacy.push(ffi::Variable {
         key: c"tgpulse_next_nvram_settings".as_ptr(),
-        value: c"NVRAM Settings; disabled|enabled".as_ptr(),
+        value: c"NVRAM Settings (Service Menu); disabled|enabled".as_ptr(),
     });
     static NVRAM_LEGACY: OnceLock<Vec<CString>> = OnceLock::new();
     let values = NVRAM_LEGACY.get_or_init(|| {
@@ -2006,7 +2005,7 @@ fn validate_network_settings(environment: ffi::Environment, set: &str) {
         }
         if let Some(value)=option_value(environment,automatic_network::KEYS[i]) {
             if automatic_network::parse(set,&value).is_err() {
-                notify(Some(environment),"Invalid Auto Network Role Settings value; using native Standalone (0)");
+                notify(Some(environment),"Invalid Auto Network Role Settings value; using Disabled (-1)");
             }
         }
     }
@@ -2395,7 +2394,7 @@ fn apply_pending_nvram(game: &mut Game, environment: Option<ffi::Environment>, e
             game.steering = 0x80;
             game.accelerator = 0x20;
             game.brake = 0x20;
-            notify(environment, "Applied NVRAM Settings; machine reset");
+            notify(environment, "Applied NVRAM Settings (Service Menu); machine reset");
         }
     }
 }
@@ -2495,7 +2494,7 @@ pub extern "C" fn retro_get_system_info(info: *mut ffi::SystemInfo) {
     unsafe {
         *info = ffi::SystemInfo {
             library_name: c"TGPulse-Next-M1".as_ptr(),
-            library_version: c"0.1.0.12".as_ptr(),
+            library_version: c"0.1.0.13".as_ptr(),
             valid_extensions: c"zip".as_ptr(),
             need_fullpath: true,
             block_extract: true,
@@ -4014,21 +4013,30 @@ mod tests {
     }
 
     #[test]
-    fn automatic_network_options_are_adjacent_and_default_to_standalone() {
+    fn automatic_network_options_are_adjacent_and_default_to_disabled() {
         let defs = &options().definitions;
         for (i, (set, key, _)) in netpacket::GAMES.iter().enumerate() {
             let linked = defs.iter().position(|d| !d.key.is_null() && unsafe { CStr::from_ptr(d.key) } == *key).unwrap();
             let automatic = &defs[linked + 1];
             assert_eq!(unsafe { CStr::from_ptr(automatic.key) }, automatic_network::KEYS[i]);
             assert_eq!(unsafe { CStr::from_ptr(automatic.desc) }, c"Auto Network Role Settings");
-            assert_eq!(unsafe { CStr::from_ptr(automatic.default_value) }, c"0");
+            assert_eq!(unsafe { CStr::from_ptr(automatic.default_value) }, c"-1");
         }
     }
 
     #[test]
     fn network_controls_ignore_nvram_gate_and_hide_managed_fields() {
+        static AUTOMATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
         static VISIBILITY: Mutex<Vec<(String, bool)>> = Mutex::new(Vec::new());
         unsafe extern "C" fn display(command: u32, data: *mut c_void) -> bool {
+            if command == ffi::GET_VARIABLE {
+                let value = unsafe { &mut *data.cast::<ffi::Variable>() };
+                if unsafe { CStr::from_ptr(value.key) } == automatic_network::KEYS[0] {
+                    value.value = if AUTOMATED.load(std::sync::atomic::Ordering::Relaxed) { c"0" } else { c"-1" }.as_ptr();
+                    return true;
+                }
+                return false;
+            }
             if command != ffi::SET_CORE_OPTIONS_DISPLAY { return false; }
             let option = unsafe { &*data.cast::<ffi::OptionDisplay>() };
             VISIBILITY.lock().unwrap().push((
@@ -4043,15 +4051,16 @@ mod tests {
             assert_eq!(VISIBILITY.lock().unwrap().iter().find(|(key, _)| key == "tgpulse_next_nvram_settings").unwrap().1,
                 nvram::supported(set));
         }
-        for enabled in [false, true] {
+        for (enabled, automatic) in [(false, false), (true, false), (false, true), (true, true)] {
+            AUTOMATED.store(automatic, std::sync::atomic::Ordering::Relaxed);
             VISIBILITY.lock().unwrap().clear();
             publish_nvram_option_visibility(display, "vr", enabled);
             let seen = VISIBILITY.lock().unwrap();
             let visible = |key: &str| seen.iter().find(|(name, _)| name == key).unwrap().1;
             assert!(visible("tgpulse_next_linked_cabinets_vr"));
             assert!(visible("tgpulse_next_automatic_network_vr"));
-            assert!(!visible("tgpulse_next_nvram_vr_link_id"));
-            assert!(!visible("tgpulse_next_nvram_vr_car_color"));
+            assert_eq!(visible("tgpulse_next_nvram_vr_link_id"), enabled && !automatic);
+            assert_eq!(visible("tgpulse_next_nvram_vr_car_color"), enabled && !automatic);
             assert!(!visible("tgpulse_next_automatic_network_vformula"));
         }
     }
@@ -4069,8 +4078,13 @@ mod tests {
             assert_eq!(unsafe { CStr::from_ptr(d.category_key) }, c"system");
             assert_eq!(
                 d.values.iter().filter(|v| !v.value.is_null()).count(),
-                max as usize + 2
+                max as usize
             );
+            for raw in [c"0", c"1"] {
+                assert_eq!(parsed_linked_cabinets(raw.to_str().unwrap(), max), Some(1));
+                assert!(!d.values.iter().any(|v| !v.value.is_null()
+                    && unsafe { CStr::from_ptr(v.value) } == raw));
+            }
         }
         for set in ["vf", "swa", "swaj", "netmerc"] {
             assert!(!netpacket::GAMES.iter().any(|(name, _, _)| *name == set));

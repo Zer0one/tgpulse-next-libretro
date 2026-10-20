@@ -16,17 +16,20 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
 [sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
-release line is 0.1.0.12.
+release line is 0.1.0.13.
 
 ## Current Source And Downloads
 
-Current `main` additionally includes MAME-derived Model 1 wireframe clipping,
-direct display-list polygons and above-HUD composition across Software,
-Vulkan and OpenGL/GLES. See the [wireframe report](docs/MAME_WIREFRAME_CLIPPING_2026-10-19.md)
-and [direct/HUD report](docs/MAME_DIRECT_HUD_2026-10-19.md) for verification and
-coverage limits. Linked Cabinets now labels its local selection
-**1 Cabinet / Disabled**, retaining the existing saved values and behavior.
-These source updates are not yet included in the published 0.1.0.12 packages.
+Version **0.1.0.13** adds Model 1 direct polygons and above-HUD composition
+across Software, Vulkan and OpenGL/GLES, plus Software wireframe clipping.
+See the [wireframe report](docs/MAME_WIREFRAME_CLIPPING_2026-10-19.md) and
+[direct/HUD report](docs/MAME_DIRECT_HUD_2026-10-19.md) for scope and coverage.
+
+Linked Cabinets shows one **1 Cabinet / Disabled** choice; accepted parser
+aliases do not appear as extra menu choices. Auto Network Role Settings defaults
+to **Disabled**, and the manual override switch is named
+**NVRAM Settings (Service Menu)**. Existing explicit role selections and native
+Save RAM retain their meaning. See the [0.1.0.13 release notes](docs/releases/0.1.0.13.md).
 
 Version **0.1.0.12** updates Widescreen Mode:
 
@@ -72,8 +75,9 @@ complete Libretro cores are tracked separately in the
 
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
-Version [0.1.0.12](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.12)
-is available as an experimental prerelease with five verified native platform packages.
+Version [0.1.0.13](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.13)
+is prepared as an experimental prerelease for the five native platform targets.
+Publication and downloaded-package verification are recorded in the CI report.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
 for verified binary packages.
@@ -165,8 +169,9 @@ See the [review workbook](docs/model1_core_options_review.xlsx) and
 [NVRAM procedure](docs/NVRAM_CAPTURE.md) for the reviewed list and evidence.
 
 The two network controls are always available: **Linked Cabinets** defaults to
-Disabled (`-1`; `0`/`1` aliases), and **Auto Network Role Settings (ANRS)**
-defaults to native No Link / Stand Alone (`0`). Unsupported games show
+1 Cabinet / Disabled (`-1`; `0`/`1` accepted only as parser aliases), and **Auto Network Role Settings (ANRS)**
+defaults to Disabled (`-1`), retaining native No Link / Stand Alone (`0`) as
+an explicit selection. Unsupported games show
 Not Supported in both. Linked Cabinets connects/disconnects Model 1 COMM
 independently of the selected native role. ANRS applies role/identity even with
 NVRAM Settings disabled, hides and synchronizes managed native selectors, and

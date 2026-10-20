@@ -9,7 +9,7 @@ pub const KEYS: [&CStr; 6] = [
 ];
 pub const UNSUPPORTED_LINK: &CStr = c"tgpulse_next_linked_cabinets_unsupported";
 pub const UNSUPPORTED_ROLE: &CStr = c"tgpulse_next_automatic_network_unsupported";
-pub const ROLE_HELP: &CStr = c"Apply the native role and game identity independently of Linked Cabinets, even with NVRAM Settings disabled. Disabled restores manual management. Managed native fields are hidden; unrelated settings are preserved. Effective changes reset automatically when returning to the game.";
+pub const ROLE_HELP: &CStr = c"Apply the native role and game identity independently of Linked Cabinets, even with NVRAM Settings (Service Menu) disabled. Disabled restores manual management. Managed native fields are hidden; unrelated settings are preserved. Effective changes reset automatically when returning to the game.";
 pub const LINK_HELP: &CStr = c"Select the total number of linked cabinets, including a Relay where supported. 1 Cabinet / Disabled disconnects optional communication boards or keeps required boards in local loopback; it does not change the selected native role. Supported totals and role combinations depend on the game. Effective changes reset automatically when returning to the game.";
 const COLORS: &[(&CStr, &CStr)] = &[
     (c"-1",c"Disabled"),(c"0",c"No Link"),
@@ -17,7 +17,7 @@ const COLORS: &[(&CStr, &CStr)] = &[
     (c"3",c"Skyblue (Slave)"),(c"4",c"Pink (Slave)"),
     (c"5",c"Black (Slave)"),(c"6",c"Green (Slave)"),
     (c"7",c"Yellow (Slave)"),(c"8",c"Blue (Slave)"),
-    (c"r",c"Live"),(c"l",c"Live (Alias)"),(c"s",c"Live (Alias)"),
+    (c"r",c"Live"),
 ];
 const NUMBERS: &[(&CStr, &CStr)] = &[
     (c"-1",c"Disabled"),(c"0",c"No Link"),
@@ -25,7 +25,7 @@ const NUMBERS: &[(&CStr, &CStr)] = &[
     (c"3",c"No.3 (Yellow) (Slave)"),(c"4",c"No.4 (Green) (Slave)"),
     (c"5",c"No.5 (Black) (Slave)"),(c"6",c"No.6 (Pink) (Slave)"),
     (c"7",c"No.7 (Skyblue) (Slave)"),(c"8",c"No.8 (Orange) (Slave)"),
-    (c"r",c"Live"),(c"l",c"Live (Alias)"),(c"s",c"Live (Alias)"),
+    (c"r",c"Live"),
 ];
 const ROLES: &[(&CStr, &CStr)] = &[
     (c"-1",c"Disabled"),(c"0",c"Stand Alone"),(c"1",c"Master"),(c"2",c"Slave"),
@@ -49,8 +49,8 @@ pub fn parse(set: &str, value: &str) -> Result<Option<Preset>, ()> {
 }
 pub fn read(env: ffi::Environment, set: &str) -> Option<Preset> {
     let i = netpacket::GAMES.iter().position(|(s,_,_)| *s == set)?;
-    parse(set, option_value(env, KEYS[i]).as_deref().unwrap_or("0"))
-        .unwrap_or(Some(Preset::Standalone))
+    parse(set, option_value(env, KEYS[i]).as_deref().unwrap_or("-1"))
+        .unwrap_or(None)
 }
 pub fn manages(field: &nvram::Field) -> bool {
     netpacket::GAMES.iter().any(|(s,_,_)| *s == field.set)
@@ -110,6 +110,9 @@ mod tests {
         for alias in ["r","l","s"] {
             assert_eq!(parse("vr",alias),Ok(Some(Preset::Relay)));
             assert!(parse("wingwar",alias).is_err());
+        }
+        for set in ["vr", "vformula"] {
+            assert!(!values(set).iter().any(|(raw, _)| matches!(raw.to_bytes(), b"l" | b"s")));
         }
         let fields:Vec<_>=nvram::FIELDS.iter().filter(|f|f.set=="vformula").collect();
         let chosen=choices("vformula",Preset::Cabinet(2));

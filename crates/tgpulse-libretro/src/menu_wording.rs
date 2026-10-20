@@ -60,7 +60,7 @@ pub fn find(key: &CStr) -> Option<(&'static CStr, &'static CStr, &'static CStr)>
             Some((c"MultiPCM 2 Gain", c"Adjust this sound source's output gain without stopping its emulation when muted.", c"audio")),
         // Menu Review row 140, Order 2.
         b"tgpulse_next_nvram_settings" =>
-            Some((c"NVRAM Settings", c"Apply reviewed operator overrides to saved NVRAM while preserving unrelated fields and calibration.", c"system")),
+            Some((c"NVRAM Settings (Service Menu)", c"Apply reviewed operator overrides to saved NVRAM while preserving unrelated fields and calibration.", c"system")),
         // Menu Review row 159, Order 10.
         b"tgpulse_next_renderer" =>
             Some((c"Renderer (Restart Required)", c"Select hardware-accelerated or software rendering.", c"video")),

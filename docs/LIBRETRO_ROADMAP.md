@@ -759,3 +759,23 @@ runs pass within the [recorded coverage limits](MAME_DIRECT_HUD_2026-10-19.md).
 Public macOS installation verified against the build hash. Reasoning High;
 effort M–L; initial account forecast 2–4%; observed shared account usage 6% → 7%
 (rounded), reset 2026-10-26 19:13 Europe/Rome. No commit/push.
+
+## ANRS And Service Menu Defaults — 2026-10-20
+
+User-approved shared convention: Auto Network Role Settings defaults/falls back to Disabled (`-1`); valid explicitly saved role selections keep their meaning. The operator override switch is labelled **NVRAM Settings (Service Menu)**, retaining its existing key, `disabled`/`enabled` values and Disabled default. Automatic Initial NVRAM Setup retains Standalone/No Link for fresh saves where applicable; valid existing native saves remain authoritative when automation/overrides are disabled. Program-implied roles are preserved, with Disabled available alongside the fixed Relay choice where relevant. Reference: Framework F07/F12/F14.
+
+## Network Alias Presentation Correction — 2026-10-20
+
+Explicit user correction: `0`/`1` remain accepted Linked Cabinets parser aliases
+of `-1`; register only one `1 Cabinet / Disabled` menu choice. Remove exposed
+role-alias choices `l`/`s`, retaining their canonical `r` parsing. Apply this to
+both modern and legacy registration through the common definitions. No other
+behavior change is part of this correction. Framework and the SM2/Supermodel
+project chats were notified to align the contract, workbook and implementations.
+Verified: 94 adapter tests pass; complete modern/legacy menu audit against
+the current Framework workbook passes with no errors; artifact gate and public
+local installation pass. Linked Cabinets aliases remain covered by parser
+assertions, and the audit rejects noncanonical registered choices.
+Installed/build SHA-256: `4e4881262f8477464b68f0bb6387428efbea40f507d54c62b05c467ab44f488f`.
+Framework confirms F08/F14, verification guide and workbook corrected.
+SM2-Emu and Supermodel chats received the correction request. No commit/push.

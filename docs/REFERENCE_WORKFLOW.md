@@ -765,3 +765,14 @@ VR / macOS RetroArch 1.22.2 RGUI for Normal and Normal + Test/Service while
 paused, without Resume/Restart. The isolated session exits normally and leaves
 no RetroArch process. See LIBRETRO_LCF_PROFILE_UI_2026-10-13.md; this closes the
 previously pending visual check without extending physical-device claims.
+
+## Explicit Approval Before Contract Deviations — 2026-10-20
+
+Do not extend an explicit requested label change into new visible values,
+compatibility choices or behavior. Obtain user approval before implementing
+any deviation or extension of the approved contract. In F14, accepted aliases
+are parser inputs only: Linked Cabinets exposes one `1 Cabinet / Disabled`
+choice (`-1`), not additional `0`/`1` choices or labels ending in `(Alias)`.
+Role aliases `l`/`s` likewise resolve to canonical `r` without extra menu rows.
+The network-specific contract takes precedence over generic compatibility
+registration rules. Preserve unrelated in-progress changes.

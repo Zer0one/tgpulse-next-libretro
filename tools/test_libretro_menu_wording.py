@@ -18,7 +18,7 @@ LINK_HELP = ('Select the total number of linked cabinets, including a Relay wher
              '1 Cabinet / Disabled disconnects optional communication boards or keeps required boards in local loopback; '
              'it does not change the selected native role. Supported totals and role combinations depend on the game. '
              'Effective changes reset automatically when returning to the game.')
-ROLE_HELP = ('Apply the native role and game identity independently of Linked Cabinets, even with NVRAM Settings disabled. '
+ROLE_HELP = ('Apply the native role and game identity independently of Linked Cabinets, even with NVRAM Settings (Service Menu) disabled. '
              'Disabled restores manual management. Managed native fields are hidden; unrelated settings are preserved. '
              'Effective changes reset automatically when returning to the game.')
 SETS = ('vr', 'vformula', 'wingwar', 'wingwaru', 'wingwarj', 'wingwar360')
@@ -145,9 +145,9 @@ def main():
     for name in SETS:
         lk, rk = 'tgpulse_next_linked_cabinets_' + name, 'tgpulse_next_automatic_network_' + name
         check(modern[lk]['help'] == LINK_HELP and modern[rk]['help'] == ROLE_HELP, name + ': common help')
-        check(modern[lk]['default'] == '-1' and modern[rk]['default'] == '0', name + ': F14 defaults')
+        check(modern[lk]['default'] == '-1' and modern[rk]['default'] == '-1', name + ': F14 defaults')
         check(list(modern).index(rk) == list(modern).index(lk) + 1, name + ': adjacency')
-        link_values = [['-1', '1 Cabinet / Disabled']] + [[str(i), f'{i} Cabinets'] for i in range(2, 3 if name.startswith('wingwar') else 10)] + [['0', '1 Cabinet / Disabled (Alias)'], ['1', '1 Cabinet / Disabled (Alias)']]
+        link_values = [['-1', '1 Cabinet / Disabled']] + [[str(i), f'{i} Cabinets'] for i in range(2, 3 if name.startswith('wingwar') else 10)]
         check(modern[lk]['values'] == link_values, name + ': topology values/labels/order')
         roles = [['-1', 'Disabled'], ['0', 'Stand Alone' if name.startswith('wingwar') else 'No Link']]
         if name.startswith('wingwar'):
@@ -155,7 +155,7 @@ def main():
         else:
             colors = ['Red', 'Blue', 'Yellow', 'Green', 'Black', 'Pink', 'Skyblue', 'Orange'] if name == 'vformula' else ['Red', 'Orange', 'Skyblue', 'Pink', 'Black', 'Green', 'Yellow', 'Blue']
             roles += [[str(i), (f'No.{i} ({color})' if name == 'vformula' else color) + (' (Master)' if i == 1 else ' (Slave)')] for i, color in enumerate(colors, 1)]
-            roles += [['r', 'Live'], ['l', 'Live (Alias)'], ['s', 'Live (Alias)']]
+            roles += [['r', 'Live']]
         check(modern[rk]['values'] == roles, name + ': native role values/labels/order')
     for suffix, name in [('linked_cabinets', 'Linked Cabinets'), ('automatic_network', 'Auto Network Role Settings')]:
         d = modern['tgpulse_next_' + suffix + '_unsupported']
