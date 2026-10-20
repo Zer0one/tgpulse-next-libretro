@@ -15,7 +15,7 @@ Special: Sega NetMerc profile and right-stick MVD controls; see
 [controls and verification](docs/LIBRETRO_U2_CONTROLS.md). U5 adds frontend-owned
 MVD sensors, three-second calibration, gravity stabilization and adjustable
 drift compensation (50% default); see
-[sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1 preview
+[sensor integration](docs/LIBRETRO_U5_SENSORS.md). The current Model 1
 release line is 0.1.0.13.
 
 ## Current Source And Downloads
@@ -73,10 +73,10 @@ Potential improvements to carry from Model 1 into the planned Model 2 and
 complete Libretro cores are tracked separately in the
 [core family improvement register](docs/FAMILY_CORE_IMPROVEMENTS.md).
 
-Model 1 previews are packaged through the
+Model 1 releases are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
 Version [0.1.0.13](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.13)
-is available as an experimental prerelease with five verified native platform packages.
+is available as a regular release with five verified native platform packages.
 Publication and downloaded-package verification are recorded in the CI report.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)

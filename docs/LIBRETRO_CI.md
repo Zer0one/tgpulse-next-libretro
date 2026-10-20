@@ -124,7 +124,7 @@ the published core filename with its `.info`. Archives use the source commit
 timestamp and ordered entries. Compiler/host differences may still change
 binary bytes; this is not a claim of reproducibility across different hosts.
 
-## Publish a preview
+## Publish A Release
 
 Publication requires explicit user authorization. Prepare English release
 notes under `docs/releases/VERSION.md`, keep the runtime/info version
@@ -137,7 +137,7 @@ The public core version follows the agreed four-component convention:
 three-component SemVer; its upstream/workspace version remains `0.1.0` and
 is not substituted for the public Libretro version.
 
-A tag push builds the matrix and publishes a prerelease only after every gate
+A tag push builds the matrix and publishes a regular release only after every gate
 passes. A workflow dispatch with `release_tag=vVERSION` checks out that exact
 existing tag and follows the same gates. An empty dispatch builds without
 publishing. For the first workflow commit, `[skip ci]` avoids a duplicate
@@ -551,7 +551,7 @@ reset 2026-10-24 22:40:57 Europe/Rome.
 ## Verified 0.1.0.13 Publication — 2026-10-20
 
 - Source/tag: `v0.1.0.13`, commit `3f2484f97dcf88fea98cb23d62ae0e3336ebd992`, published from `main`.
-- [Release 0.1.0.13](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.13), marked prerelease.
+- [Release 0.1.0.13](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.13), published as a regular release.
 - [CI run 39482287058](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/39482287058): all five native targets and publication passed, using the shared Makefile and existing machine/adapter, artifact/lifecycle, source-inventory and package gates.
 - Downloaded all five ZIPs and SHA256SUMS. External/internal checksums, exact tagged revision, version, Model 1 scope, complete file inventories and licenses passed. Linux/macOS contain 194 files each; Windows contains 202.
 - Local release preflight passed 94 adapter tests, complete modern/legacy menu registration against the current Framework workbook and the native artifact gate. The local build was installed with backup before CI publication. Then the downloaded GitHub Apple Silicon core passed the native artifact gate and replaced it under the public name.
@@ -562,3 +562,12 @@ reset 2026-10-24 22:40:57 Europe/Rome.
 Ignored receipts: `outputs/release-0.1.0.13/verification.json`, `release.json`,
 menu audit, local logs/install receipt and `github-artifact.log`/`github-install.json`.
 Observed account usage 12% → 13% (rounded, shared); reset 2026-10-27 08:10 Europe/Rome.
+
+### Release Classification Correction — 2026-10-20
+
+The user rejected retaining the inherited Preview/prerelease classification.
+Version 0.1.0.13 is a regular release titled Model 1; the GitHub release metadata
+and current documentation are corrected without changing its tag or binaries.
+Future workflow publications use regular releases without a Preview suffix.
+Earlier release records retain their historical classification. This metadata
+correction does not add gameplay or device-validation claims.
