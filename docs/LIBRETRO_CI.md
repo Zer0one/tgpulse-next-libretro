@@ -546,3 +546,19 @@ Ignored receipts: `outputs/release-0.1.0.12/verification.json`, local build/test
 logs, `local-install.json`, `github-artifact.log` and `github-install.json`.
 Account usage observed 69% → 72% (rounded, shared across concurrent work);
 reset 2026-10-24 22:40:57 Europe/Rome.
+
+
+## Verified 0.1.0.13 Publication — 2026-10-20
+
+- Source/tag: `v0.1.0.13`, commit `3f2484f97dcf88fea98cb23d62ae0e3336ebd992`, published from `main`.
+- [Release 0.1.0.13](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.13), marked prerelease.
+- [CI run 39482287058](https://github.com/Zer0one/tgpulse-next-libretro/actions/runs/39482287058): all five native targets and publication passed, using the shared Makefile and existing machine/adapter, artifact/lifecycle, source-inventory and package gates.
+- Downloaded all five ZIPs and SHA256SUMS. External/internal checksums, exact tagged revision, version, Model 1 scope, complete file inventories and licenses passed. Linux/macOS contain 194 files each; Windows contains 202.
+- Local release preflight passed 94 adapter tests, complete modern/legacy menu registration against the current Framework workbook and the native artifact gate. The local build was installed with backup before CI publication. Then the downloaded GitHub Apple Silicon core passed the native artifact gate and replaced it under the public name.
+- Final installed GitHub core SHA-256: `f932c2fd104b3f3ae1f4cbefb40c09fda300c2a335c447e4970a9f7dea15fd35`. Metadata SHA-256: `710b5be8fd365fb2080d632c99c6c507edc3e73b37a96d371e5a4c2cd9575ddc`. Both match the released package and installed files; replaced local files were backed up.
+- Retained the bounded MAME renderer verification recorded in the direct/HUD and wireframe reports. This publication adds no new exhaustive gameplay or physical-controller qualification. The reported VR startup-credit symptom remains unconfirmed and no AINS patch is included.
+- No working/release branch was created. Native Save RAM and Save State format 5 remain unchanged.
+
+Ignored receipts: `outputs/release-0.1.0.13/verification.json`, `release.json`,
+menu audit, local logs/install receipt and `github-artifact.log`/`github-install.json`.
+Observed account usage 12% → 13% (rounded, shared); reset 2026-10-27 08:10 Europe/Rome.

@@ -76,7 +76,7 @@ complete Libretro cores are tracked separately in the
 Model 1 previews are packaged through the
 [Libretro build/release workflow](docs/LIBRETRO_CI.md).
 Version [0.1.0.13](https://github.com/Zer0one/tgpulse-next-libretro/releases/tag/v0.1.0.13)
-is prepared as an experimental prerelease for the five native platform targets.
+is available as an experimental prerelease with five verified native platform packages.
 Publication and downloaded-package verification are recorded in the CI report.
 See the [installation guide](docs/LIBRETRO_RELEASE.md) for platform requirements
 and [GitHub Releases](https://github.com/Zer0one/tgpulse-next-libretro/releases)
