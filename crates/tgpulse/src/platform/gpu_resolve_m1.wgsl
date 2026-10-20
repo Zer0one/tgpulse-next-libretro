@@ -27,7 +27,10 @@ fn resolve(@builtin(global_invocation_id) gid: vec3<u32>) {
     // pixel becomes an out_scale x out_scale block) rather than resample it.
     let native = vec2<u32>(gid.x / rparams.out_scale, gid.y / rparams.out_scale);
     var fg = 0u;
-    if ((rparams.pad & 2u) != 0u) {
+    if ((rparams.pad & 8u) != 0u) {
+        // Native HUD and the masked 0x41 pass are already in the dense scene.
+        fg = 0u;
+    } else if ((rparams.pad & 2u) != 0u) {
         let fg_x = min(native.x * rparams.bg_width / rparams.width, rparams.bg_width - 1u);
         fg = fg_tiles.data[native.y * rparams.bg_width + fg_x];
     } else {

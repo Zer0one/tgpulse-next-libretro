@@ -1,4 +1,10 @@
 MAME reference implementations adapted in:
+  crates/tgpulse-core/src/model1_video.rs — wireframe viewport clipping;
+    model1_v.cpp copyright-holder Olivier Galibert, commit 2194d88adc51
+  crates/tgpulse-core/src/model1_video/direct.rs and Model 1 CPU/GPU
+    composition — direct polygons and above-HUD brightness stencil;
+    model1_v.cpp copyright-holder Olivier Galibert, commits 70e0c03dadaf,
+    1ac4de6a5dae and 9388840bcd07
   crates/tgpulse-core/src/model1io2/r360.rs — copyright-holder Olivier Galibert
   crates/tgpulse-core/src/model1comm.rs — copyright-holder Ariane Fugmann
   crates/tgpulse-core/src/mpeg.rs and mpeg/tables.rs — copyright-holder

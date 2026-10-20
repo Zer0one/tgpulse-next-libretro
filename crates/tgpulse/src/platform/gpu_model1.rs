@@ -165,7 +165,10 @@ impl Model1Compute {
         };
 
         let quad_buf = storage("m1 quads", bytemuck::cast_slice(quads));
-        let bg = storage("m1 background tiles", bytemuck::cast_slice(background));
+        let above_hud = quads.iter().any(|q| q.pad[0] != 0);
+        let mut tiles = background.to_vec();
+        if above_hud { tiles.extend_from_slice(foreground); }
+        let bg = storage("m1 background/HUD tiles", bytemuck::cast_slice(&tiles));
         let fg = storage("m1 foreground tiles", bytemuck::cast_slice(foreground));
 
         let (ranges, indices) = gpu_quad_bins(quads, wide_w);
@@ -200,7 +203,8 @@ impl Model1Compute {
                     out_stride as u32,
                     self.out_scale,
                     self.ss,
-                    u32::from(smooth_shadows) | (u32::from(stretch_2d) << 1),
+                    u32::from(smooth_shadows) | (u32::from(stretch_2d) << 1)
+                        | (u32::from(above_hud) << 3),
                     (wide_w as u32).div_ceil(16),
                     NATIVE_W as u32,
                 ]),

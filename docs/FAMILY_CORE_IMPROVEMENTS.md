@@ -1,5 +1,15 @@
 # TGPulse-Next Core Family Improvement Register
 
+## Bound Wireframe Traversal Before Rasterization — 2026-10-19
+
+Model 1 Software now clips endpoints before integer Bresenham traversal,
+following MAME `2194d88adc51`. A per-pixel bounds check alone does not bound
+execution time or prevent arithmetic overflow. The complete core reuses this
+Model 1 renderer. For a future Model 2 adapter, inspect its own rasterizer and
+coordinate limits first; no Model 2 defect or patch is inferred. GPU uses
+bounded per-pixel coverage and was not changed. See [source adaptation and
+verification limits](MAME_WIREFRAME_CLIPPING_2026-10-19.md).
+
 ## Audio Reset Verification — 2026-10-18
 
 For future M2/Complete adapters, reuse the PCM/reset test host and isolated
@@ -169,3 +179,12 @@ For future native driving feedback, reuse frontend-processed steering only for
 existing synthetic cornering with the 5% onset; preserve native effects and
 standalone policy. ABI callback tests and bounded frontend startup are distinct
 from physical controls and visible paused-menu acceptance.
+
+## Model 1 Direct/HUD Maintenance — 2026-10-19
+
+Retain the shared direct-polygon decoder and above-HUD composition in the future
+Complete core's Model 1 renderer. Keep native scene/HUD composition separate
+from frontend Timing/Diagnostic UI; reuse buffers conditionally without new
+binding layouts. Model 2 must retain its own command interpretation and layer
+rules. See [implementation and bounded evidence](MAME_DIRECT_HUD_2026-10-19.md)
+and B21; no future-core implementation is authorized by this record.

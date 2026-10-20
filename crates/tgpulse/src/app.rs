@@ -1266,14 +1266,10 @@ impl App {
                     session.tiles.render_foreground(sys, &mut session.foreground);
                     model1_video::gpu_quads_ws(sys, native_width)
                 } else {
-                    model1_video::render_below_hud(sys, &mut session.background);
+                    let stats = model1_video::render_below_hud(sys, &mut session.background);
                     session.tiles.render_foreground(sys, &mut session.foreground);
-                    for (dst, &src) in session.background.iter_mut().zip(session.foreground.iter())
-                    {
-                        if src != 0 {
-                            *dst = src;
-                        }
-                    }
+                    model1_video::compose_hud(sys, &mut session.background,
+                        &session.foreground, stats.above_hud);
                     session.foreground.fill(0);
                     Vec::new()
                 };

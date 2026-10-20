@@ -7,8 +7,14 @@
 use crate::model1::Model1System;
 use crate::tilemap::{SCREEN_H, SCREEN_W};
 
+mod direct;
 mod state;
 pub use state::VideoState;
+
+#[cfg(test)]
+mod wireframe_tests;
+#[cfg(test)]
+mod direct_tests;
 
 const TGP_RAM_BASE: u32 = 0x40000;
 const TGP_RAM_WORDS: usize = 0x100000 - TGP_RAM_BASE as usize;
@@ -205,6 +211,8 @@ impl View {
 #[derive(Default)]
 pub struct Model1RenderStats {
     pub objects: usize,
+    /// The selected list contains objects requiring the post-HUD stencil pass.
+    pub above_hud: bool,
     pub source_quads: usize,
     pub clipped_quads: usize,
     pub pixels: usize,
@@ -344,7 +352,8 @@ fn u16_at(memory: &[u8], index: usize) -> u16 {
 
 fn skip_direct(list: &[u8], mut offset: usize) -> usize {
     offset += 18;
-    for _ in 0..100_000 {
+    for _ in 0..MAX_LIST_COMMANDS {
+        if offset + 4 > list.len() / 2 { return list.len() / 2; }
         let primitive_type = readi(list, offset + 2) & 3;
         if primitive_type == 0 {
             return offset + 4;
@@ -437,6 +446,9 @@ pub(crate) fn scan_uploads(system: &mut Model1System) {
     let mut offset = 0usize;
 
     for _ in 0..MAX_LIST_COMMANDS {
+        if offset >= list.len() / 2 {
+            break;
+        }
         match readi(&list, offset) {
             0 => offset += 2,
             1 | 0x41 => offset += 8,
@@ -881,18 +893,62 @@ fn write_pixel(
     stats.pixels += 1;
 }
 
+// Liang-Barsky clipping, adapted from MAME model1_v.cpp, 2194d88adc51.
+// Use f64 before subtracting: projected endpoints may span the entire i32 range.
+// Return in-range endpoints unchanged so ordinary Bresenham coverage is stable.
+fn clip_wireframe(view: &View, line: [i32; 4]) -> Option<[i32; 4]> {
+    let xmin = view.px1.max(0);
+    let xmax = view.px2.min(SCREEN_W as i32 - 1);
+    let ymin = view.y1.max(0);
+    let ymax = view.y2.min(SCREEN_H as i32 - 1);
+    if xmin > xmax || ymin > ymax {
+        return None;
+    }
+    let [x0, y0, x1, y1] = line;
+    let (x, y) = (f64::from(x0), f64::from(y0));
+    let (dx, dy) = (f64::from(x1) - x, f64::from(y1) - y);
+    let p = [-dx, dx, -dy, dy];
+    let q = [x - f64::from(xmin), f64::from(xmax) - x,
+        y - f64::from(ymin), f64::from(ymax) - y];
+    let (mut start, mut end) = (0.0_f64, 1.0_f64);
+    for (p, q) in p.into_iter().zip(q) {
+        if p == 0.0 {
+            if q < 0.0 {
+                return None;
+            }
+        } else if p < 0.0 {
+            start = start.max(q / p);
+        } else {
+            end = end.min(q / p);
+        }
+    }
+    if start > end {
+        return None;
+    }
+    let endpoint = |t: f64| {
+        [((x + t * dx).round() as i32).clamp(xmin, xmax),
+         ((y + t * dy).round() as i32).clamp(ymin, ymax)]
+    };
+    let a = if start > 0.0 { endpoint(start) } else { [x0, y0] };
+    let b = if end < 1.0 { endpoint(end) } else { [x1, y1] };
+    Some([a[0], a[1], b[0], b[1]])
+}
+
 // Endpoints, colour, depth and the two layers it writes.
 #[allow(clippy::too_many_arguments)]
 fn draw_line(
     framebuffer: &mut [u32],
     view: &View,
-    mut x0: i32,
-    mut y0: i32,
+    x0: i32,
+    y0: i32,
     x1: i32,
     y1: i32,
     quad: Quad,
     stats: &mut Model1RenderStats,
 ) {
+    let Some([mut x0, mut y0, x1, y1]) = clip_wireframe(view, [x0, y0, x1, y1]) else {
+        return;
+    };
     let dx = (x1 - x0).abs();
     let sx = if x0 < x1 { 1 } else { -1 };
     let dy = -(y1 - y0).abs();
@@ -1249,6 +1305,9 @@ fn fill_quad(framebuffer: &mut [u32], view: &View, quad: Quad, stats: &mut Model
 
 /// Where the display-list walk sends its z-sorted quads: the CPU rasterizer's
 /// framebuffer, or a stream for the GPU compute rasterizer.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RenderPass { Below, Above }
+
 enum RasterSink<'a> {
     Framebuffer(&'a mut [u32]),
     Quads(&'a mut Vec<GpuQuad>),
@@ -1259,6 +1318,7 @@ fn draw_queued(
     view: &View,
     queue: &mut Vec<Quad>,
     stats: &mut Model1RenderStats,
+    pass: RenderPass,
 ) {
     // Sorting indices avoids moving full quads through the stable painter sort.
     // Equal-depth polygons keep their display-list order.
@@ -1269,15 +1329,18 @@ fn draw_queued(
         let quad = queue[index];
         match sink {
             RasterSink::Framebuffer(framebuffer) => fill_quad(framebuffer, view, quad, stats),
-            RasterSink::Quads(out) => out.push(GpuQuad::new(view, &quad)),
+            RasterSink::Quads(out) => {
+                let mut q = GpuQuad::new(view, &quad);
+                q.pad[0] = u32::from(pass == RenderPass::Above);
+                out.push(q);
+            },
         }
     }
     queue.clear();
 }
 
-/// Renders command 0x01 objects between the background and category-1 HUD
-/// tilemaps. Direct polygons and command 0x41 are deliberately left for later
-/// milestones; Virtua Racing's measured 3000-frame workload uses neither.
+/// Render objects (0x01) and direct polygons (0x02) in their shared
+/// per-viewport depth order, below the category-1 HUD tilemaps.
 pub fn render_below_hud(system: &mut Model1System, framebuffer: &mut [u32]) -> Model1RenderStats {
     let mut stats = Model1RenderStats::default();
     if framebuffer.len() < SCREEN_W * SCREEN_H {
@@ -1288,8 +1351,30 @@ pub fn render_below_hud(system: &mut Model1System, framebuffer: &mut [u32]) -> M
         &mut RasterSink::Framebuffer(framebuffer),
         &mut stats,
         496.0,
+        RenderPass::Below,
     );
     stats
+}
+
+/// Composite native HUD tiles, then 0x41 objects through MAME's near-black
+/// stencil. The snapshot is allocated only for lists that actually use 0x41.
+pub fn compose_hud(system: &mut Model1System, framebuffer: &mut [u32],
+    foreground: &[u32], above_hud: bool) {
+    for (pixel, &fg) in framebuffer.iter_mut().zip(foreground) {
+        if fg != 0 { *pixel = fg; }
+    }
+    if !above_hud || framebuffer.len() < SCREEN_W * SCREEN_H { return; }
+    let snapshot = framebuffer.to_vec();
+    let mut stats = Model1RenderStats::default();
+    walk_render_list(system, &mut RasterSink::Framebuffer(framebuffer), &mut stats,
+        496.0, RenderPass::Above);
+    for (pixel, old) in framebuffer.iter_mut().zip(snapshot) {
+        if hud_feature(old) { *pixel = old; }
+    }
+}
+
+fn hud_feature(pixel: u32) -> bool {
+    ((pixel >> 16) & 255) > 8 || ((pixel >> 8) & 255) > 8 || (pixel & 255) > 8
 }
 
 /// The GPU path: same walk, same sort, but the quads go to a stream the
@@ -1310,7 +1395,12 @@ pub fn gpu_quads_ws(system: &mut Model1System, wide_w: f32) -> Vec<GpuQuad> {
         &mut RasterSink::Quads(&mut quads),
         &mut stats,
         wide_w,
+        RenderPass::Below,
     );
+    if stats.above_hud {
+        walk_render_list(system, &mut RasterSink::Quads(&mut quads), &mut stats,
+            wide_w, RenderPass::Above);
+    }
     quads
 }
 
@@ -1319,6 +1409,7 @@ fn walk_render_list(
     sink: &mut RasterSink,
     stats: &mut Model1RenderStats,
     wide_w: f32,
+    pass: RenderPass,
 ) {
     if system.listctl[1] & 0x1f != 0x1f {
         return;
@@ -1337,21 +1428,25 @@ fn walk_render_list(
     let mut offset = 0usize;
 
     for _ in 0..MAX_LIST_COMMANDS {
+        if offset >= list.len() / 2 { break; }
         match readi(&list, offset) {
             0 => offset += 2,
-            1 => {
+            command @ (1 | 0x41) => {
                 let texture = readi(&list, offset + 2);
                 let polygon = readi(&list, offset + 4);
                 let size = readi(&list, offset + 6);
-                push_object(
-                    system, &view, texture, polygon, size, &mut old_z, &mut queue, stats,
-                );
+                stats.above_hud |= command == 0x41;
+                if (command == 0x41) == (pass == RenderPass::Above) {
+                    push_object(system, &view, texture, polygon, size, &mut old_z,
+                        &mut queue, stats);
+                }
                 offset += 8;
             }
-            0x41 => offset += 8,
-            2 => offset = skip_direct(&list, offset),
+            2 => offset = if pass == RenderPass::Below {
+                direct::push_direct(system, &view, &list, offset, &mut queue, stats)
+            } else { skip_direct(&list, offset) },
             3 => {
-                draw_queued(sink, &view, &mut queue, stats);
+                draw_queued(sink, &view, &mut queue, stats, pass);
 
                 let xc = readi16(&list, offset + 4) as i32;
                 let yc = 383 - (readi16(&list, offset + 6) as i32 - 39);
@@ -1429,5 +1524,5 @@ fn walk_render_list(
         }
     }
 
-    draw_queued(sink, &view, &mut queue, stats);
+    draw_queued(sink, &view, &mut queue, stats, pass);
 }

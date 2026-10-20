@@ -10,7 +10,7 @@ pub const KEYS: [&CStr; 6] = [
 pub const UNSUPPORTED_LINK: &CStr = c"tgpulse_next_linked_cabinets_unsupported";
 pub const UNSUPPORTED_ROLE: &CStr = c"tgpulse_next_automatic_network_unsupported";
 pub const ROLE_HELP: &CStr = c"Apply the native role and game identity independently of Linked Cabinets, even with NVRAM Settings disabled. Disabled restores manual management. Managed native fields are hidden; unrelated settings are preserved. Effective changes reset automatically when returning to the game.";
-pub const LINK_HELP: &CStr = c"Select the total number of linked cabinets, including a Relay where supported. Disabled disconnects optional communication boards or keeps required boards in local loopback; it does not change the selected native role. Supported totals and role combinations depend on the game. Effective changes reset automatically when returning to the game.";
+pub const LINK_HELP: &CStr = c"Select the total number of linked cabinets, including a Relay where supported. 1 Cabinet / Disabled disconnects optional communication boards or keeps required boards in local loopback; it does not change the selected native role. Supported totals and role combinations depend on the game. Effective changes reset automatically when returning to the game.";
 const COLORS: &[(&CStr, &CStr)] = &[
     (c"-1",c"Disabled"),(c"0",c"No Link"),
     (c"1",c"Red (Master)"),(c"2",c"Orange (Slave)"),

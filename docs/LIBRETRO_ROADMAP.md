@@ -712,3 +712,50 @@ the final build changes only the Aspect Ratio help to the current Framework
 workbook wording. Local public core installed atomically, matching SHA-256
 `55b6b8931841c5b1a82b19421ed6b6e23a80c489655923adca1c3ac5133acc68`; matching info and deployment-protected files unchanged.
 Evidence: `outputs/widescreen-live-selector-20261018/`. No commit or push.
+
+
+## MAME Wireframe Clipping Maintenance — 2026-10-19
+
+Reference mapping: current SM2 PORTING_PLAN Direct MAME Audio Review supplies
+the direct-device adaptation/bounded old-new comparison method; Supermodel
+ROADMAP U03 supplies renderer-specific edge-fix and unchanged-scene comparison
+discipline. Neither provides this Model 1 wireframe implementation. The actual
+behavior reference is MAME `2194d88adc5172c316e0eda805c61ded7e9e1810`.
+
+User-authorized scope: Software wireframe endpoint clipping before integer
+Bresenham traversal, preserving existing in-viewport coverage and native machine
+state. Keep GPU's bounded closed-form path, projection, shaders, direct polygons,
+above-HUD features and Model 2 unchanged. This is targeted maintenance, not a
+new port milestone or authorization for the other reviewed MAME candidates.
+Status: Complete Locally. The target-specific adaptation additionally intersects
+the viewport with the Software framebuffer so traversal remains bounded even
+for oversized viewport coordinates. Four focused clipping tests, 250 Model 1
+core tests (one existing ignored), 93 adapter tests and the nine-set/300-frame
+video/PCM/Save RAM/state comparison pass. Isolated Wing War Software RetroArch
+completed 600 frames. macOS build/artifact and public installation hash checks
+pass. GPU and Model 2 code remain unchanged; no other-platform runtime claim.
+See [implementation and evidence](MAME_WIREFRAME_CLIPPING_2026-10-19.md).
+Reasoning High; effort S–M; initial usage estimate 0.5–1%; observed account usage
+5% → 5% (rounded/shared), reset 2026-10-26 19:13 Europe/Rome. No commit/push.
+
+
+## MAME Direct Polygons And Above-HUD Composition — 2026-10-19
+
+Reference mapping: SM2 PORTING_PLAN section 8 renderer integration supplies
+shared native geometry and framebuffer/state comparison discipline; Supermodel
+ROADMAP U03 supplies same-state renderer-edge comparisons. Neither implements
+Model 1 display-list commands. The actual reference is current official MAME
+`model1_v.cpp`, including 70e0c03dad, 1ac4de6a5d and 9388840bcd: direct polygons
+share the below-HUD sort; 0x41 uses the above-HUD brightness stencil.
+
+User authorized all integrations in the reviewed group that require no product
+choice. Scope: direct decoder/projection/color/moiré and degenerate suppression,
+above-HUD objects and equivalent Software/Vulkan/OpenGL composition. Preserve
+native machine state, existing renderer math/optimizations, UI priority and the
+buildable standalone. No ROM/settings campaign or unrelated GPU replacement.
+Status: Complete Locally. Core/adapter tests, standalone check, macOS/Linux
+builds, nine-set old/new state/output comparison and actual Vulkan/OpenGL/GLES
+runs pass within the [recorded coverage limits](MAME_DIRECT_HUD_2026-10-19.md).
+Public macOS installation verified against the build hash. Reasoning High;
+effort M–L; initial account forecast 2–4%; observed shared account usage 6% → 7%
+(rounded), reset 2026-10-26 19:13 Europe/Rome. No commit/push.

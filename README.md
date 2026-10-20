@@ -20,6 +20,14 @@ release line is 0.1.0.12.
 
 ## Current Source And Downloads
 
+Current `main` additionally includes MAME-derived Model 1 wireframe clipping,
+direct display-list polygons and above-HUD composition across Software,
+Vulkan and OpenGL/GLES. See the [wireframe report](docs/MAME_WIREFRAME_CLIPPING_2026-10-19.md)
+and [direct/HUD report](docs/MAME_DIRECT_HUD_2026-10-19.md) for verification and
+coverage limits. Linked Cabinets now labels its local selection
+**1 Cabinet / Disabled**, retaining the existing saved values and behavior.
+These source updates are not yet included in the published 0.1.0.12 packages.
+
 Version **0.1.0.12** updates Widescreen Mode:
 
 - Disabled is the default; the two expansion modes report 16:9 with Aspect Ratio
@@ -77,8 +85,8 @@ build entry point. Both GitHub release jobs and [GitLab Rust-template jobs](.git
 invoke it for the five desktop targets.
 These source-side jobs are prepared for ecosystem review; they have not yet
 run on Libretro infrastructure. The [submission review](docs/LIBRETRO_SUPER_PR_REVIEW.md)
-records the proposed public metadata and Linux recipe separately from the
-GitHub release workflow.
+records the merged public metadata registration and its version-update PR
+separately from source-side CI and the GitHub release workflow.
 
 The [preliminary Model 1 frontend map](docs/LIBRETRO_MODEL1_FRONTEND_MAP.md)
 records the first porting checkpoint: applicable SM2-Emu patterns, TGPulse

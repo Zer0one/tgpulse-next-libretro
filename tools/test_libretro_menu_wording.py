@@ -15,7 +15,7 @@ from test_libretro_lcf_options import LCFHost
 from test_libretro_netmerc_lcd import Options
 
 LINK_HELP = ('Select the total number of linked cabinets, including a Relay where supported. '
-             'Disabled disconnects optional communication boards or keeps required boards in local loopback; '
+             '1 Cabinet / Disabled disconnects optional communication boards or keeps required boards in local loopback; '
              'it does not change the selected native role. Supported totals and role combinations depend on the game. '
              'Effective changes reset automatically when returning to the game.')
 ROLE_HELP = ('Apply the native role and game identity independently of Linked Cabinets, even with NVRAM Settings disabled. '
@@ -147,7 +147,7 @@ def main():
         check(modern[lk]['help'] == LINK_HELP and modern[rk]['help'] == ROLE_HELP, name + ': common help')
         check(modern[lk]['default'] == '-1' and modern[rk]['default'] == '0', name + ': F14 defaults')
         check(list(modern).index(rk) == list(modern).index(lk) + 1, name + ': adjacency')
-        link_values = [['-1', 'Disabled']] + [[str(i), f'{i} Cabinets'] for i in range(2, 3 if name.startswith('wingwar') else 10)] + [['0', 'Disabled (Alias)'], ['1', 'Disabled (Alias)']]
+        link_values = [['-1', '1 Cabinet / Disabled']] + [[str(i), f'{i} Cabinets'] for i in range(2, 3 if name.startswith('wingwar') else 10)] + [['0', '1 Cabinet / Disabled (Alias)'], ['1', '1 Cabinet / Disabled (Alias)']]
         check(modern[lk]['values'] == link_values, name + ': topology values/labels/order')
         roles = [['-1', 'Disabled'], ['0', 'Stand Alone' if name.startswith('wingwar') else 'No Link']]
         if name.startswith('wingwar'):

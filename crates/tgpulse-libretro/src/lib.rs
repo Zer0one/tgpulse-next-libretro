@@ -1318,9 +1318,9 @@ fn options() -> &'static OptionStorage {
         definitions.push(option_definition(key,label,c"Networking is not supported by this game.",c"system",&[(c"Not Supported",c"Not Supported")],c"Not Supported"));
     }
     for (i, (set,key,max)) in netpacket::GAMES.into_iter().enumerate() {
-        let mut values=vec![(c"-1",c"Disabled"),(c"2",c"2 Cabinets")];
+        let mut values=vec![(c"-1",c"1 Cabinet / Disabled"),(c"2",c"2 Cabinets")];
         if max>2 {values.extend([(c"3",c"3 Cabinets"),(c"4",c"4 Cabinets"),(c"5",c"5 Cabinets"),(c"6",c"6 Cabinets"),(c"7",c"7 Cabinets"),(c"8",c"8 Cabinets"),(c"9",c"9 Cabinets")]);}
-        values.extend([(c"0",c"Disabled (Alias)"),(c"1",c"Disabled (Alias)")]);
+        values.extend([(c"0",c"1 Cabinet / Disabled (Alias)"),(c"1",c"1 Cabinet / Disabled (Alias)")]);
         definitions.push(option_definition(key,c"Linked Cabinets",automatic_network::LINK_HELP,c"system",&values,c"-1"));
         definitions.push(option_definition(automatic_network::KEYS[i],c"Auto Network Role Settings",automatic_network::ROLE_HELP,c"system",automatic_network::values(set),c"0"));
     }
@@ -2147,13 +2147,10 @@ fn load_game(core: &mut Core, info: *const ffi::GameInfo) -> Result<Game, String
 
 fn render(game: &mut Game) {
     game.tiles.render_background(&game.machine, &mut game.pixels);
-    model1_video::render_below_hud(&mut game.machine, &mut game.pixels);
+    let stats = model1_video::render_below_hud(&mut game.machine, &mut game.pixels);
     game.tiles.render_foreground(&game.machine, &mut game.foreground);
-    for (pixel, &overlay) in game.pixels.iter_mut().zip(&game.foreground) {
-        if overlay != 0 {
-            *pixel = overlay;
-        }
-    }
+    model1_video::compose_hud(&mut game.machine, &mut game.pixels,
+        &game.foreground, stats.above_hud);
 }
 
 fn collect_audio(game: &mut Game, volume: u32) {
@@ -2848,10 +2845,15 @@ pub extern "C" fn retro_run() {
             if core.settings.overlay_font > 0 || lcd_pixels.is_some() {
                 // Map the game's 2D layer first. The panel uses final output
                 // coordinates and never inherits native-layer centering/stretch.
-                gpu::map_foreground_for_panel(
-                    &game.foreground, width as usize, game.graphics.wide == 2,
-                    &mut game.panel_foreground,
-                );
+                if frame.composes_hud() {
+                    // Native HUD is already in the rasterized scene; resolve
+                    // receives only screen-space UI, so it cannot hide 0x41.
+                    game.panel_foreground.resize(width as usize * HEIGHT, 0);
+                    game.panel_foreground.fill(0);
+                } else {
+                    gpu::map_foreground_for_panel(&game.foreground, width as usize,
+                        game.graphics.wide == 2, &mut game.panel_foreground);
+                }
                 if let Some(pixels) = lcd_pixels {
                     diagnostic_overlay::draw(&mut game.panel_foreground, width as usize, HEIGHT,
                         &pixels, core.settings.diagnostic, true);

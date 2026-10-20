@@ -322,6 +322,61 @@ fn quad_covers_aa(q: Quad, qx: f32, qy: f32) -> bool {
     }
 }
 
+// Preserve the original reverse painter traversal, once per native pass.
+fn shade_pass(bg_color: u32, native: vec2<u32>, qpos: vec2<f32>, div: u32,
+    pass_id: u32) -> u32 {
+    let px = i32(native.x);
+    let py = i32(native.y);
+    let bin = (native.y >> 4u) * params.bin_stride + (native.x >> 4u);
+    let start = bins.data[bin * 2u];
+    let count = bins.data[bin * 2u + 1u];
+
+    // Reverse draw order: the CPU sorts far-to-near and overwrites, so the
+    // first covered quad walking backwards is the visible (nearest) one.
+    // div == 1 is the reference's own integer rule (gpudiff1 checks it);
+    // above that, coverage is sampled continuously for anti-aliasing.
+    let smooth_sh = (params.pad & 1u) != 0u;
+    var blend_from = 0u;
+    var have_blend = false;
+    for (var jj = 0u; jj < count; jj++) {
+        let j = count - 1u - jj;
+        let q = quads.data[bins.data[params.bin_stride * 48u + start + j]];
+        if (q.pad.x != pass_id) { continue; }
+        var covered = false;
+        if (div == 1u) {
+            covered = quad_covers(q, px, py);
+        } else {
+            covered = quad_covers_aa(q, qpos.x, qpos.y);
+        }
+        if (!covered) { continue; }
+        if (q.moire != 0u) {
+            if (smooth_sh) {
+                // Smooth shadows: this quad blends 50/50 with whatever is
+                // behind it -- remember it and keep walking back.
+                if (!have_blend) {
+                    have_blend = true;
+                    blend_from = q.color;
+                    continue;
+                }
+            } else if (((native.x ^ native.y) & 1u) != 0u) {
+                // Moire stipple drops odd checkerboard pixels (write_pixel).
+                continue;
+            }
+        }
+        var outc = q.color;
+        if (have_blend) {
+            outc = mix50(outc, blend_from);
+        }
+        return outc;
+    }
+    if (have_blend) {
+        // Nothing covered behind the shadow quad: blend with the tile layer.
+        let behind = bg_color;
+        return mix50(blend_from, behind);
+    }
+    return bg_color;
+}
+
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let div = params.out_scale * params.ss;
@@ -353,52 +408,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     pixels.data[gid.y * params.in_stride + gid.x] = bg_color;
 
-    let bin = (native.y >> 4u) * params.bin_stride + (native.x >> 4u);
-    let start = bins.data[bin * 2u];
-    let count = bins.data[bin * 2u + 1u];
-
-    // Reverse draw order: the CPU sorts far-to-near and overwrites, so the
-    // first covered quad walking backwards is the visible (nearest) one.
-    // div == 1 is the reference's own integer rule (gpudiff1 checks it);
-    // above that, coverage is sampled continuously for anti-aliasing.
     let qpos = (vec2<f32>(f32(gid.x), f32(gid.y)) + 0.5) / f32(div);
-    let smooth_sh = (params.pad & 1u) != 0u;
-    var blend_from = 0u;
-    var have_blend = false;
-    for (var jj = 0u; jj < count; jj++) {
-        let j = count - 1u - jj;
-        let q = quads.data[bins.data[params.bin_stride * 48u + start + j]];
-        var covered = false;
-        if (div == 1u) {
-            covered = quad_covers(q, px, py);
-        } else {
-            covered = quad_covers_aa(q, qpos.x, qpos.y);
+    var scene = shade_pass(bg_color, native, qpos, div, 0u);
+    if ((params.pad & 8u) != 0u) {
+        // Native HUD is appended after the background in the same storage
+        // buffer. Use exactly the existing centered/stretched 2D mapping.
+        var fg = 0u;
+        if (bg_show) {
+            fg = background.data[params.bg_width * params.height + native.y * params.bg_width + bg_x];
         }
-        if (!covered) { continue; }
-        if (q.moire != 0u) {
-            if (smooth_sh) {
-                // Smooth shadows: this quad blends 50/50 with whatever is
-                // behind it -- remember it and keep walking back.
-                if (!have_blend) {
-                    have_blend = true;
-                    blend_from = q.color;
-                    continue;
-                }
-            } else if (((native.x ^ native.y) & 1u) != 0u) {
-                // Moire stipple drops odd checkerboard pixels (write_pixel).
-                continue;
-            }
-        }
-        var outc = q.color;
-        if (have_blend) {
-            outc = mix50(outc, blend_from);
-        }
-        pixels.data[gid.y * params.in_stride + gid.x] = outc;
-        return;
+        if (fg != 0u) { scene = fg; }
+        let feature = ((scene >> 16u) & 255u) > 8u ||
+            ((scene >> 8u) & 255u) > 8u || (scene & 255u) > 8u;
+        if (!feature) { scene = shade_pass(scene, native, qpos, div, 1u); }
     }
-    if (have_blend) {
-        // Nothing covered behind the shadow quad: blend with the tile layer.
-        let behind = bg_color;
-        pixels.data[gid.y * params.in_stride + gid.x] = mix50(blend_from, behind);
-    }
+    pixels.data[gid.y * params.in_stride + gid.x] = scene;
 }

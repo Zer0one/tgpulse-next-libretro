@@ -96,6 +96,10 @@ pub struct FrameData {
     pub buffers: [Vec<u8>; 7],
 }
 impl FrameData {
+    pub fn composes_hud(&self) -> bool {
+        u32::from_ne_bytes(self.buffers[2][28..32].try_into().unwrap()) & 8 != 0
+    }
+
     pub fn use_display_foreground(&mut self, foreground: &[u32]) {
         assert_eq!(foreground.len(), (self.width * self.height) as usize);
         self.buffers[6] = bytemuck::cast_slice(foreground).to_vec();
@@ -126,6 +130,11 @@ impl FrameData {
             bins.extend(range)
         }
         bins.extend(indices);
+        let above_hud = quads.iter().any(|q| q.pad[0] != 0);
+        // Reuse the existing tile binding: only above-HUD frames append the
+        // native HUD after the background, avoiding descriptor/layout changes.
+        let mut tiles = bytemuck::cast_slice(bg).to_vec();
+        if above_hud { tiles.extend_from_slice(bytemuck::cast_slice(fg)); }
         let params = [
             quads.len() as u32,
             width,
@@ -134,7 +143,7 @@ impl FrameData {
             stride,
             1,
             ss,
-            u32::from(smooth) | (u32::from(stretch) << 1),
+            u32::from(smooth) | (u32::from(stretch) << 1) | (u32::from(above_hud) << 3),
             width.div_ceil(16),
             496,
             0,
@@ -157,7 +166,7 @@ impl FrameData {
                 Vec::new(),
                 bytemuck::cast_slice(&params).to_vec(),
                 bytes(bytemuck::cast_slice(&bins)),
-                bytes(bytemuck::cast_slice(bg)),
+                bytes(&tiles),
                 Vec::new(),
                 bytes(bytemuck::cast_slice(fg)),
             ],
@@ -166,6 +175,27 @@ impl FrameData {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn above_hud_frames_reuse_tile_binding_and_keep_ui_separate() {
+        let bg = vec![0xff00_0000; 496 * 384];
+        let mut fg = vec![0; bg.len()];
+        fg[0] = 0xfe00_0008;
+        let mut q = tgpulse_core::model1_video::GpuQuad::default();
+        q.pad[0] = 1;
+        let mut frame = super::FrameData::new(496, 2, &[q], &bg, &fg, false, false);
+        assert!(frame.composes_hud());
+        let native_bytes = bg.len() * 4;
+        assert_eq!(frame.buffers[4].len(), native_bytes * 2);
+        assert_eq!(&frame.buffers[4][native_bytes..], bytemuck::cast_slice::<u32, u8>(&fg));
+        let ui = vec![0x8000_ff00; bg.len()];
+        frame.use_display_foreground(&ui);
+        assert_eq!(frame.buffers[6], bytemuck::cast_slice::<u32, u8>(&ui));
+        assert_eq!(&frame.buffers[4][native_bytes..], bytemuck::cast_slice::<u32, u8>(&fg));
+        let plain = super::FrameData::new(496, 1, &[], &bg, &fg, false, false);
+        assert!(!plain.composes_hud());
+        assert_eq!(plain.buffers[4].len(), native_bytes);
+    }
+
     #[test]
     fn display_foreground_preserves_native_tiles_and_widescreen_margins() {
         let mut native = vec![0; 496 * 384];

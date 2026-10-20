@@ -39,6 +39,9 @@ fn resolve(@builtin(global_invocation_id) gid: vec3<u32>) {
     if ((rparams.pad & 4u) != 0u) {
         // The adapter mapped the game layer and drew UI in output coordinates.
         fg = fg_tiles.data[native.y * rparams.width + native.x];
+    } else if ((rparams.pad & 8u) != 0u) {
+        // The stencil raster pass has already composed the native HUD.
+        fg = 0u;
     } else if ((rparams.pad & 2u) != 0u) {
         let fg_x = min(native.x * rparams.bg_width / rparams.width, rparams.bg_width - 1u);
         fg = fg_tiles.data[native.y * rparams.bg_width + fg_x];
